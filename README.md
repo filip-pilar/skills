@@ -1,6 +1,8 @@
 # Skills
 
-Personal Codex skills I use and share.
+Personal agent skills I use and share.
+
+Each top-level folder is a standalone skill. Some skills may work across multiple agent hosts, while others may depend on specific host capabilities such as local shell access, browser automation, macOS permissions, or app-specific integrations.
 
 ## Available Skills
 
@@ -8,7 +10,9 @@ Personal Codex skills I use and share.
 
 ## Install A Skill
 
-Copy a skill folder into your Codex skills directory:
+Install instructions depend on the agent host you use. In general, copy the skill folder into the host's skills directory and restart or reload that host.
+
+For Codex, copy a skill folder into:
 
 ```bash
 mkdir -p ~/.codex/skills
@@ -25,4 +29,7 @@ Restart Codex after installing or updating a skill.
 
 ## Notes
 
-Skills may require host-specific permissions. For example, `poke-negotiator` can require Full Disk Access and Messages Automation permissions on macOS when using iMessage/Messages.
+- Skills are not guaranteed to be portable across every agent host.
+- Read each skill's `SKILL.md` for supported hosts, tools, permissions, and safety stops.
+- `poke-negotiator` can require Full Disk Access and Messages Automation permissions on macOS when using iMessage/Messages.
+- `poke-negotiator` uses Codex's in-app Browser for Telegram Web today; other hosts need equivalent browser automation to support that path.
