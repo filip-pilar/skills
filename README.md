@@ -7,8 +7,13 @@ Each top-level folder is a standalone skill. Some skills are portable across mul
 ## Available Skills
 
 - `dr-react`: Run a guarded React Doctor score-improvement workflow with root-cause fixes, verification gates, visual regression checks, and anti-score-gaming rules.
+  - Use directly: `Use $dr-react to raise this repo's React Doctor score to 70.`
+  - Use as a goal loop: `/goal Use $dr-react to raise this repo's React Doctor score to at least 70.`
+  - Override the target: `Use $dr-react to raise this repo's React Doctor score to 85.`
 - `gitprep`: Inspect the current git diff, propose a clean commit plan, run approved checks, and commit exactly the approved files or hunks. Never pushes.
+  - Use directly: `Use $gitprep to inspect my current diff and propose a clean commit plan.`
 - `poke-negotiator`: Negotiate with Poke by Interaction through macOS Messages/iMessage or Telegram Web, verify checkout links, and stop before payment or account-connection steps.
+  - Use directly: `Use $poke-negotiator to start a Poke negotiation.`
 
 ## Usage
 
