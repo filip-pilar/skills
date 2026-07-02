@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dr React"
+  short_description: "Raise React Doctor scores safely"
+  default_prompt: "Use $dr-react to raise this repo's React Doctor score to 70."

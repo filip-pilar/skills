@@ -1,0 +1,7 @@
+interface:
+  display_name: "Gitprep"
+  short_description: "Plan and execute clean git commits"
+  default_prompt: "Use $gitprep to inspect my current diff and propose a clean commit plan."
+
+policy:
+  allow_implicit_invocation: false
