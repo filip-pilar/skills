@@ -6,7 +6,7 @@ Most top-level folders are standalone skills. The `gtv/` folder groups related U
 
 ## Available Skills
 
-- `dr-react`: Run a guarded React Doctor score-improvement workflow with root-cause fixes, verification gates, visual regression checks, and anti-score-gaming rules.
+- `dr-react`: Run a guarded React Doctor score-improvement workflow with root-cause fixes, concise impact evidence, verification gates, visual regression checks, and anti-score-gaming rules.
   - Use directly: `Use $dr-react to raise this repo's React Doctor score to 70.`
   - Use as a goal loop: `/goal Use $dr-react to raise this repo's React Doctor score to at least 70.`
   - Override the target: `Use $dr-react to raise this repo's React Doctor score to 85.`

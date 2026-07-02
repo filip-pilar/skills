@@ -37,6 +37,7 @@ Do not use escalation to bypass project checks, avoid approval gates, weaken sec
 2. Establish baseline with the full score scan on the current branch before creating a new branch.
    - Record score availability, score, diagnostic count, categories, severities, and top fix groups.
    - Group diagnostics by `fixGroupId` first, then rule/category/file.
+   - Record cheap impact signals from existing project scripts or artifacts when available; see Impact Evidence.
    - If the score is already at or above target, stop and report without creating a branch.
 3. If edits are needed, create one branch before the first edit.
    - If the worktree is clean and not explicitly told otherwise, use `react-doctor/score-<target>-<date>`.
@@ -62,6 +63,7 @@ Do not use escalation to bypass project checks, avoid approval gates, weaken sec
    - Discover package scripts and prefer `typecheck`, `test`, `lint`, then `build` when available.
    - Run the changed regression scan.
    - Run the full score scan to compare with baseline.
+   - Re-run any relevant impact checks collected at baseline.
    - For UI-affecting changes, perform the visual regression checks below.
 9. Inspect the diff for score integrity.
    - Commit only after verification passes and score improves or is preserved for a necessary root-cause fix.
@@ -103,6 +105,28 @@ If score improves but diagnostic count drops without corresponding source-code f
 - Do not introduce providers, state managers, cache layers, design-system patterns, or shared abstractions unless the root cause requires it.
 - If root cause is unclear, use `why` or `rules explain` before editing.
 
+## Impact Evidence
+
+The React Doctor score is a code-health proxy, not proof of faster UX. Keep impact evidence lightweight and truthful.
+
+Collect only signals that are realistic for the repo and the changed diagnostic cluster:
+
+- Always: score, diagnostic count, severity/category movement, and fixed rule groups.
+- Build output: when `build` already exists, preserve concise bundle/build size lines from framework output or generated artifacts.
+- Existing repo scripts: run available `size`, `analyze`, `bundle`, `lighthouse`, `perf`, or similar scripts only if they are already present and relevant.
+- Browser timing: for UI/performance changes, if the app can run, record same-route before/after local smoke metrics such as navigation/load timing and console errors on desktop and mobile.
+- Lighthouse: use existing scripts first. Otherwise use `npx --yes lighthouse <url> --output=json --output-path=<tmp-file> --quiet --chrome-flags="--headless"` only when a route can be served, the change is performance-facing, and the extra runtime is justified.
+
+Do not add permanent dependencies, analyzer config, package scripts, or lockfile changes just to measure impact unless the user explicitly approves. Temporary `npx` tools and files under `/tmp` are acceptable; remove or ignore generated artifacts before committing. If a tool requires package/config changes, ask first and explain why native signals are insufficient.
+
+Report evidence in three buckets and keep it short:
+
+- `Measured`: before/after numbers gathered with the same command, route, mode, and machine.
+- `Likely`: direct interpretation of fixed React Doctor rule groups.
+- `Not proven`: user-facing speed, production Web Vitals, or error-rate claims that were not measured.
+
+Do not claim causality for noisy lab metrics. Say "local signal" or "smoke metric" unless the repo has a stable benchmark/CI measurement.
+
 ## Visual Regression Checks
 
 If changed files affect routes, components, styles, layout, forms, navigation, rendering, or interaction:
@@ -118,11 +142,12 @@ If changed files affect routes, components, styles, layout, forms, navigation, r
 
 ## Final Report
 
-Report:
+Keep the final report concise. Report:
 
 - initial score -> final score, or why score was unavailable
 - diagnostics fixed and diagnostics remaining
-- commands run and results
+- up to 5 impact bullets across `Measured`, `Likely`, and `Not proven`
+- verification commands run and pass/fail
 - visual routes checked, if applicable
 - commits created
 - skipped findings and why
