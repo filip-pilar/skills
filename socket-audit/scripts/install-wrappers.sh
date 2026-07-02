@@ -56,11 +56,31 @@ fi
 MANAGERS=("$@")
 [[ ${#MANAGERS[@]} -eq 0 ]] && MANAGERS=(npm pnpm)
 
-# Resolve the real binary path for a manager, skipping our wrapper dir.
+# Resolve the real binary path for a manager, skipping our wrapper dir and any
+# existing socket-audit wrapper. This handles Homebrew, system installs, Volta,
+# asdf, fnm, Corepack shims, and other PATH-managed setups.
 detect_real() {
   local mgr="$1"
+  local dir candidate old_ifs
+
+  old_ifs="$IFS"
+  IFS=:
+  for dir in $PATH; do
+    [[ -n "$dir" ]] || dir="."
+    candidate="$dir/$mgr"
+    [[ "$candidate" != "$WRAPPER_DIR/$mgr" ]] || continue
+    [[ -x "$candidate" ]] || continue
+    if ! grep -q "socket-audit-wrapper" "$candidate" 2>/dev/null; then
+      echo "$candidate"
+      IFS="$old_ifs"
+      return 0
+    fi
+  done
+  IFS="$old_ifs"
+
   for candidate in "/opt/homebrew/bin/$mgr" "/usr/local/bin/$mgr" "/usr/bin/$mgr"; do
-    if [[ -x "$candidate" && "$candidate" != "$WRAPPER_DIR/$mgr" ]]; then
+    if [[ -x "$candidate" && "$candidate" != "$WRAPPER_DIR/$mgr" ]] &&
+       ! grep -q "socket-audit-wrapper" "$candidate" 2>/dev/null; then
       echo "$candidate"
       return 0
     fi
@@ -71,18 +91,26 @@ detect_real() {
 write_wrapper() {
   local mgr="$1"
   local real
-  real=$(detect_real "$mgr") || { echo "  ✗ $mgr — not found on PATH, skipping" >&2; return; }
+  real=$(detect_real "$mgr") || { echo "  ✗ $mgr — not found on PATH, skipping" >&2; return 1; }
   local wrapper="$WRAPPER_DIR/$mgr"
+
+  if [[ -e "$wrapper" ]] && ! grep -q "socket-audit-wrapper" "$wrapper" 2>/dev/null; then
+    echo "  ✗ $wrapper already exists and is not a socket-audit wrapper; leaving it untouched" >&2
+    echo "    Move it aside or choose a different wrapper directory before retrying." >&2
+    return 1
+  fi
 
   # Which subcommands fetch packages (and so warrant sfw scanning)?
   local install_cmds
   case "$mgr" in
     npm)  install_cmds="install|i|in|isntall|add|update|up|upd|upgrade|ci|rebuild|rb|exec|x" ;;
     pnpm) install_cmds="install|i|add|update|up|upgrade|ci|rebuild|exec|dlx" ;;
-    *)    echo "  ✗ Unknown manager: $mgr" >&2; return ;;
+    *)    echo "  ✗ Unknown manager: $mgr" >&2; return 1 ;;
   esac
 
-  cat > "$wrapper" <<EOF
+  local tmp
+  tmp="$(mktemp "$WRAPPER_DIR/.socket-audit-$mgr.XXXXXX")"
+  cat > "$tmp" <<EOF
 #!/usr/bin/env bash
 # Socket Firewall wrapper for $mgr.
 # Routes install-adjacent commands through sfw; pass-through everything else.
@@ -108,13 +136,17 @@ case "\${1:-}" in
     ;;
 esac
 EOF
-  chmod +x "$wrapper"
+  chmod +x "$tmp"
+  mv "$tmp" "$wrapper"
   echo "  ✓ $wrapper -> $real (install commands route through sfw)"
 }
 
 echo "Installing wrappers in $WRAPPER_DIR..."
+FAILED=0
 for mgr in "${MANAGERS[@]}"; do
-  write_wrapper "$mgr"
+  if ! write_wrapper "$mgr"; then
+    FAILED=1
+  fi
 done
 
 if [[ "$NEED_PATH_SHIM" = "1" ]]; then
@@ -123,10 +155,17 @@ if [[ "$NEED_PATH_SHIM" = "1" ]]; then
 ⚠ $WRAPPER_DIR is not currently in your PATH. Add this to ~/.zshenv (or
 ~/.bashrc on bash-based shells):
 
+  # Added by socket-audit skill.
   export PATH="$WRAPPER_DIR:\$PATH"
 
 After that, open a new terminal so the change takes effect.
 EOF
+fi
+
+if [[ "$FAILED" = "1" ]]; then
+  echo
+  echo "One or more wrappers were not installed. Review the messages above before claiming protection is active." >&2
+  exit 1
 fi
 
 echo

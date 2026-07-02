@@ -10,30 +10,44 @@ DB="${MESSAGES_DB:-$HOME/Library/Messages/chat.db}"
 }
 
 sqlite3 -readonly -header -column "$DB" <<'SQL'
-with scored as (
+with per_message as (
   select
     c.rowid as chat_id,
     c.guid,
     c.chat_identifier,
     coalesce(c.display_name, '') as display_name,
     c.service_name,
-    max(m.date) as last_date,
-    sum(case
-      when lower(coalesce(c.display_name,'')) like '%poke%' then 10
-      when lower(coalesce(c.chat_identifier,'')) like '%poke%' then 10
-      when lower(coalesce(m.text,'')) like '%poke pro%' then 8
-      when lower(coalesce(m.text,'')) like '%poke%' then 4
+    case
       when lower(coalesce(m.text,'')) like '%price/amount you are buying is set by texting poke%' then 10
       when lower(coalesce(m.text,'')) like '%officially on apple messages%' then 7
+      when lower(coalesce(m.text,'')) like '%poke pro%' then 8
       when lower(coalesce(m.text,'')) like '%make-payment.cx%' then 6
-      when lower(coalesce(h.id,'')) like 'urn:biz:%' then 2
+      when lower(coalesce(m.text,'')) like '%poke%' then 4
       else 0
-    end) as score
+    end as message_score,
+    m.date as message_date,
+    case
+      when lower(coalesce(c.display_name,'')) like '%poke%' then 10
+      when lower(coalesce(c.chat_identifier,'')) like '%poke%' then 10
+      else 0
+    end as chat_score,
+    case when lower(coalesce(h.id,'')) like 'urn:biz:%' then 2 else 0 end as handle_score
   from chat c
   join chat_message_join cmj on cmj.chat_id = c.rowid
   join message m on m.rowid = cmj.message_id
   left join handle h on h.rowid = m.handle_id
-  group by c.rowid
+),
+scored as (
+  select
+    chat_id,
+    guid,
+    chat_identifier,
+    display_name,
+    service_name,
+    max(message_date) as last_date,
+    max(chat_score) + max(handle_score) + sum(message_score) as score
+  from per_message
+  group by chat_id
 )
 select
   chat_id,

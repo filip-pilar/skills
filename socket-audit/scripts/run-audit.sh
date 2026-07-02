@@ -94,7 +94,8 @@ if [ "$OFFLINE" = "0" ]; then
   while IFS= read -r repo; do
     [ -z "$repo" ] && continue
     i=$((i+1))
-    safe=$(echo "$repo" | sed 's|/|_|g; s| |_|g; s|^_||')
+    hash=$(printf '%s' "$repo" | shasum | awk '{print substr($1,1,12)}')
+    safe="$(basename "$repo" | tr -c '[:alnum:]_.-' '_')-$hash"
     out="$OUTDIR/scan-$safe.json"
     echo "[$i/$TOTAL] $repo" | tee -a "$LOG"
 
@@ -133,6 +134,20 @@ if [ -f "$IOC_LIST" ] && command -v jq >/dev/null 2>&1; then
   HITS_TMP="$OUTDIR/.ioc-hits.tmp"
   : > "$HITS_TMP"
 
+  escape_ere() {
+    printf '%s' "$1" | sed 's/[][(){}.^$*+?|\/\\]/\\&/g'
+  }
+
+  file_matches_regex() {
+    local pattern="$1"
+    local file="$2"
+    if command -v perl >/dev/null 2>&1; then
+      PATTERN="$pattern" perl -0ne 'BEGIN { $p = $ENV{"PATTERN"}; $ok = 1 } if (/$p/s) { $ok = 0; last } END { exit $ok }' "$file" 2>/dev/null
+    else
+      grep -E -q "$pattern" "$file" 2>/dev/null
+    fi
+  }
+
   while IFS= read -r repo; do
     [ -z "$repo" ] && continue
     [ ! -d "$repo" ] && continue
@@ -144,10 +159,12 @@ if [ -f "$IOC_LIST" ] && command -v jq >/dev/null 2>&1; then
       # Exact version checks
       while IFS=$'\t' read -r eco pkg ver campaign severity; do
         [ -z "$pkg" ] && continue
+        pkg_re=$(escape_ere "$pkg")
+        ver_re=$(escape_ere "$ver")
         # Match "pkg" with version "ver". Use a permissive grep that handles
         # JSON ("name": "pkg", "version": "ver"), YAML (pkg@ver), and
         # plaintext (pkg==ver, pkg ver, pkg-ver) styles.
-        if grep -E -q "(\"$pkg\"[^}]{0,200}\"$ver\"|$pkg@$ver|$pkg==$ver|^$pkg $ver| $pkg-$ver\.|/$pkg/-/$pkg-$ver\.)" "$lockfile" 2>/dev/null; then
+        if file_matches_regex "(\"(node_modules/)?$pkg_re\"(.|\n){0,500}\"$ver_re\"|$pkg_re@$ver_re|$pkg_re==$ver_re|^$pkg_re $ver_re| $pkg_re-$ver_re\.|/$pkg_re/-/$pkg_re-$ver_re\.)" "$lockfile"; then
           jq -nc \
             --arg repo "$repo" \
             --arg lockfile "$lockfile" \
@@ -163,7 +180,8 @@ if [ -f "$IOC_LIST" ] && command -v jq >/dev/null 2>&1; then
       # Any-version checks (hijacked maintainer)
       while IFS=$'\t' read -r eco pkg ver campaign severity; do
         [ -z "$pkg" ] && continue
-        if grep -E -q "(\"$pkg\"\s*:|$pkg@|/$pkg/-/$pkg-|^$pkg )" "$lockfile" 2>/dev/null; then
+        pkg_re=$(escape_ere "$pkg")
+        if file_matches_regex "(\"(node_modules/)?$pkg_re\"[[:space:]]*:|$pkg_re@|/$pkg_re/-/$pkg_re-|^$pkg_re )" "$lockfile"; then
           jq -nc \
             --arg repo "$repo" \
             --arg lockfile "$lockfile" \
@@ -180,10 +198,13 @@ if [ -f "$IOC_LIST" ] && command -v jq >/dev/null 2>&1; then
               -o -type f \( -name "package-lock.json" \
                             -o -name "yarn.lock" \
                             -o -name "pnpm-lock.yaml" \
+                            -o -name "bun.lock" \
                             -o -name "package.json" \
                             -o -name "Pipfile.lock" \
                             -o -name "poetry.lock" \
                             -o -name "requirements.txt" \
+                            -o -name "pyproject.toml" \
+                            -o -name "uv.lock" \
                             -o -name "Cargo.lock" \
                             -o -name "Gemfile.lock" \
                             -o -name "go.sum" \

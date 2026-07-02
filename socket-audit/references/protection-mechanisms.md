@@ -121,6 +121,8 @@ A workflow where Codex (or another agent) runs `bun install` / `npm install` on 
 
 **Default recommendation for any user**: Bun scanner via bunfig.toml + PATH wrapper for npm/pnpm + GitHub App for PR-time backstop. Shell aliases add no value if the wrapper is installed.
 
+This skill's install-time protection workflow covers npm, pnpm, and Bun. Other ecosystems that Socket can audit, such as PyPI, Cargo, RubyGems, or Go modules, should be described as audit-only here unless the user has separate tooling.
+
 **Minimal recommendation if the user resists wrappers**: Bun scanner + GitHub App. Accept the npm/pnpm runtime gap.
 
 ## How the wrapper avoids common pitfalls
@@ -131,6 +133,8 @@ Common ways a naive npm wrapper script breaks, and how this skill's `install-wra
 |---|---|
 | Infinite loop (sfw spawns npm via PATH, finds the wrapper, re-invokes sfw) | Wrapper passes the **absolute path** of the real npm to sfw, e.g. `sfw /opt/homebrew/bin/npm "$@"`. sfw spawns that absolute path, never re-hitting the wrapper. |
 | 700ms overhead on `npm --version`, `npm run`, etc. | Wrapper checks the first arg. Only install-adjacent subcommands route through sfw; everything else execs the real npm directly. |
-| Different real-npm path on Apple Silicon vs Intel vs Linux | Wrapper checks `/opt/homebrew/bin`, `/usr/local/bin`, `/usr/bin` in order. |
+| Different real-npm path on Apple Silicon vs Intel vs Linux | Installer scans `PATH` first, then falls back to `/opt/homebrew/bin`, `/usr/local/bin`, `/usr/bin`. |
+| Node installed through Volta/asdf/fnm/Corepack | Installer scans `PATH` first and skips only the wrapper directory / existing socket-audit wrappers. |
+| Existing user shim at `~/.local/bin/npm` | Installer refuses to overwrite non-socket-audit files. |
 | `~/.local/bin` not in PATH on some Linux distros | Installer checks PATH and prints a one-line config snippet if a PATH shim is needed. |
 | User uninstalls and can't remember what was changed | All wrappers carry a `socket-audit-wrapper` marker comment. `uninstall.sh` only removes files with the marker. |

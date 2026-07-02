@@ -61,3 +61,5 @@ Discover candidates by:
 - messages containing `officially on apple messages`
 - messages containing `make-payment.cx`
 - messages mentioning Poke Pro/pricing
+
+The finder script scores durable chat metadata once per chat and message clues per message. This avoids over-ranking old chats only because they have many messages with a matching display name.

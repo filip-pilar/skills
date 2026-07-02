@@ -3,7 +3,7 @@ name: socket-audit
 description: >
   Audit local git repos for supply-chain-compromised npm/Bun/PyPI/Cargo dependencies
   using Socket.dev (Shai-Hulud, chalk/debug, axios, @tanstack — exact-version and
-  package-name IOC matching). Sets up going-forward protection tailored to the user's
+  package-name IOC matching). Sets up JavaScript going-forward protection tailored to the user's
   package managers: @socketsecurity/bun-security-scanner via ~/.bunfig.toml for Bun,
   and PATH wrappers routing npm/pnpm installs through Socket Firewall (sfw) — handles
   AI-agent-driven installs correctly, unlike shell aliases. Includes a clean uninstall.
@@ -15,11 +15,11 @@ description: >
 This skill walks a developer through three workflows that can run together or independently, plus uninstall:
 
 1. **Retro audit (A)** — scan every git repository for compromised package versions and high-risk supply-chain signals using Socket.dev's CLI, plus an offline indicator-of-compromise (IOC) check against a bundled list.
-2. **Going-forward protection (B)** — install install-time protection tailored to what the user uses AND how they invoke installs (manual vs AI-agent-driven). npm/pnpm get a smart PATH wrapper (covers all invocation contexts) or shell aliases (interactive only) per user preference. Bun gets `@socketsecurity/bun-security-scanner` via `~/.bunfig.toml`. **Can be invoked standalone.**
+2. **Going-forward protection (B)** — install JavaScript install-time protection tailored to what the user uses AND how they invoke installs (manual vs AI-agent-driven). npm/pnpm get a smart PATH wrapper (covers all invocation contexts) or shell aliases (interactive only) per user preference. Bun gets `@socketsecurity/bun-security-scanner` via `~/.bunfig.toml`. **Can be invoked standalone.**
 3. **Offline IOC check (C)** — same lockfile grep as A but with no Socket upload. Smaller catalog but zero data egress.
 4. **Uninstall (D)** — remove everything installed by Workflow B with backups. Triggered by phrases like "uninstall socket protection", "remove sfw", "undo socket-audit".
 
-Audience: small dev teams without CI/CD, including those whose installs are often driven by Codex or other agents. Everything works on Socket's free tier or with no Socket account (`sfw`, Bun scanner free mode, offline IOC check).
+Audience: small dev teams without CI/CD, including those whose installs are often driven by Codex or other agents. Everything works on Socket's free tier or with no Socket account (`sfw`, Bun scanner free mode, offline IOC check). The audit can inspect several ecosystems; Workflow B actively protects only npm, pnpm, and Bun.
 
 Resolve `<skill-dir>` to the directory containing this `SKILL.md` before running bundled scripts.
 
@@ -164,7 +164,7 @@ After explanation, ask in ONE question:
 >   [3] Bun only (skip npm/pnpm protection entirely)
 >   [4] Choose individually
 
-If user has only Bun and no npm/pnpm in their detected stack, skip B3 — Bun's protection is already comprehensive.
+If user has only Bun and no npm/pnpm in their detected stack, skip B3 — Bun's protection is already comprehensive for Bun installs. If the detector reports yarn, pip, uv, cargo, or gem, describe those as audit-only in this skill unless the user has a separate approved protection mechanism.
 
 ### B2. Bun branch — install Socket's Bun scanner
 
@@ -232,6 +232,7 @@ The script:
 - Writes `~/.local/bin/npm` and `~/.local/bin/pnpm` (or `~/bin/` as fallback)
 - Each wrapper checks the subcommand: install-adjacent commands (`install`, `add`, `ci`, `update`, `exec`...) → routes through `sfw` with the real npm's absolute path → no infinite loop. Everything else → direct pass-through, no `sfw` overhead.
 - Prints a PATH shim instruction if `~/.local/bin` isn't already in PATH (rare on macOS / modern Linux).
+- Refuses to overwrite an existing `npm`/`pnpm` file in the wrapper directory unless it was created by this skill. If it skips a wrapper, do not claim protection is active for that manager.
 
 **Never wrap `bun`** — `sfw` doesn't support it; Bun's protection in B2 is the right tool.
 
@@ -276,6 +277,7 @@ For users with mixed personal/company repos: install GitHub App on **personal** 
 ### B5. Limitations
 
 - **`sfw` doesn't wrap Bun** → Bun's protection comes from B2.
+- **Workflow B protects npm/pnpm/Bun only** → other ecosystems may be audited by Socket but are not made install-time protected by this skill.
 - **Bun scanner free mode** → uses Socket's public API. Set `SOCKET_API_KEY` to enable org-policy enforcement (matters for teams).
 - **Shell aliases are interactive-shell only** (B3-alt). The wrapper path (B3) avoids this entirely.
 - **No custom registries in `sfw` free** → private Artifactory / Verdaccio needs Socket Firewall Enterprise.
@@ -375,6 +377,7 @@ Schema in the file's `notes` field. `versions: ["*"]` flags any installed versio
 - **"I already audited, just set up protection"** → B standalone
 - **"I mainly use Bun"** → B routes to B2; npm/pnpm wrapper still useful as backup
 - **"Does sfw support bun?"** → No. `@socketsecurity/bun-security-scanner` via bunfig.toml is the Bun-native equivalent. Different mechanism (Bun's scanner API), better integrated.
+- **"Does this protect Python/Rust/Ruby installs?"** → No install-time protection is installed for those ecosystems by this skill. They are audit-only here; use offline IOC plus Socket scans and project-specific controls.
 - **"Why don't aliases work for Codex?"** → Aliases are interactive-shell-only. Codex's shell tool is non-interactive. Wrappers fire for every execve regardless of shell — recommend B3 wrapper path.
 - **"Will this break my npm?"** → Wrappers pass through non-install commands directly (zero overhead, exact same behavior). Install commands route through `sfw` which adds ~700ms latency and blocks confirmed malware. Reversible: `uninstall.sh`.
 - **"How long?"** → Audit 5–15 sec/repo. Detection <30 sec. Install per branch ~1 min. Total fresh setup: ~5 min.

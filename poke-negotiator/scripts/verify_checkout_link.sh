@@ -31,7 +31,17 @@ curl --max-time 20 --connect-timeout 10 -sS -L -I "$URL" | awk '
 
 echo
 echo "== final url =="
-curl --max-time 20 --connect-timeout 10 -sS -L -o /dev/null -w '%{url_effective}\n' "$URL"
+FINAL_URL="$(curl --max-time 20 --connect-timeout 10 -sS -L -o /dev/null -w '%{url_effective}\n' "$URL")"
+echo "$FINAL_URL"
+
+case "$FINAL_URL" in
+  https://checkout.stripe.com/*|https://buy.stripe.com/*)
+    ;;
+  *)
+    echo
+    echo "WARNING: final URL is not a recognized Stripe Checkout host. Treat it as unverified until inspected in a browser."
+    ;;
+esac
 
 echo
 echo "Note: Stripe Checkout renders price client-side. If this output does not show the visible price, open the final URL in an agent browser/preview and read the rendered checkout text."

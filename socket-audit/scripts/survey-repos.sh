@@ -33,7 +33,6 @@ find "$ROOT" \
      -o -path "*/.pub-cache/*" \
      -o -path "*/.codex/*" \
      -o -path "*/.factory/*" \
-     -o -path "*/.codex/*" \
      -o -path "*/build/SourcePackages/*" \
      -o -path "*/.git/modules/*" \
   \) -prune \
@@ -52,8 +51,11 @@ while IFS= read -r repo; do
              -o -name "package-lock.json" \
              -o -name "yarn.lock" \
              -o -name "pnpm-lock.yaml" \
+             -o -name "bun.lock" \
+             -o -name "bun.lockb" \
              -o -name "requirements.txt" \
              -o -name "pyproject.toml" \
+             -o -name "uv.lock" \
              -o -name "Pipfile" \
              -o -name "Pipfile.lock" \
              -o -name "poetry.lock" \

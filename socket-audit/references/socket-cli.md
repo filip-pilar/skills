@@ -74,7 +74,7 @@ Flags used by this skill:
 
 ### Supported manifest / lockfile types
 
-`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, **`bun.lock` (text, Bun 1.2+)**, `requirements.txt`, `Pipfile.lock`, `poetry.lock`, `pyproject.toml`, `Cargo.lock`, `Gemfile.lock`, `go.sum`.
+`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, **`bun.lock` (text, Bun 1.2+)**, `requirements.txt`, `Pipfile.lock`, `poetry.lock`, `pyproject.toml`, `uv.lock`, `Cargo.lock`, `Gemfile.lock`, `go.sum`.
 
 **Not supported**: `bun.lockb` (binary Bun lockfile). If a repo has only `bun.lockb`, regenerate the text version:
 

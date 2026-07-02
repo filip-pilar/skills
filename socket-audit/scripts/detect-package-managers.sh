@@ -31,15 +31,15 @@ if [ ! -f "$REPOS" ]; then
   fi
 fi
 
-# Manager definitions: name|sfw_supports|bun_scanner_applies|comma-separated-patterns
+# Manager definitions: name|workflow_protection|bun_scanner_applies|comma-separated-patterns
 # (one per line; no associative arrays so this is portable to bash 3.2)
 MANAGERS="npm|true|false|package-lock.json
-yarn|true|false|yarn.lock
+yarn|false|false|yarn.lock
 pnpm|true|false|pnpm-lock.yaml
 bun|false|true|bun.lock,bun.lockb
-pip|true|false|requirements.txt,Pipfile.lock,poetry.lock,pyproject.toml
-uv|true|false|uv.lock
-cargo|true|false|Cargo.lock
+pip|false|false|requirements.txt,Pipfile.lock,poetry.lock,pyproject.toml
+uv|false|false|uv.lock
+cargo|false|false|Cargo.lock
 gem|false|false|Gemfile.lock"
 
 # Check if any of comma-separated filenames exists in repo (depth-limited, prunes caches)
@@ -117,9 +117,9 @@ JSON_TMP="${OUT}.tmp"
       if [ "$bunscan" = "true" ]; then
         tool="@socketsecurity/bun-security-scanner"
       elif [ "$sfw" = "true" ]; then
-        tool="sfw (Socket Firewall Free)"
+        tool="sfw wrapper"
       else
-        tool="(none — unsupported by sfw/scanner)"
+        tool="(audit-only in this skill)"
       fi
       printf "  %-8s %-9s %-12s %s\n" "$name" "$marker" "$count" "$tool" >> "$SUMMARY_TMP"
     fi

@@ -23,6 +23,7 @@ The iMessage path is native-first:
 - Never complete payment, enter card data, connect email/calendar, grant app permissions, or click account-linking buttons.
 - Prefer text replies over rich-message buttons.
 - Do not trust Poke's stated price. Verify any checkout link visually or through a browser/DOM check.
+- Keep transcript handling narrow: read only the Poke chat needed for the task and summarize private chat content instead of dumping long transcripts unless the user asks.
 - Before the first outgoing message in a run, make sure the user has clearly started/approved the negotiation run. Do not ask for approval before every message.
 - Default target is `$0.01/month` unless the user asks for `$0` or another price.
 - Default style is playful, skeptical, confident, and persistent. Do not ask the user to choose a tone.
@@ -143,7 +144,7 @@ Messages-only scripts:
 
 - `scripts/preflight.sh`: checks macOS tools and database readability.
 - `scripts/find_poke_chat.sh`: finds likely Poke chat candidates.
-- `scripts/read_poke_thread.sh <chat_id> [limit]`: reads recent Poke thread messages.
+- `scripts/read_poke_thread.sh <chat_id> [limit]`: reads the most recent Poke thread messages and prints them chronologically.
 - `scripts/send_poke_message.sh <chat_id_or_guid> <message>`: resolves numeric chat ids to Messages guids, then sends through Messages AppleScript safely using argv.
 - `scripts/verify_checkout_link.sh <url>`: follows redirect and prints enough info for browser verification.
 
@@ -163,7 +164,7 @@ Prefer the numeric `chat_id` from `scripts/find_poke_chat.sh`; the send script r
 
 For a checkout link:
 
-1. Run `scripts/verify_checkout_link.sh <url>` to get redirects and the Stripe URL.
+1. Run `scripts/verify_checkout_link.sh <url>` to get redirects and the Stripe URL. Treat any non-Stripe final URL warning as unverified until inspected in a browser.
 2. If the agent has a browser/preview tool, preserve any active chat/app tab before opening Stripe. Prefer a new tab/window for the final Stripe URL; if that is unavailable, remember the original URL and restore it after verification.
 3. Confirm:
    - product name

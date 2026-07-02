@@ -31,6 +31,7 @@ case "$LIMIT" in
 esac
 
 sqlite3 -readonly -header -column "$DB" <<SQL
+with recent as (
 select
   m.rowid as message_id,
   case when m.is_from_me = 1 then 'me' else 'poke' end as sender,
@@ -42,5 +43,9 @@ from chat_message_join cmj
 join message m on m.rowid = cmj.message_id
 where cmj.chat_id = $CHAT_ID
 order by m.date desc
-limit $LIMIT;
+limit $LIMIT
+)
+select *
+from recent
+order by sent_at asc, message_id asc;
 SQL
