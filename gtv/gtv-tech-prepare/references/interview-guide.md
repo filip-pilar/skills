@@ -22,12 +22,7 @@ If the user pastes a GTV Profile artifact:
 
 ### Starting Without a Profile
 
-If no profile provided, conduct a brief assessment (5-10 minutes):
-- Role, years of experience, company type
-- Key achievements (top 3-5)
-- External recognition
-- Determine pathway and target criteria
-- Then proceed to evidence strategy
+Ask for the GTV Profile from the eligibility skill. If the user has equivalent prior context, collect only the minimum handoff fields: pathway, target criteria, evidence inventory, gaps, and potential recommenders. Do not redo eligibility assessment here.
 
 ### Evidence Strength Assessment
 
@@ -54,13 +49,36 @@ Build a matrix:
 - For criteria with thin evidence, brainstorm what the applicant could do in the next 3-6 months to strengthen it. Is delaying the application worth the improvement? This is a crucial conversation — sometimes the best advice is "don't apply yet"
 - If an achievement relates to multiple criteria, consider whether it can generate separate documents for each (different angles, different proof) or whether it's best assigned to just one
 
+Readiness gate:
+- **Ready to plan**: each target criterion has 2 plausible evidence documents, at least one Strong or high-Moderate item anchors the mandatory criterion, and recommenders can corroborate the core claims.
+- **Build first**: a criterion has fewer than 2 plausible documents, proof is weak or only internal without corroboration, or no credible recommender can verify the strongest claims.
+- If **Build first**, switch output toward an evidence-building plan instead of forcing a complete MVE.
+
 ### Recommender Pairing
 
-Match recommenders to evidence:
+Build and rank a recommender pool before choosing the 3 letters. Do not simply accept the first names the applicant remembers.
+
+Ask:
+- Who can speak to your strongest work from the last 5 years?
+- Who from your current or recent company has real seniority and visibility into the impact?
+- Which customers, partners, investors, conference organizers, open source maintainers, or community leaders know the work well enough to write?
+- For each old contact: what achievement can they verify that is more important than your recent evidence?
+- If this person disappeared from the application, what would be lost?
+
+Score each candidate:
+- **Hard gate**: has known the applicant's work for at least 12 months.
+- **Evidence fit**: direct witness to a strong evidence item.
+- **Credibility**: established expert in digital technology with public or verifiable standing.
+- **Recency**: connected to current/recent high-impact work; old work is downranked unless unusually significant or still externally recognized.
+- **Independence**: external or arm's-length perspective; balances any manager/colleague letters.
+- **Specificity**: can provide concrete examples and metrics rather than generic praise.
+
+Match the strongest recommenders to evidence:
 - Each letter should reference 1-2 specific evidence documents
 - Together, letters should cover all target criteria
 - Recommender's credibility should align with the evidence they're supporting
 - Consider: who witnessed this achievement? who was affected by it?
+- If the top 3 are not clearly stronger than backups, keep probing. A great recent recommender who can discuss a major achievement beats an easy old recommender who can only describe dated work.
 
 ## Phase 2: Document-by-Document Interview
 
@@ -116,12 +134,21 @@ Also extract:
 
 **Date consistency check**: Cross-reference all dates with LinkedIn profile and any dates mentioned in the personal statement interview.
 
-### Recommendation Letter Interview (for each recommender)
+### Recommendation Letter Interview
 
-For each of the 3 recommenders:
+First produce a short ranked shortlist:
+- Candidate name, title/org
+- Work or evidence they can verify
+- Relationship age and recency
+- Credibility signal
+- Bias/staleness risk
+- Decision: select / backup / cut, with reason
+
+Then, for each selected recommender:
 - Full name, title, organization
 - Their own credentials (why should Tech Nation trust their judgment?)
 - How they know the applicant's work (not the applicant personally)
+- When they last directly observed the applicant's relevant work
 - 2-3 specific achievements they can speak to with concrete details
 - Which evidence documents their letter should reference
 - Which criteria their letter supports

@@ -28,7 +28,13 @@ Use this template to generate the Review Report artifact after completing all re
 
 **Rating**: [Strong / Adequate / Needs Work / Not Ready]
 
-[2-3 sentences summarizing the application's overall strength and the most critical issues]
+**Submission recommendation**: [Submit after edits / Revise before submission / Build evidence first]
+
+[2-3 sentences summarizing the application's overall strength and the most useful next improvements]
+
+**Most important improvements before submission**:
+- [highest-leverage improvement]
+- [or "Main remaining work is polish/clarity"]
 
 ---
 
@@ -76,6 +82,11 @@ Use this template to generate the Review Report artifact after completing all re
 - Max 3 pages (excl. credentials): [Within limit / Over]
 - Author is established expert in digital tech: [Appears so / Unclear / Concern]
 - Author has known applicant's work 12+ months: [Confirmed / Not stated / Concern]
+- Evidence fit: [Strong / Adequate / Weak — which evidence can they verify?]
+- Recency / independence: [Recent / Older but relevant / Stale / Internal / External]
+- Public credibility: [Independently verifiable / Internal authority only / Unclear]
+- Stronger recent alternatives visible: [No / Yes — who and why they may be stronger]
+- Material weakness if not fixed: [No / Yes — explain if evidence is strong but this recommender cannot verify it]
 - Written specifically for this application: [Yes / Appears generic]
 - Provides different examples from other letters: [Yes / Overlaps with Letter X]
 

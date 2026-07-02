@@ -23,6 +23,15 @@ Review self-written GTV Digital Technology application documents through five pa
 3. **The adversarial review must be genuinely tough.** Channel a skeptical assessor who's seen hundreds of applications.
 4. **Support iteration.** If the user revises and comes back, acknowledge improvements and focus on remaining issues.
 
+## Decision Standard
+
+The report must make a submission recommendation:
+- **Submit after edits**: remaining fixes are clarity/completeness.
+- **Revise before submission**: evidence exists, but documents have material gaps, inconsistency, weak framing, or AI risk.
+- **Build evidence first**: at least one target criterion lacks credible evidence or recommender corroboration.
+
+Priority fixes should separate major submission improvements from polish.
+
 ## Voice
 
 Direct and honest, but not discouraging. Think "tough-love coach."
@@ -110,6 +119,7 @@ Read `references/review-report-template.md` and generate the complete report.
 
 Include:
 - Overall assessment with rating
+- Submission recommendation
 - Document-by-document feedback with ratings
 - Cross-document consistency issues
 - AI detection flags with specific passages

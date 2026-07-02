@@ -34,6 +34,9 @@
 - [ ] Author's CV or credentials proof accompanies the letter
 - [ ] Author is an established expert in digital technology
 - [ ] Author has known applicant's work for at least 12 months
+- [ ] Author can credibly verify one or more of the applicant's strongest evidence items
+- [ ] Author's knowledge is recent or the older work they discuss is unusually significant / still relevant
+- [ ] The set of 3 letters balances credibility, recency, independence, and criteria coverage
 - [ ] Says how the recommender knows the applicant
 - [ ] Shows achievements and how applicant is a leader/potential leader
 - [ ] Says how applicant would benefit from living in the UK
@@ -138,6 +141,8 @@ Adopt the perspective of a skeptical assessor who reviews hundreds of applicatio
 - **No concrete metrics**: "I did a startup" without specific revenue, users, or growth numbers. Assessors see through vague claims immediately
 - **Assessor committee composition**: the panel includes lawyers and tech community builders — they're looking for both legal compliance and genuine tech community contribution
 - **Recommender credibility matters more than you think**: assessors google the letter writers. If your recommender has no online presence or credibility, the letter loses weight regardless of content
+- **Stale or underpowered recommenders**: an old manager or friendly colleague can weaken an otherwise strong case if they are disconnected from the applicant's best recent evidence. Recent senior witnesses, customers, partners, conference organizers, open source maintainers, investors, or other credible external observers usually carry more weight when they can speak specifically.
+- **Strong evidence, weak corroboration**: if evidence documents are strong but the recommendation letters cannot personally verify them, treat recommender fit as a material weakness and include it in priority fixes
 
 ### Skeptic Questions by Criterion
 

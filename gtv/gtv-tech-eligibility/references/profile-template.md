@@ -8,6 +8,7 @@ Use this template to generate the GTV Profile artifact at the end of the eligibi
 # GTV Profile
 
 > **Save this document.** Paste it into a new conversation when you're ready to plan your application documents in detail.
+> **Planning artifact only.** Do not paste this text into your application.
 
 ---
 
@@ -18,6 +19,20 @@ Use this template to generate the GTV Profile artifact at the end of the eligibi
 **Reasoning**: [2-3 sentences explaining why this pathway fits. Include experience years, key factors.]
 
 [If borderline, note both options and trade-offs]
+
+---
+
+## Readiness Recommendation
+
+**Decision**: [Apply now / Build first / No current GTV route]
+
+**Case thesis**: [One sentence: why this person is a leader/potential leader in digital technology]
+
+**Strongest proof**: [The 1-2 evidence items that carry the case]
+
+**Next best upgrade**: [The highest-leverage improvement before document planning or submission]
+
+**Next action**: [Immediate action before document planning or submission]
 
 ---
 
@@ -41,10 +56,6 @@ Use this template to generate the GTV Profile artifact at the end of the eligibi
 
 **Confidence**: [Strong / Moderate / Needs work]
 
-> **Example of a well-filled mandatory criterion:**
-> **How you meet it**: Led development of AI-powered fraud detection system used by 3 UK banks. Invited to speak at CogX 2025 on algorithmic fairness. Quoted in Wired UK. Open source project has 4.2K GitHub stars.
-> **Confidence**: Strong
-
 ### Optional Criterion 1: [Name the criterion]
 **How you meet it**: [Specific reasoning]
 **Evidence to use**: [List specific items]
@@ -61,40 +72,31 @@ Use this template to generate the GTV Profile artifact at the end of the eligibi
 
 ## Evidence Inventory
 
-Raw list of potential evidence items identified during the conversation.
+Raw list of potential evidence items identified during the conversation. Keep the full inventory, but assign each item a role.
 
-| # | Evidence Item | Target Criterion | Strength | Notes |
-|---|---|---|---|---|
-| 1 | [e.g., "Led development of X product, 500K users"] | OC4 (contributions in product-led company) | Strong | [any notes] |
-| 2 | [e.g., "Open source project Y, 2K GitHub stars"] | OC3 (contributions outside of work) | Moderate | [any notes] |
-| ... | | | | |
+| # | Evidence Item | Target Criterion | Role | Strength | Metric / Proof Source | Notes |
+|---|---|---|---|---|---|---|
+| 1 | [e.g., "Led development of X product, 500K users"] | OC4 | Core / Backup / Build / Cut | Strong | [metric, screenshot, URL, letter, analytics source] | [any notes] |
+| 2 | [e.g., "Open source project Y, 2K GitHub stars"] | OC3 | Core / Backup / Build / Cut | Moderate | [source] | [notes] |
+| ... | | | | | | |
 
 **For items rated Weak or Moderate**: Consider whether they can be strengthened through better framing or supplementary proof — getting a third-party quote confirming impact, pulling analytics you haven't collected yet, requesting a formal confirmation letter from an event organizer, or finding press coverage you hadn't thought to look for.
 
-**Recommended for mandatory evidence** (2-3 strongest items):
-- [item]
-- [item]
+**Core evidence set**: [items that should carry the application]
 
-**Recommended for optional evidence** (~4 items):
-- [item]
-- [item]
-- [item]
-- [item]
-
-**Cut list** (items that are weak or don't add enough):
-- [item] — [reason to cut]
+**Evidence to build**: [items that could become Core with more proof, metrics, or third-party validation]
 
 ---
 
 ## Potential Recommenders
 
-| Name | Role/Org | Relationship to Work | Strength | Notes |
-|---|---|---|---|---|
-| [Name] | [Title, Company] | [How they know the applicant's work] | [Strong/Moderate/Weak] | [e.g., "could speak to OC1 + OC3"] |
-| [Name] | [Title, Company] | [Relationship] | [Strength] | [notes] |
-| [Name] | [Title, Company] | [Relationship] | [Strength] | [notes] |
+| Name | Role/Org | Relationship to Work | Evidence They Can Verify | Recency | Credibility / Independence | Strength | Notes |
+|---|---|---|---|---|---|---|---|
+| [Name] | [Title, Company] | [How they know the applicant's work] | [e.g., Evidence 1, OC4 contribution] | [current/recent/older] | [public credibility signal; internal/external] | [Strong/Moderate/Weak] | [e.g., "could speak to OC1 + OC3"] |
+| [Name] | [Title, Company] | [Relationship] | [evidence] | [recency] | [signal] | [Strength] | [notes] |
+| [Name] | [Title, Company] | [Relationship] | [evidence] | [recency] | [signal] | [Strength] | [notes] |
 
-**Recommended 3 for letters**: [names, with brief reasoning]
+**Recommended 3 for letters**: [names, with brief reasoning. Explain why these are stronger than convenient older or lower-credibility alternatives.]
 
 **Backup options**: [any alternates discussed]
 

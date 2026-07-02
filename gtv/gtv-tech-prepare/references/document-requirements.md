@@ -79,10 +79,17 @@ The GOV.UK form asks: **"How will the UK digital technology sector benefit from 
 - Wasting character count on emotional backstory instead of concrete plans
 - Making claims that don't match your track record
 
-**Strong example pattern**: "I plan to base myself in [city] because [specific reason connecting your expertise to that city's ecosystem]. Professionally, I will [specific role/company/startup plan]. Beyond my work, I will [specific community contribution] — I have already [concrete step taken]."
+**Strong structure**:
+- City or region
+- Specific ecosystem reason tied to the applicant's expertise
+- Professional plan
+- Outside-work contribution
+- Concrete UK-facing step already taken
 
-**Weak example**: "I plan to contribute to the UK tech ecosystem and collaborate with leading organisations to drive innovation."
-*(No city, no specifics, no connection to their actual expertise — could be anyone applying to any country)*
+**Weak structure**:
+- Generic praise for the UK
+- Broad collaboration or innovation claims
+- No city, no named ecosystem fit, no concrete plan, no connection to the applicant's track record
 
 ## CV
 
@@ -138,6 +145,8 @@ This is critical. Create a date checklist:
 - Provide **different examples** from the other letters
 
 ### Who Should Write Them
+Choose recommenders by evidential value, not relationship convenience. The best letter writer is usually the credible person who can verify the applicant's strongest recent evidence in concrete terms.
+
 **Strong recommenders:**
 - Industry leaders at recognized organizations
 - Senior figures who've seen your work's impact
@@ -152,13 +161,18 @@ This is critical. Create a date checklist:
 - People who can only speak generally — coach them to be specific, or find someone who knows the work more closely
 - Anyone without standing in digital technology — check if they have credentials you haven't considered (advisory roles, board positions, publications)
 - Anyone who has known the applicant's work for less than 12 months — this is a hard requirement from gov.uk
+- Old managers or colleagues whose main knowledge is dated — use only if they can verify a major achievement that remains central to the application. Recent senior witnesses to stronger evidence should usually beat them.
+
+### Selection Rule
+Use the detailed ranking rubric in `interview-guide.md`. The short version: 12+ months knowledge is mandatory; direct evidence fit beats seniority alone; recent credible witnesses usually beat easy old contacts; the final 3 should balance internal and external perspectives.
 
 ### Strategic Pairing
 - Each recommender should reference different evidence documents where possible
 - Together, the 3 letters should cover all target criteria
 - Different recommenders can speak to different aspects of the applicant's work
 - Each letter must provide DIFFERENT examples (gov.uk requirement)
-- Usually the applicant drafts these for the recommender to review and sign
+- Usually the applicant prepares bullet-point substance for the recommender to review and sign. The assistant must not draft or rewrite letter text
+- The final 3 should be explicitly stronger than backups. Record why each selected recommender was chosen and why close alternates were not.
 
 ### How to Approach Recommenders
 

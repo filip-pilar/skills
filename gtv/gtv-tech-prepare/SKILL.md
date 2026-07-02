@@ -2,8 +2,8 @@
 name: gtv-tech-prepare
 description: >
   Deep interview and bullet-point generation for UK Global Talent Visa (GTV) Digital Technology
-  application documents. Takes a GTV Profile artifact (or conducts a brief
-  assessment if none provided) and produces an MVE Document with structured bullet points for
+  application documents. Takes a GTV Profile artifact from the eligibility skill
+  and produces an MVE Document with structured bullet points for
   every application document: personal statement, CV, recommendation letters, and evidence documents.
   USE WHEN: user has a GTV Profile artifact and wants to plan their application documents, OR user
   says "prepare my GTV application", "help me plan my evidence", "what should my personal statement
@@ -23,6 +23,7 @@ Deep interview to extract everything the applicant needs to write their GTV Digi
 3. **Parse the GTV Profile** if provided — don't re-ask questions already answered.
 4. **Check consistency** across all documents before generating the final MVE artifact.
 5. **Verify pathway claims.** If a user claims they've self-assessed or been accepted for a pathway, clarify whether this is a formal endorsement or self-assessment. Still validate their evidence regardless.
+6. **Do not manufacture completeness.** If the evidence is not strong enough for an application plan, pause full document planning and produce an evidence-building plan instead.
 
 ## Voice
 
@@ -40,14 +41,7 @@ Check if the user has pasted a GTV Profile artifact.
 
 **If yes**: Parse it fully. Confirm pathway, target criteria, evidence inventory, recommenders. Proceed to Phase 1. Acknowledge what you already know — don't re-interview from scratch.
 
-**If no**: Conduct a brief assessment (5-10 min):
-- Role, years, company type
-- Top 3-5 achievements
-- External recognition
-- Determine pathway + target criteria
-- Note this is abbreviated — recommend doing a thorough eligibility assessment separately first
-- If the user claims a specific pathway, still validate it against their evidence — don't take "I know I qualify" at face value
-- If user claims they've already been "accepted" or "endorsed," clarify: do they have a Stage 1 endorsement letter from the Home Office (meaning Tech Nation has already endorsed them), or have they self-assessed? An existing endorsement changes the workflow significantly — they need to apply for the visa within 3 months of endorsement
+**If no**: Ask the user to run the eligibility skill first or paste their GTV Profile. Do not run a parallel eligibility workflow inside this skill. If they already have equivalent context from a prior conversation, ask them to paste the pathway, target criteria, evidence inventory, and potential recommenders, then proceed.
 
 ### Phase 1: Evidence Strategy
 
@@ -61,10 +55,15 @@ Review all potential evidence items. For each one, probe:
 - **What documentation exists?** Screenshots, emails, press, analytics.
 - **Who can corroborate?** Which recommender can speak to this?
 - **Why does this matter beyond your company?**
+- **How recent is it?** Prioritize the strongest achievements from the last 5 years, especially the user's current or recent role. Older achievements need unusual significance or ongoing impact to justify central placement.
 
 Rate each: Strong / Moderate / Weak. Recommend which to include and which to cut. Items that are weak as standalone evidence documents can sometimes be folded into the personal statement narrative instead — suggest this where appropriate.
 
 **Evidence building**: For criteria where evidence is thin, discuss building evidence before applying. Reference Evidence-Building Actions from the GTV Profile if one was provided. If building would take 3-6 months, explicitly discuss whether to apply now with weaker evidence or delay for a stronger application. This is one of the most impactful conversations — the difference between a borderline rejection and a confident endorsement is often one or two additional pieces of evidence.
+
+**Readiness gate**: Before moving to document planning, make a call:
+- **Ready to plan**: mandatory + two optional criteria each have 2 plausible evidence documents and at least one credible recommender can corroborate the core story.
+- **Build first**: a target criterion has fewer than 2 plausible documents, proof is weak or only internal without corroboration, or recommenders cannot verify the strongest claims.
 
 **Move to Phase 2** once all evidence items have been rated and the evidence-to-criteria map is confirmed with the user.
 
@@ -74,7 +73,11 @@ Build the evidence-to-criteria map:
 - Each target criterion needs 2+ evidence items (gov.uk minimum)
 - Each evidence document is assigned to one criterion only (same event can generate different documents for different criteria)
 - Mandatory criterion gets the strongest evidence
-- Pair recommenders with evidence documents
+- Pair recommenders with evidence documents only after ranking the full recommender pool. Do not default to familiar names from older roles if recent, higher-status people can speak to stronger evidence.
+
+### Phase 1.5: Recommender Ranking
+
+Before interviewing the 3 selected recommendation letters, use the recommender pairing rubric in `references/interview-guide.md`. Create a candidate pool from recent and historic work, rank by evidence fit and credibility, then select / backup / cut. If old or lower-status names are weaker than recent high-signal witnesses, challenge the choice. The output must show why the final three beat the backups.
 
 ### Phase 2: Document-by-Document Interview
 
@@ -83,7 +86,7 @@ Go through each document type. Use the interview questions in `references/interv
 **Order:**
 1. Personal statement — the narrative arc, key beats, strongest metrics
 2. CV — structured data extraction, date verification
-3. Each recommendation letter — recommender profile, what they'll cover, evidence references. Flag recommenders who may be perceived as biased (direct managers, colleagues) and suggest framing strategies to mitigate this.
+3. Recommendation letters — start from the ranked recommender pool, select the strongest 3, then interview each selected letter. Flag recommenders who may be perceived as biased (direct managers, colleagues), stale (mainly know old work), or underpowered (weak public credibility) and suggest stronger alternatives.
 4. Each evidence document — headline, proof, explanation, call to action
 
 For each document, interview first to gather specifics, then generate structured bullet points. Not prose. Bullet points that capture:
@@ -107,6 +110,8 @@ Flag any inconsistencies for the user to resolve.
 ### Phase 4: Generate MVE Document
 
 Read `references/mve-template.md` and generate the complete MVE Document.
+
+If the readiness gate was **Build first**, do not generate a full MVE as if the application is ready. Generate only the Application Summary, Evidence-Building Actions, and Cross-Document Consistency sections, with recommended submission timing.
 
 Present it to the user and tell them:
 - Save this document

@@ -18,11 +18,15 @@ MVE = Minimum Viable Evidence. This is the complete set of bullet points the app
 | Field | Value |
 |---|---|
 | **Pathway** | [Exceptional Talent / Exceptional Promise] |
+| **Readiness** | [Ready to plan / Build first] |
 | **Mandatory criterion** | [which one] |
 | **Optional criterion 1** | [which one] |
 | **Optional criterion 2** | [which one] |
 | **Total evidence documents** | [X mandatory + Y optional = Z total] |
 | **Recommenders** | [Name 1, Name 2, Name 3] |
+| **Next best upgrade** | [highest-leverage improvement before submission] |
+
+If readiness is **Build first**, stop after Application Summary, Evidence-Building Actions, and Cross-Document Consistency. Do not fill the personal statement, CV, recommendation letter, or evidence document sections as if the application is ready.
 
 ---
 
@@ -117,12 +121,22 @@ MVE = Minimum Viable Evidence. This is the complete set of bullet points the app
 
 ## Recommendation Letters — Bullet Points
 
+### Recommender Selection Rationale
+
+| Candidate | Select / Backup / Cut | Evidence they can verify | Credibility signal | Recency / risk | Reason |
+|---|---|---|---|---|---|
+| [Name] | [Select] | [Evidence Doc X] | [e.g., CTO at X, conference organizer, OSS maintainer] | [recent / old / biased] | [why stronger than alternates] |
+| [Name] | [Backup] | [Evidence Doc Y] | [signal] | [risk] | [why not top 3] |
+
+**Final 3 rationale:** [Briefly explain why this mix is stronger than the alternatives and how it balances credibility, recency, independence, and evidence coverage.]
+
 ### Letter 1: [Recommender Name]
 
 **Recommender profile:**
 - [Name], [Title] at [Organization]
 - Credentials: [why Tech Nation should trust their judgment]
 - Knows applicant's work through: [specific connection to work]
+- Last directly observed relevant work: [when / context]
 
 **Evidence documents to reference:** [Evidence Doc X, Evidence Doc Y]
 **Criteria supported:** [which criteria this letter addresses]
@@ -136,6 +150,7 @@ MVE = Minimum Viable Evidence. This is the complete set of bullet points the app
 
 **Recommender profile:**
 - [details as above]
+- Last directly observed relevant work: [when / context]
 
 **Evidence documents to reference:** [which ones]
 **Criteria supported:** [which criteria]
@@ -149,6 +164,7 @@ MVE = Minimum Viable Evidence. This is the complete set of bullet points the app
 
 **Recommender profile:**
 - [details as above]
+- Last directly observed relevant work: [when / context]
 
 **Evidence documents to reference:** [which ones]
 **Criteria supported:** [which criteria]
@@ -196,13 +212,13 @@ MVE = Minimum Viable Evidence. This is the complete set of bullet points the app
 
 Each evidence document is assigned to ONE criterion only (gov.uk requirement). The same event can generate separate documents for different criteria if each has distinct framing and proof.
 
-| Evidence Doc | Assigned Criterion | Recommender Reference |
-|---|---|---|
-| Doc 1: [title] | [criterion] | Letter [X] |
-| Doc 2: [title] | [criterion] | Letter [X] |
-| ... | | |
+| Evidence Doc | Assigned Criterion | Role | Metric / Proof Source | Recommender Reference |
+|---|---|---|---|---|
+| Doc 1: [title] | [criterion] | Core / Backup / Build / Cut | [source] | Letter [X] |
+| Doc 2: [title] | [criterion] | Core / Backup / Build / Cut | [source] | Letter [X] |
+| ... | | | | |
 
-Verify: Each target criterion has at least 2 evidence documents assigned to it.
+Verify: Each target criterion has at least 2 Core or high-confidence Backup documents assigned to it. Build/Cut items should not be counted toward readiness.
 
 ---
 

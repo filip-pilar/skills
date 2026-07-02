@@ -190,7 +190,7 @@ Each evidence document should follow this structure:
 **Strategic considerations:**
 - Strong: industry leaders, conference organizers, senior figures at other companies who've used your work
 - Need careful positioning: direct managers and colleagues (perceived bias — have them focus on specific witnessed achievements), friends or social contacts (very hard to use credibly), people without industry standing. If your only strong option is a manager, it can work with honest framing and detail-specific content — pair with an external recommender
-- Usually the applicant drafts these for the recommender to review and sign (common practice)
+- Usually the applicant prepares substance for the recommender to review and sign (common practice). The assistant must not draft or rewrite letter text; only provide planning structure, evidence mapping, and review questions
 - Each letter should reference specific evidence documents where possible
 
 ## Processing Times & Costs
