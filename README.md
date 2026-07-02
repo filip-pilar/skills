@@ -2,7 +2,7 @@
 
 Personal skills I use and share.
 
-Each top-level folder is a standalone skill. Some skills are portable across multiple agent environments; others depend on local tools, browser automation, operating-system permissions, or app-specific integrations.
+Most top-level folders are standalone skills. The `gtv/` folder groups related UK Global Talent Visa skills. Some skills are portable across multiple agent environments; others depend on local tools, browser automation, operating-system permissions, or app-specific integrations.
 
 ## Available Skills
 
@@ -14,6 +14,15 @@ Each top-level folder is a standalone skill. Some skills are portable across mul
   - Use directly: `Use $gitprep to inspect my current diff and propose a clean commit plan.`
 - `poke-negotiator`: Negotiate with Poke by Interaction through macOS Messages/iMessage or Telegram Web, verify checkout links, and stop before payment or account-connection steps.
   - Use directly: `Use $poke-negotiator to start a Poke negotiation.`
+- `socket-audit`: Audit local git repos for compromised dependencies and optionally install Socket.dev-based npm/pnpm/Bun protection.
+  - Use directly: `Use $socket-audit to audit my local repos for compromised dependencies.`
+  - Protection only: `Use $socket-audit to set up going-forward Socket protection.`
+- `gtv/gtv-tech-eligibility`: Assess UK Global Talent Visa Digital Technology eligibility and produce a reusable GTV Profile.
+  - Use directly: `Use $gtv-tech-eligibility to assess whether I may qualify for the UK Global Talent Visa Digital Technology route.`
+- `gtv/gtv-tech-prepare`: Plan GTV application documents as structured bullet points from a GTV Profile.
+  - Use directly: `Use $gtv-tech-prepare to plan my GTV application documents from my GTV Profile.`
+- `gtv/gtv-tech-review`: Review self-written GTV application documents without rewriting application prose.
+  - Use directly: `Use $gtv-tech-review to review my self-written GTV application documents.`
 
 ## Usage
 
@@ -27,3 +36,5 @@ Use the folder for the skill you want. Installation, loading, and invocation dep
 - `gitprep` is manual-only and should be explicitly invoked as `$gitprep`.
 - `poke-negotiator` can require Full Disk Access and Messages Automation permissions on macOS when using iMessage/Messages.
 - `poke-negotiator` requires browser automation for Telegram Web.
+- `socket-audit` is manual-only and can require network access, Socket.dev auth, package-manager installs, and explicit approval before modifying shell/package-manager configuration.
+- The GTV skills provide application guidance, not legal or immigration advice, and intentionally refuse to generate paste-ready application text.

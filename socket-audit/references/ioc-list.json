@@ -1,0 +1,87 @@
+{
+  "updated": "2026-05-14",
+  "schema_version": 1,
+  "notes": "Snapshot of known-compromised package versions from major supply-chain incidents. Refresh from socket.dev/blog, github.com/advisories, and osv.dev. Entries with versions:[\"*\"] flag the package name regardless of version — use these when a maintainer account was confirmed hijacked but the exact bad versions are not yet known to you.",
+  "entries": [
+    {
+      "ecosystem": "npm",
+      "package": "chalk",
+      "versions": ["5.6.1"],
+      "campaign": "chalk/debug wallet-drainer (Sept 2025)",
+      "severity": "critical",
+      "notes": "Replaced crypto wallet addresses at runtime. Maintainer account hijacked. Verify exact bad versions against the npm advisory before relying on this entry."
+    },
+    {
+      "ecosystem": "npm",
+      "package": "debug",
+      "versions": ["4.4.2"],
+      "campaign": "chalk/debug wallet-drainer (Sept 2025)",
+      "severity": "critical",
+      "notes": "Same campaign as chalk. Verify exact bad versions against the npm advisory."
+    },
+    {
+      "ecosystem": "npm",
+      "package": "axios",
+      "versions": ["*"],
+      "campaign": "axios maintainer hijack (Feb 2026)",
+      "severity": "high",
+      "notes": "Flagging any version because the public IOC list for this incident is still evolving. If you're on axios, confirm your installed version against the CSA Singapore advisory or the Aikido write-up."
+    },
+    {
+      "ecosystem": "npm",
+      "package": "@tanstack/react-router",
+      "versions": ["*"],
+      "campaign": "Mini Shai-Hulud / TeamPCP (May 11, 2026)",
+      "severity": "critical",
+      "notes": "84 malicious versions across 42 @tanstack/* packages published in 6 minutes. Flagging package-only; cross-reference Socket blog post 'Shai Hulud Strikes Again (v2)' for the exact version list."
+    },
+    {
+      "ecosystem": "npm",
+      "package": "@tanstack/router-core",
+      "versions": ["*"],
+      "campaign": "Mini Shai-Hulud / TeamPCP (May 11, 2026)",
+      "severity": "critical",
+      "notes": "See @tanstack/react-router entry."
+    },
+    {
+      "ecosystem": "npm",
+      "package": "@tanstack/query-core",
+      "versions": ["*"],
+      "campaign": "Mini Shai-Hulud / TeamPCP (May 11, 2026)",
+      "severity": "critical",
+      "notes": "See @tanstack/react-router entry."
+    },
+    {
+      "ecosystem": "npm",
+      "package": "@tanstack/react-query",
+      "versions": ["*"],
+      "campaign": "Mini Shai-Hulud / TeamPCP (May 11, 2026)",
+      "severity": "critical",
+      "notes": "See @tanstack/react-router entry."
+    },
+    {
+      "ecosystem": "npm",
+      "package": "tinycolor2",
+      "versions": ["*"],
+      "campaign": "Shai-Hulud (Sept 2025)",
+      "severity": "critical",
+      "notes": "Original Shai-Hulud worm campaign. Flagging package-only — verify your version against Unit 42 / Socket IOC lists."
+    },
+    {
+      "ecosystem": "npm",
+      "package": "ngx-bootstrap",
+      "versions": ["*"],
+      "campaign": "Shai-Hulud (Sept 2025)",
+      "severity": "critical",
+      "notes": "Caught in original Shai-Hulud campaign."
+    },
+    {
+      "ecosystem": "npm",
+      "package": "@crowdstrike/commitlint",
+      "versions": ["*"],
+      "campaign": "CrowdStrike npm packages compromise (2025)",
+      "severity": "critical",
+      "notes": "See Socket blog 'ongoing-supply-chain-attack-targets-crowdstrike-npm-packages'."
+    }
+  ]
+}

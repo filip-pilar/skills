@@ -1,0 +1,4 @@
+interface:
+  display_name: "GTV Tech Eligibility"
+  short_description: "Assess UK GTV Digital Technology eligibility"
+  default_prompt: "Use $gtv-tech-eligibility to assess whether I may qualify for the UK Global Talent Visa Digital Technology route."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "GTV Tech Prepare"
+  short_description: "Plan GTV documents as structured bullets"
+  default_prompt: "Use $gtv-tech-prepare to plan my UK Global Talent Visa Digital Technology application documents from my GTV Profile."

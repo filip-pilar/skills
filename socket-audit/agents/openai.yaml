@@ -1,0 +1,7 @@
+interface:
+  display_name: "Socket Audit"
+  short_description: "Audit dependencies and install Socket protection"
+  default_prompt: "Use $socket-audit to audit my local repos for compromised dependencies."
+
+policy:
+  allow_implicit_invocation: false
