@@ -3,3 +3,4 @@ outputs/
 work/
 *.zip
 *.log
+local/
