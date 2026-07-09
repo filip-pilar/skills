@@ -1,6 +1,6 @@
 ---
 name: gitprep
-description: Manual-only git commit preparation workflow. Use only when explicitly invoked as $gitprep. Inspect the current repository diff, propose a clean commit plan, recommend relevant verification commands, ask for user approval, then stage and commit exactly the approved files or hunks. Never push.
+description: Manual-only git commit preparation workflow. Use only when explicitly invoked as $gitprep. Inspect the current repository diff and upstream publication state, propose a clean commit plan, recommend relevant verification commands, ask for user approval, then stage and commit exactly the approved files or hunks. Never push unless the user separately asks.
 ---
 
 # Gitprep
@@ -10,14 +10,16 @@ Prepare clean, intentional git commits from the current working tree.
 ## Core Rules
 
 - Use this skill only when explicitly invoked with `$gitprep`.
-- Never push.
-- Use authenticated `gh` CLI for read-only GitHub context when useful, such as PR status, default branch, remotes, or check runs. Do not create PRs, merge, push, or mutate GitHub state unless the user explicitly asks.
+- Never push unless the user separately asks for a push after the commit workflow is complete.
+- Use `git` for local repository operations: status, diff, add, commit, branch, merge, rebase, and push when a separate user request explicitly asks for it.
+- Treat git metadata writes as sandbox-boundary operations. `git add`, `git commit`, branch creation, merge, rebase, and other commands that write `.git/` should use the host approval/escalation flow intentionally after the user approves the plan; do not first run them in the sandbox just to discover `.git/` is read-only.
+- Use authenticated `gh` CLI only when GitHub-hosted context would materially clarify the commit plan or verification state. Prefer local git inspection for normal commit prep. Do not create PRs, merge PRs, push, comment/review, rerun workflows, or otherwise mutate GitHub state unless the user explicitly asks.
 - Never stage unrelated files silently.
 - Never run long or expensive checks without user approval.
 - Never commit after failed checks unless the user explicitly says to commit anyway.
 - Preserve user changes. Do not revert, delete, or rewrite unrelated work.
 - Prefer one commit when the diff has one coherent intent. Suggest multiple commits only when the split materially improves reviewability or rollback.
-- Treat generated files, lockfiles, migrations, snapshots, and formatting-only churn as items that need explicit mention in the plan.
+- Treat generated files, lockfiles, migrations, snapshots, symlinks, local asset libraries, temp files, and formatting-only churn as items that need explicit mention in the plan.
 
 
 ## Commit Message Guidance
@@ -32,10 +34,22 @@ Run read-only git inspection first:
 
 ```bash
 git status --short
+git status -sb
 git branch --show-current
+git branch -vv
+git remote -v
 git diff --stat
 git diff --cached --stat
 ```
+
+If the current branch has an upstream, inspect local commits that are not published and remote commits that are not present locally:
+
+```bash
+git log --oneline @{u}..HEAD
+git log --oneline HEAD..@{u}
+```
+
+If there is no upstream, say that explicitly. Do not describe the repository as "clean" without also reporting whether the current branch is ahead, behind, diverged, missing an upstream, or aligned with its upstream. A clean working tree can still have unpublished commits.
 
 If there are staged changes, inspect both staged and unstaged diffs separately:
 
@@ -57,7 +71,7 @@ Also check recent commit style when useful:
 git log --oneline -5
 ```
 
-If the repository has a GitHub remote and GitHub context would clarify the commit plan, use `gh` read-only commands:
+If the repository has a GitHub remote and GitHub context would materially clarify the commit plan or verification state, use `gh` for read-only GitHub API context:
 
 ```bash
 gh repo view
@@ -65,7 +79,7 @@ gh pr status
 gh pr checks
 ```
 
-Skip `gh` if the repo is not hosted on GitHub, `gh` is unavailable, or GitHub context is irrelevant to the local commit plan.
+Use `gh` rather than raw HTTP calls for GitHub comments, reviews, issues, checks, workflow runs, and other GitHub-hosted API work when the user explicitly asks for those actions. Keep local repository state changes on `git`. Skip `gh` if the repo is not hosted on GitHub, `gh` is unavailable, network/auth access would create avoidable friction, or GitHub context is irrelevant to the local commit plan.
 
 ### 2. Identify Commit Units
 
@@ -92,6 +106,7 @@ Flag these explicitly:
 - manifest changes without lockfile changes
 - staged changes that do not match unstaged changes
 - partial implementation with TODOs or failing tests visible in the diff
+- unpublished local commits, unpulled upstream commits, diverged branches, or missing upstream tracking
 
 ### 3. Propose A Commit Plan
 
@@ -102,6 +117,7 @@ Present a concise plan before staging or committing:
 - Suggested commit message for each commit, following the commit message guidance above.
 - Rationale for the split.
 - Risks or suspicious changes.
+- Upstream status: aligned, ahead, behind, diverged, or no upstream. If ahead, list the unpublished commit subjects and say they will not appear on the remote until pushed.
 - Verification commands recommended before commit.
 
 Ask the user to approve or modify the plan. Do not proceed until the user confirms the commit plan.
@@ -122,6 +138,8 @@ Do not require checks for docs-only or trivial changes unless the repo conventio
 
 ### 5. Stage Exactly The Approved Changes
 
+`git add` writes the protected `.git` index. After the user approves the commit plan, run approved staging commands with the host's normal approval/escalation flow from the start. Keep the command scoped to the exact approved files or hunks; do not broaden it into unrelated staging or cleanup.
+
 After approval, stage only approved files or hunks.
 
 Prefer explicit paths:
@@ -140,6 +158,8 @@ git diff --cached
 git status --short
 ```
 
+The verification commands above are read-only and should normally run without escalation.
+
 ### 6. Commit
 
 Commit with the approved message only after the approved plan and approved checks are complete or intentionally skipped.
@@ -147,6 +167,8 @@ Commit with the approved message only after the approved plan and approved check
 ```bash
 git commit -m "<approved message>"
 ```
+
+`git commit` writes repository metadata. Use the host approval/escalation flow intentionally, with the exact approved message. Do not retry with a different message, amend, bypass hooks, or add extra paths unless the user approves that change.
 
 If multiple commits were approved, repeat the stage, verify, commit cycle for each commit.
 
@@ -168,5 +190,6 @@ Report:
 - checks skipped by user
 - remaining uncommitted changes, if any
 - anything intentionally left unstaged
+- upstream status after the commit, including whether local commits remain unpublished
 
 Never push unless the user separately asks for a push after the commit workflow is complete.
