@@ -17,6 +17,8 @@ Most top-level folders are standalone skills. The `gtv/` folder groups related U
 - `socket-audit`: Audit local git repos for compromised dependencies and optionally install Socket.dev-based npm/pnpm/Bun protection.
   - Use directly: `Use $socket-audit to audit my local repos for compromised dependencies.`
   - Protection only: `Use $socket-audit to set up going-forward Socket protection.`
+- `smart-handoff`: Create a verified handoff bundle and continue a Codex task in a fresh thread with bounded context, surface-state guidance, model-policy preflight, fallback synthesis, verification, and cleanup.
+  - Use directly: `Use $smart-handoff to hand off this task to a fresh thread.`
 - `gtv/gtv-tech-eligibility`: Assess UK Global Talent Visa Digital Technology eligibility and produce a reusable GTV Profile.
   - Use directly: `Use $gtv-tech-eligibility to assess whether I may qualify for the UK Global Talent Visa Digital Technology route.`
 - `gtv/gtv-tech-prepare`: Plan GTV application documents as structured bullet points from a GTV Profile.
@@ -37,4 +39,5 @@ Use the folder for the skill you want. Installation, loading, and invocation dep
 - `poke-negotiator` can require Full Disk Access and Messages Automation permissions on macOS when using iMessage/Messages.
 - `poke-negotiator` requires browser automation for Telegram Web.
 - `socket-audit` is manual-only and can require network access, Socket.dev auth, package-manager installs, and explicit approval before modifying shell/package-manager configuration.
+- `smart-handoff` is Codex-specific and can require local Claude/Codex CLI auth, Codex app thread tooling, and shell escalation when the required Codex fallback is sandbox-blocked.
 - The GTV skills provide application guidance, not legal or immigration advice, and intentionally refuse to generate paste-ready application text.
