@@ -6,6 +6,8 @@ Most top-level folders are standalone skills. The `gtv/` folder groups related U
 
 ## Available Skills
 
+- `devils-advocate`: Constructively pressure-test ideas, plans, decisions, arguments, and research without empty contrarianism, surfacing material risks and proportionate responses.
+  - Use directly: `Use $devils-advocate to pressure-test this plan.`
 - `dr-react`: Run a guarded React Doctor score-improvement workflow with root-cause fixes, concise impact evidence, verification gates, visual regression checks, and anti-score-gaming rules.
   - Use directly: `Use $dr-react to raise this repo's React Doctor score to 70.`
   - Use as a goal loop: `/goal Use $dr-react to raise this repo's React Doctor score to at least 70.`
