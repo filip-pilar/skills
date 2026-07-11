@@ -21,8 +21,8 @@ Most top-level folders are standalone skills. The `gtv/` folder groups related U
   - Protection only: `Use $socket-audit to set up going-forward Socket protection.`
 - `smart-handoff`: Create a verified handoff bundle and continue a Codex task in a fresh thread with bounded context, surface-state guidance, model-policy preflight, fallback synthesis, verification, and cleanup.
   - Use directly: `Use $smart-handoff to hand off this task to a fresh thread.`
-- `codex-sidekick`: Use a Codex Side task to understand the parent conversation in plain language, work out a response, and send an approved draft back.
-  - Use directly in a Side task: `Use $codex-sidekick to help me understand the parent thread and prepare a reply.`
+- `sidekick`: Use a Codex Side task to understand the parent conversation in plain language, work out a response, and send an approved draft back.
+  - Use directly in a Side task: `Use $sidekick to help me understand the parent thread and prepare a reply.`
 - `gtv/gtv-tech-eligibility`: Assess UK Global Talent Visa Digital Technology eligibility and produce a reusable GTV Profile.
   - Use directly: `Use $gtv-tech-eligibility to assess whether I may qualify for the UK Global Talent Visa Digital Technology route.`
 - `gtv/gtv-tech-prepare`: Plan GTV application documents as structured bullet points from a GTV Profile.
@@ -40,7 +40,7 @@ Use the folder for the skill you want. Installation, loading, and invocation dep
 - Read each skill's `SKILL.md` for supported tools, permissions, and safety stops.
 - `dr-react` runs `npx react-doctor@latest`, which may require network/package-manager access in a target repository.
 - `gitprep` is manual-only and should be explicitly invoked as `$gitprep`.
-- `codex-sidekick` is manual-only and should be explicitly invoked as `$codex-sidekick` inside a Codex Side task.
+- `sidekick` is manual-only and should be explicitly invoked as `$sidekick` inside a Codex Side task.
 - `poke-negotiator` can require Full Disk Access and Messages Automation permissions on macOS when using iMessage/Messages.
 - `poke-negotiator` requires browser automation for Telegram Web.
 - `socket-audit` is manual-only and can require network access, Socket.dev auth, package-manager installs, and explicit approval before modifying shell/package-manager configuration.

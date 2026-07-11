@@ -1,9 +1,9 @@
 ---
-name: codex-sidekick
-description: Manual-only companion for Codex Side tasks. Use only when explicitly invoked as $codex-sidekick inside a Side task to understand the parent Codex conversation, explain technical responses in plain language, help the user decide what they want, draft a reply, and send the approved draft back to the parent thread.
+name: sidekick
+description: Manual-only companion for Codex Side tasks. Use only when explicitly invoked as $sidekick inside a Side task to understand the parent Codex conversation, explain technical responses in plain language, help the user decide what they want, draft a reply, and send the approved draft back to the parent thread.
 ---
 
-# Codex Sidekick
+# Sidekick
 
 Use the parent thread as context. Help the user understand what Codex said, work out what they want, and reply when appropriate.
 
