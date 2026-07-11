@@ -1,0 +1,7 @@
+interface:
+  display_name: "Codex Sidekick"
+  short_description: "Understand Codex and draft clear replies"
+  default_prompt: "Use $codex-sidekick to help me understand the parent Codex thread and prepare a reply."
+
+policy:
+  allow_implicit_invocation: false

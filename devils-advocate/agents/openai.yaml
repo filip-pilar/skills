@@ -4,4 +4,4 @@ interface:
   default_prompt: "Use $devils-advocate to take the strongest realistic opposing position, pressure-test this proposal, and deliver a candid verdict."
 
 policy:
-  allow_implicit_invocation: true
+  allow_implicit_invocation: false

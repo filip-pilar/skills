@@ -2,3 +2,6 @@ interface:
   display_name: "Smart Handoff"
   short_description: "Create verified Codex handoffs"
   default_prompt: "Use $smart-handoff to create a verified self-contained handoff and continue in a fresh Codex thread."
+
+policy:
+  allow_implicit_invocation: false
