@@ -1,0 +1,9 @@
+# Replace placeholders from the authenticated CLIProxyAPI model catalog.
+model = "__MODEL_ID__"
+model_provider = "cli_proxy"
+
+[model_providers.cli_proxy]
+name = "CLIProxyAPI"
+base_url = "http://127.0.0.1:8317/v1"
+wire_api = "responses"
+env_key = "CLI_PROXY_TOKEN"

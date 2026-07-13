@@ -1,0 +1,4 @@
+interface:
+  display_name: "Set Up CLI Proxy Gateway"
+  short_description: "Route Codex or Claude Code to custom models"
+  default_prompt: "Use $setup-cli-proxy-gateway to connect Codex or Claude Code to my OpenAI, Anthropic, or xAI models through CLIProxyAPI."

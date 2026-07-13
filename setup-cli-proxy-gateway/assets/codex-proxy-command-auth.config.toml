@@ -1,0 +1,16 @@
+# Replace every __PLACEHOLDER__ before installation. Keep this file user-level;
+# project .codex/config.toml cannot define model providers.
+model = "__MODEL_ID__"
+model_provider = "cli_proxy"
+model_reasoning_effort = "__REASONING_EFFORT__"
+
+[model_providers.cli_proxy]
+name = "CLIProxyAPI"
+base_url = "__API_BASE_URL__"
+wire_api = "responses"
+
+[model_providers.cli_proxy.auth]
+command = "__TOKEN_HELPER_PATH__"
+args = ["__TOKEN_FILE_PATH__"]
+timeout_ms = 5000
+refresh_interval_ms = 0

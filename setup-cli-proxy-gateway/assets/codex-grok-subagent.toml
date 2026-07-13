@@ -1,0 +1,13 @@
+name = "grok_reviewer"
+description = "Read-only independent Grok reviewer for explicit second-opinion tasks."
+nickname_candidates = ["Grok Reviewer"]
+model = "__DISCOVERED_GROK_MODEL_ID__"
+model_reasoning_effort = "high"
+sandbox_mode = "read-only"
+
+# Intentionally omit model_provider. Codex children inherit the parent provider,
+# so the OpenAI parent must also use the shared CLIProxyAPI provider.
+developer_instructions = """
+Review only the delegated task. Gather evidence with read-only tools and return
+concise, concrete findings to the parent. Do not spawn additional agents.
+"""

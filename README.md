@@ -23,6 +23,8 @@ Most top-level folders are standalone skills. The `gtv/` folder groups related U
   - Use directly: `Use $smart-handoff to hand off this task to a fresh thread.`
 - `sidekick`: Use a Codex Side task to understand the parent conversation in plain language, work out a response, and send an approved draft back.
   - Use directly in a Side task: `Use $sidekick to help me understand the parent thread and prepare a reply.`
+- `setup-cli-proxy-gateway`: Audit, install, migrate, configure, validate, and roll back a local CLIProxyAPI gateway for Codex CLI or Claude Code using OpenAI, Anthropic, or xAI routes.
+  - Use directly: `Use $setup-cli-proxy-gateway to configure a reversible Claude Code or Codex CLI model route.`
 - `gtv/gtv-tech-eligibility`: Assess UK Global Talent Visa Digital Technology eligibility and produce a reusable GTV Profile.
   - Use directly: `Use $gtv-tech-eligibility to assess whether I may qualify for the UK Global Talent Visa Digital Technology route.`
 - `gtv/gtv-tech-prepare`: Plan GTV application documents as structured bullet points from a GTV Profile.
@@ -41,6 +43,7 @@ Use the folder for the skill you want. Installation, loading, and invocation dep
 - `dr-react` runs `npx react-doctor@latest`, which may require network/package-manager access in a target repository.
 - `gitprep` is manual-only and should be explicitly invoked as `$gitprep`.
 - `sidekick` is manual-only and should be explicitly invoked as `$sidekick` inside a Codex Side task.
+- `setup-cli-proxy-gateway` can change local authentication, listeners, services, and harness configuration; it requires explicit approval for mutations and paid provider calls.
 - `poke-negotiator` can require Full Disk Access and Messages Automation permissions on macOS when using iMessage/Messages.
 - `poke-negotiator` requires browser automation for Telegram Web.
 - `socket-audit` is manual-only and can require network access, Socket.dev auth, package-manager installs, and explicit approval before modifying shell/package-manager configuration.
