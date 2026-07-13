@@ -1,7 +1,7 @@
 interface:
   display_name: "Sidekick"
   short_description: "Understand Codex in plain language"
-  default_prompt: "Use $sidekick to explain the parent Codex thread in clear everyday language and help me respond."
+  default_prompt: "Use $sidekick to immediately explain the newest completed parent response, identify what it needs from me, and draft a reply when useful."
 
 policy:
   allow_implicit_invocation: false

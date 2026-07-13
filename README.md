@@ -21,8 +21,8 @@ Most top-level folders are standalone skills. The `gtv/` folder groups related U
   - Protection only: `Use $socket-audit to set up going-forward Socket protection.`
 - `smart-handoff`: Create a verified handoff bundle and continue a Codex task in a fresh thread with bounded context, surface-state guidance, model-policy preflight, fallback synthesis, verification, and cleanup.
   - Use directly: `Use $smart-handoff to hand off this task to a fresh thread.`
-- `sidekick`: Use a Codex Side task to understand the parent conversation in plain language, work out a response, and send an approved draft back.
-  - Use directly in a Side task: `Use $sidekick to help me understand the parent thread and prepare a reply.`
+- `sidekick`: Use a Codex Side task to immediately explain the newest completed parent response in plain language, identify what it needs from you, and prepare an approved reply.
+  - Use directly in a Side task: invoke `$sidekick` initially and again after each parent reply; no additional prompt is required.
 - `setup-cli-proxy-gateway`: Audit, install, migrate, configure, validate, and roll back a local CLIProxyAPI gateway for Codex CLI or Claude Code using OpenAI, Anthropic, or xAI routes.
   - Use directly: `Use $setup-cli-proxy-gateway to configure a reversible Claude Code or Codex CLI model route.`
 - `gtv/gtv-tech-eligibility`: Assess UK Global Talent Visa Digital Technology eligibility and produce a reusable GTV Profile.
