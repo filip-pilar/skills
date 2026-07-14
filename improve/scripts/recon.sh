@@ -45,7 +45,7 @@ echo "improve/recon — $ROOT"
 # --- Git signal --------------------------------------------------------------
 section "Git"
 if have git && git rev-parse --git-dir >/dev/null 2>&1; then
-  echo "HEAD:           $(git rev-parse --short HEAD 2>/dev/null || echo '(no commits)')"
+  echo "HEAD:           $(git rev-parse HEAD 2>/dev/null || echo '(no commits)')"
   echo "Branch:         $(git rev-parse --abbrev-ref HEAD 2>/dev/null)"
   # Default branch: prefer origin/HEAD, fall back to a local main/master.
   DEFAULT_BRANCH="$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##')"

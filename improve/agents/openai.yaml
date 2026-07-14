@@ -1,0 +1,5 @@
+# improve-generated: codex metadata; edit adapters/codex-openai.yaml
+interface:
+  display_name: "Improve"
+  short_description: "Audit codebases and write executable plans"
+  default_prompt: "Use $improve to audit this codebase and produce prioritized, self-contained implementation plans."
