@@ -21,8 +21,6 @@ Most top-level folders are standalone skills. The `gtv/` folder groups related U
 - `socket-audit`: Audit local git repos for compromised dependencies and optionally install Socket.dev-based npm/pnpm/Bun protection.
   - Use directly: `Use $socket-audit to audit my local repos for compromised dependencies.`
   - Protection only: `Use $socket-audit to set up going-forward Socket protection.`
-- `smart-handoff`: Use a temporary native Codex relay to select and synthesize the active work state, then continue from a self-contained prompt in a clean task.
-  - Use directly: `Use $smart-handoff to offload the active continuation state and resume this work in a clean Codex task.`
 - `sidekick`: Use a Codex Side task to immediately explain the newest completed parent response in plain language, identify what it needs from you, and prepare an approved reply.
   - Use directly in a Side task: invoke `$sidekick` initially and again after each parent reply; no additional prompt is required.
 - `tldr`: Use a Codex Side task to turn the entire linked parent task into an ultra-concise state digest covering completed work, material bugs, verification, decisions, and open items.
@@ -53,5 +51,4 @@ Use the folder for the skill you want. Installation, loading, and invocation dep
 - `poke-negotiator` can require Full Disk Access and Messages Automation permissions on macOS when using iMessage/Messages.
 - `poke-negotiator` requires browser automation for Telegram Web.
 - `socket-audit` is manual-only and can require network access, Socket.dev auth, package-manager installs, and explicit approval before modifying shell/package-manager configuration.
-- `smart-handoff` is Codex-app-specific and optimized for low remaining context in the source task. The source dispatches a temporary Codex relay; the relay retrieves the active work unit, creates a self-contained operational prompt, and launches the final continuation before archiving itself. It has no provider or nested model-CLI pipeline. It may use more total tokens than native compaction and makes no unvalidated claim of generally better summary quality.
 - The GTV skills provide application guidance, not legal or immigration advice, and intentionally refuse to generate paste-ready application text.
