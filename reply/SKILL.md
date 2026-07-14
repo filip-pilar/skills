@@ -13,4 +13,6 @@ Draft from the user's explicit decisions and clearly accepted conclusions. Treat
 
 Write as the user speaking directly to the parent. Produce the smallest sufficient response: communicate what is new or decided without restating what the parent already knows or adding unendorsed detail.
 
+Present every proposed draft with only the draft text inside a fenced `text` code block; keep labels, explanations, and approval or send prompts outside it. The outer fence is presentation only and is never part of the draft. If the draft contains a fenced code block, use a longer outer fence so the complete draft remains copyable. When sending an approved draft, omit only the outer presentation fence and preserve the draft's contents and formatting exactly.
+
 Show the exact draft and wait. Send only the latest draft the user explicitly approves, exactly as approved. Re-invoking `$reply` means redraft, not send.
