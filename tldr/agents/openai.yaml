@@ -1,0 +1,7 @@
+interface:
+  display_name: "TLDR"
+  short_description: "Catch up on the whole parent task"
+  default_prompt: "Use $tldr in this Side task to give me an ultra-concise state digest of the entire linked parent task."
+
+policy:
+  allow_implicit_invocation: false

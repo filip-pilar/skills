@@ -1,0 +1,7 @@
+interface:
+  display_name: "Optimize Skill"
+  short_description: "Remove skill bloat without regressions"
+  default_prompt: "Use $optimize-skill to compress the named skill without changing what it does."
+
+policy:
+  allow_implicit_invocation: false
