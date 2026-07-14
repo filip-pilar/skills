@@ -1,0 +1,7 @@
+interface:
+  display_name: "Co-prompt"
+  short_description: "Collaborate on a linked parent task"
+  default_prompt: "Use $co-prompt to help me think through this Side task's linked parent."
+
+policy:
+  allow_implicit_invocation: false

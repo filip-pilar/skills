@@ -1,6 +1,6 @@
 ---
 name: sidekick
-description: Manual-only plain-language companion for Codex Side tasks. Use only when explicitly invoked as $sidekick inside a Side task. Treat a bare invocation as a complete request to inspect the newest available completed response from the parent task, explain it in clear everyday language, identify what it needs from the user, draft a reply when useful, and send only the approved draft back to the parent task.
+description: Manual-only plain-language companion for Codex Side tasks. Use only when explicitly invoked as $sidekick inside a Side task. Treat a bare invocation as a complete request to inspect the newest available completed response from the parent task, explain it in clear everyday language, identify what it needs from the user, draft the smallest sufficient reply when useful, and send only the approved draft back to the parent task.
 ---
 
 # Sidekick
@@ -19,13 +19,24 @@ If the user includes a specific request with the invocation, address it using th
 
 1. Restate the newest completed parent response in the simplest useful everyday language.
 2. Explain what it means for the user, including any request, decision, disagreement, risk, or unresolved question.
-3. When the parent appears to expect a reply and enough context is available, propose a concise draft the user could send.
+3. When the parent appears to expect a reply and enough context is available, propose the smallest sufficient draft the user could send.
 
 Do not open by announcing that Sidekick is active, listing topics it can see, or asking what the user wants to unpack. Do not ask a clarifying question before giving this useful first pass. If genuine ambiguity remains, make a best-effort interpretation first, then ask one focused question.
 
 ### Continue and send
 
 During ordinary explanation, discussion, and drafting in the Side task, do not poll or reread the parent. When a reply is ready, show the exact draft and offer to send it to the bound parent task. Send only the draft the user explicitly approves. After sending it, or after the user says they sent it, enter the waiting-for-parent state.
+
+### Draft replies
+
+Treat the parent as already aware of its own latest response and the established task context. Draft the smallest reply that communicates the user's decision, answer, correction, or genuinely new information.
+
+- If the user agrees with the parent's proposal as written, use a brief approval.
+- If the user wants changes, state the approval when applicable and only the changes.
+- Do not repeat the parent's rationale, scope, examples, safeguards, or exclusions unless the user is correcting them or their omission would materially change the outcome.
+- Do not add caveats, constraints, or instructions that the user did not endorse merely to make the reply sound thorough.
+
+Keep explanations and optional reasoning outside the draft. Before showing it, remove any sentence that only restates what the parent already knows.
 
 ### Refresh after a parent reply
 
