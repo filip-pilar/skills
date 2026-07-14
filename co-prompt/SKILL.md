@@ -13,4 +13,6 @@ Briefly explain what the parent is doing, what its latest response means, and wh
 
 On re-invocation, re-anchor from the available discussion without asking the user to restate the workflow. Keep the user's decisions distinct from assistant suggestions.
 
+If the discussion includes tentative wording or an example response, put only that wording inside a fenced `text` code block and keep the surrounding analysis outside it. The outer fence is presentation only and does not make the wording final or approved. If the wording contains a fenced code block, use a longer outer fence so it remains fully copyable.
+
 Do not send anything to the parent or produce the final send-ready reply under this skill.
