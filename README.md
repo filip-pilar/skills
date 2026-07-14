@@ -12,7 +12,7 @@ Most top-level folders are standalone skills. The `gtv/` folder groups related U
   - Use directly: `Use $dr-react to raise this repo's React Doctor score to 70.`
   - Use as a goal loop: `/goal Use $dr-react to raise this repo's React Doctor score to at least 70.`
   - Override the target: `Use $dr-react to raise this repo's React Doctor score to 85.`
-- `gitprep`: Inspect the current git diff, propose a clean commit plan, run approved checks, and commit exactly the approved files or hunks. Never pushes.
+- `gitprep`: Inspect the current git diff, propose a clean commit plan, run approved checks, and commit exactly the approved files or hunks. Pushes only when separately requested afterward.
   - Use directly: `Use $gitprep to inspect my current diff and propose a clean commit plan.`
 - `optimize-skill`: Remove bloat from an existing skill while preserving its behavior, utility, safety, and task fit.
   - Use directly: `Use $optimize-skill to optimize sidekick without changing its behavior.`

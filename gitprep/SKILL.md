@@ -1,195 +1,30 @@
 ---
 name: gitprep
-description: Manual-only git commit preparation workflow. Use only when explicitly invoked as $gitprep. Inspect the current repository diff and upstream publication state, propose a clean commit plan, recommend relevant verification commands, ask for user approval, then stage and commit exactly the approved files or hunks. Never push unless the user separately asks.
+description: Explicit-only git commit workflow. Use $gitprep to inspect the working tree and upstream publication state, propose coherent commits and proportionate checks, then after approval stage and commit only the exact files or hunks with the approved messages. Never push unless the user separately asks after the commit workflow.
 ---
 
 # Gitprep
 
-Prepare clean, intentional git commits from the current working tree.
+Treat a bare `$gitprep` invocation as a complete request to inspect and propose a commit plan, not to mutate the repository. Preserve all user work: never revert, delete, rewrite, or silently stage unrelated changes. Keep GitHub state read-only unless the user separately requests an action, and never push during this workflow.
 
-## Core Rules
-
-- Use this skill only when explicitly invoked with `$gitprep`.
-- Never push unless the user separately asks for a push after the commit workflow is complete.
-- Use `git` for local repository operations: status, diff, add, commit, branch, merge, rebase, and push when a separate user request explicitly asks for it.
-- Treat git metadata writes as sandbox-boundary operations. `git add`, `git commit`, branch creation, merge, rebase, and other commands that write `.git/` should use the host approval/escalation flow intentionally after the user approves the plan; do not first run them in the sandbox just to discover `.git/` is read-only.
-- Use authenticated `gh` CLI only when GitHub-hosted context would materially clarify the commit plan or verification state. Prefer local git inspection for normal commit prep. Do not create PRs, merge PRs, push, comment/review, rerun workflows, or otherwise mutate GitHub state unless the user explicitly asks.
-- Never stage unrelated files silently.
-- Never run long or expensive checks without user approval.
-- Never commit after failed checks unless the user explicitly says to commit anyway.
-- Preserve user changes. Do not revert, delete, or rewrite unrelated work.
-- Prefer one commit when the diff has one coherent intent. Suggest multiple commits only when the split materially improves reviewability or rollback.
-- Treat generated files, lockfiles, migrations, snapshots, symlinks, local asset libraries, temp files, and formatting-only churn as items that need explicit mention in the plan.
-
-
-## Commit Message Guidance
-
-Suggest concrete, reviewable commit messages in imperative mood. Name the behavior or capability being added, fixed, or changed. Avoid vague milestone labels such as `phase 1`, `initial work`, `misc updates`, `changes`, or `wip` unless the user explicitly asks for that wording. Prefer messages like `Add batch converter for Locky remixes` over `Add batch converter phase 1`.
+Use `git` for local repository operations. Use authenticated `gh` only when GitHub context materially clarifies the plan or verification state; skip it when irrelevant, unavailable, unauthenticated, or likely to add avoidable network friction. If a separately requested GitHub action is in scope, prefer `gh` to raw HTTP.
 
 ## Workflow
 
-### 1. Inspect Repository State
+1. **Inspect read-only state.** Run `git status --short`, `git status -sb`, `git branch --show-current`, `git branch -vv`, `git remote -v`, staged and unstaged diff statistics, and recent commit subjects when useful. Inspect staged and unstaged diffs separately; for large changes, read focused files or hunks instead of dumping everything.
 
-Run read-only git inspection first:
+   If an upstream exists, inspect `@{u}..HEAD` and `HEAD..@{u}`. Report whether the branch is aligned, ahead, behind, diverged, or has no upstream; list unpublished local commit subjects when ahead. A clean working tree does not imply a fully published branch. Do not pull, merge, or rebase as part of commit preparation. If no committable changes exist, report the repository and publication state and stop.
 
-```bash
-git status --short
-git status -sb
-git branch --show-current
-git branch -vv
-git remote -v
-git diff --stat
-git diff --cached --stat
-```
+2. **Build the plan.** Group changes by intent rather than file type. Prefer one commit for one coherent intent; split only when it materially improves review or rollback. Explicitly flag unrelated or accidental changes, secrets or local configuration, deletions, generated files, snapshots, migrations, symlinks, local assets, temporary files, formatting-only churn, manifest/lockfile mismatches, staged/unstaged mismatches, visible partial work or failing tests, and upstream risks.
 
-If the current branch has an upstream, inspect local commits that are not published and remote commits that are not present locally:
+   Propose the commit count, exact files or hunks per commit, message, split rationale, risks, upstream status, and recommended verification. Messages should be imperative and describe the actual behavior or capability; avoid vague labels such as `phase 1`, `misc`, `changes`, or `wip` unless requested. Ask the user to approve or modify the complete plan before any check that requires approval, staging, or commit.
 
-```bash
-git log --oneline @{u}..HEAD
-git log --oneline HEAD..@{u}
-```
+3. **Choose proportionate checks.** Inspect project and task-runner files such as `package.json` and lockfiles, `Cargo.toml`, Python project files, `Makefile`, `justfile`, or `Taskfile.yml` to identify relevant lint, type, test, build, or format checks. Do not require checks for trivial or documentation-only changes unless repository convention does. Ask before slow, expensive, networked, browser, end-to-end, production-build, or escalated checks. Record checks the user skips.
 
-If there is no upstream, say that explicitly. Do not describe the repository as "clean" without also reporting whether the current branch is ahead, behind, diverged, missing an upstream, or aligned with its upstream. A clean working tree can still have unpublished commits.
+4. **Execute only the approved plan.** Run the approved checks first. If one fails, stop unless the user explicitly authorizes committing anyway; report the command, failure, likely cause when evident, staged state, and recommended next action.
 
-If there are staged changes, inspect both staged and unstaged diffs separately:
+   Stage only approved paths or hunks, preferring explicit paths. For partial staging, construct it non-interactively when reliable; otherwise ask rather than guess. Git metadata writes require the host approval or escalation flow after plan approval—use it intentionally instead of first probing a read-only sandbox. Before each commit, verify `git diff --cached --stat`, the full staged diff, and `git status --short`.
 
-```bash
-git diff --cached
-git diff
-```
+   Commit with the exact approved message after checks pass or are intentionally skipped. For multiple commits, repeat stage, verify, and commit. Do not change the message, amend, bypass hooks, retry differently, or add paths without renewed approval.
 
-If the diff is large, inspect by file or focused hunks instead of dumping everything at once:
-
-```bash
-git diff -- <path>
-git diff --cached -- <path>
-```
-
-Also check recent commit style when useful:
-
-```bash
-git log --oneline -5
-```
-
-If the repository has a GitHub remote and GitHub context would materially clarify the commit plan or verification state, use `gh` for read-only GitHub API context:
-
-```bash
-gh repo view
-gh pr status
-gh pr checks
-```
-
-Use `gh` rather than raw HTTP calls for GitHub comments, reviews, issues, checks, workflow runs, and other GitHub-hosted API work when the user explicitly asks for those actions. Keep local repository state changes on `git`. Skip `gh` if the repo is not hosted on GitHub, `gh` is unavailable, network/auth access would create avoidable friction, or GitHub context is irrelevant to the local commit plan.
-
-### 2. Identify Commit Units
-
-Group changes by intent, not by file type:
-
-- feature
-- bug fix
-- refactor
-- docs
-- tests
-- dependency or lockfile update
-- generated output
-- formatting-only cleanup
-- migration or schema change
-
-Flag these explicitly:
-
-- unrelated changes mixed into the diff
-- files that look accidentally modified
-- secrets or local config
-- deleted files
-- generated files or snapshots
-- lockfile changes without manifest changes
-- manifest changes without lockfile changes
-- staged changes that do not match unstaged changes
-- partial implementation with TODOs or failing tests visible in the diff
-- unpublished local commits, unpulled upstream commits, diverged branches, or missing upstream tracking
-
-### 3. Propose A Commit Plan
-
-Present a concise plan before staging or committing:
-
-- Recommended split: one commit or N commits.
-- Files/hunks in each commit.
-- Suggested commit message for each commit, following the commit message guidance above.
-- Rationale for the split.
-- Risks or suspicious changes.
-- Upstream status: aligned, ahead, behind, diverged, or no upstream. If ahead, list the unpublished commit subjects and say they will not appear on the remote until pushed.
-- Verification commands recommended before commit.
-
-Ask the user to approve or modify the plan. Do not proceed until the user confirms the commit plan.
-
-### 4. Recommend Verification
-
-Detect likely checks from repo files:
-
-- `package.json`: inspect scripts such as `lint`, `typecheck`, `test`, `build`, `format:check`.
-- `bun.lock`, `pnpm-lock.yaml`, `yarn.lock`, `package-lock.json`: infer package manager.
-- `Cargo.toml`: consider `cargo test`, `cargo check`, `cargo fmt --check`.
-- `pyproject.toml`, `uv.lock`, `requirements.txt`: consider project-specific test/lint commands.
-- `Makefile`, `justfile`, `Taskfile.yml`: inspect obvious verification targets.
-
-Recommend checks based on the diff and repo setup. Ask before running slow checks such as production builds, e2e suites, browser tests, or commands likely to need network or sandbox escalation.
-
-Do not require checks for docs-only or trivial changes unless the repo convention clearly expects them. If the user skips checks, record that in the final summary.
-
-### 5. Stage Exactly The Approved Changes
-
-`git add` writes the protected `.git` index. After the user approves the commit plan, run approved staging commands with the host's normal approval/escalation flow from the start. Keep the command scoped to the exact approved files or hunks; do not broaden it into unrelated staging or cleanup.
-
-After approval, stage only approved files or hunks.
-
-Prefer explicit paths:
-
-```bash
-git add <path> ...
-```
-
-For partial staging, use non-interactive patch construction when practical. If interactive staging would be fragile, ask the user how to proceed instead of guessing.
-
-Before committing, verify staged content:
-
-```bash
-git diff --cached --stat
-git diff --cached
-git status --short
-```
-
-The verification commands above are read-only and should normally run without escalation.
-
-### 6. Commit
-
-Commit with the approved message only after the approved plan and approved checks are complete or intentionally skipped.
-
-```bash
-git commit -m "<approved message>"
-```
-
-`git commit` writes repository metadata. Use the host approval/escalation flow intentionally, with the exact approved message. Do not retry with a different message, amend, bypass hooks, or add extra paths unless the user approves that change.
-
-If multiple commits were approved, repeat the stage, verify, commit cycle for each commit.
-
-If checks fail, stop and report:
-
-- command run
-- failure summary
-- likely cause if evident
-- whether anything is staged
-- recommended next action
-
-### 7. Final Summary
-
-Report:
-
-- commit hash or hashes
-- commit message or messages
-- checks run and pass/fail result
-- checks skipped by user
-- remaining uncommitted changes, if any
-- anything intentionally left unstaged
-- upstream status after the commit, including whether local commits remain unpublished
-
-Never push unless the user separately asks for a push after the commit workflow is complete.
+5. **Report the result.** Include commit hashes and messages, checks and outcomes, user-skipped checks, remaining uncommitted or intentionally unstaged work, and the final upstream state including unpublished commits. A push requires a separate user request after this workflow is complete.
