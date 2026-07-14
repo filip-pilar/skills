@@ -1,7 +1,7 @@
 interface:
   display_name: "Smart Handoff"
-  short_description: "Create verified Codex handoffs"
-  default_prompt: "Use $smart-handoff to create a verified self-contained handoff and continue in a fresh Codex thread."
+  short_description: "Relay active work into a clean task"
+  default_prompt: "Use $smart-handoff to offload the active continuation state and resume this work in a clean Codex task with minimal source-task context growth."
 
 policy:
   allow_implicit_invocation: false
