@@ -7,7 +7,7 @@ Record the final evidence used to retire the standalone optimizer after its pres
 ## Method
 
 - Tested immutable copies of Builder root SHA-256 `7c9776c49acab6ad145b35275ba7eebfe93254c01a4b38ee561aeebbb2696c0c`, Compress SHA-256 `29988d8d008513de84b3b7fd83a8fbe0e4bc7cfd42e5ee49eb218d3825a31bc1`, and legacy optimizer SHA-256 `2c73ca72cb78e4fadea652168b905c97f79c6676471fab220c81db92d06192bc`.
-- After the run, Builder's root description received only the coordinated `Explicit-only` to `Manual-only` metadata change; the Compress procedure retained the tested hash.
+- Builder's root router has since changed outside Compress, including activation-metadata ownership and greenfield Create handling. The refreshed root is SHA-256 `cd0fa35e145a8205e2f510d7f9cf02a2334f36e1b674a83bccf1ba16f8f9d1b9`; the Compress procedure retains the tested hash. The retirement conclusion is scoped to that unchanged procedure rather than behavioral parity of every later root-router revision.
 - Ran matched isolated cases for justified no-change, a semantic blocker, a safety-heavy real package, and an actual clean compression edit.
 - Kept report-only targets read-only, allowed edits only in disposable target copies, and verified that assigned workflows were unchanged.
 - Used separate blind judges. Lower word count and projected savings were not scoring criteria.
@@ -25,7 +25,7 @@ Record the final evidence used to retire the standalone optimizer after its pres
 
 Both clean-edit candidates removed genuine repetition and passed structural validation. Builder retained slightly more text but won semantic judging; the behavioral replay found no substantive difference.
 
-The Socket case invalidated its own clean-control assumption. Builder reproduced material contract failures and stopped; the legacy optimizer described contradicted safeguards as preserved and continued into compression recommendations. Treat Socket `672846f` as a semantic-preflight control until repaired or replaced.
+The Socket case invalidated its own clean-control assumption. Builder reproduced material contract failures and stopped; the legacy optimizer described contradicted safeguards as preserved and continued into compression recommendations. Keep the immutable Socket `672846f` snapshot as a semantic-preflight control. The live package was repaired separately in the 2026-07-15 refresh and should not be assumed to reproduce that blocker.
 
 ## Decision
 

@@ -33,6 +33,7 @@ INVOCATION_INSTRUCTION_RE = re.compile(
 )
 ALLOWED_FRONTMATTER_KEYS = {"name", "description", "license", "allowed-tools", "metadata"}
 DEVELOPMENT_DEBRIS_DIRS = {"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache"}
+DEVELOPMENT_ONLY_DIRS = {"evals"}
 DEVELOPMENT_DEBRIS_FILES = {".DS_Store"}
 DEVELOPMENT_DEBRIS_SUFFIXES = {".pyc", ".pyo"}
 
@@ -202,6 +203,9 @@ def main() -> int:
 
     for path in skill_dir.rglob("*"):
         relative = path.relative_to(skill_dir)
+        if path.is_dir() and path.name in DEVELOPMENT_ONLY_DIRS:
+            errors.append(f"{relative}: development evaluation directory must live outside the distributable skill")
+            continue
         if path.is_dir() and path.name in DEVELOPMENT_DEBRIS_DIRS:
             errors.append(f"{relative}: development cache directory must not ship")
             continue

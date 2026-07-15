@@ -105,7 +105,23 @@ clean_shell_file() {
   fi
   case "$mode" in
     aliases)
-      grep -Eq '^# BEGIN socket-audit aliases$|^# Socket Firewall aliases \(added by socket-audit' "$path" || return 0
+      grep -Eq '^# (BEGIN|END) socket-audit aliases$|^# Socket Firewall aliases \(added by socket-audit' "$path" || return 0
+      if grep -Eq '^# (BEGIN|END) socket-audit aliases$' "$path" && ! awk '
+        /^# BEGIN socket-audit aliases$/ {
+          if (block) bad=1
+          block=1
+          next
+        }
+        /^# END socket-audit aliases$/ {
+          if (!block) bad=1
+          block=0
+        }
+        END { exit (bad || block) ? 1 : 0 }
+      ' "$path"; then
+        say "   ⚠ Left $path unchanged (socket-audit alias markers are unbalanced)"
+        RESIDUE=1
+        return 0
+      fi
       ;;
     path)
       grep -Eq '^# Added by socket-audit (skill|Codex skill|Claude Code skill)\.' "$path" || return 0
@@ -163,7 +179,7 @@ elif [[ -L "$BUNFIG" ]]; then
   RESIDUE=1
 elif head -3 "$BUNFIG" | grep -q "Created.*by the socket-audit"; then
   if [[ "$DRY_RUN" = "1" ]]; then
-    say "   [dry-run] would back up and remove socket-audit values from $BUNFIG"
+    say "   [dry-run] would back up and remove the creation header and inline-marked values from $BUNFIG"
   else
     tmp=""
     if ! cp "$BUNFIG" "$BUNFIG.socket-audit-backup"; then
@@ -176,19 +192,20 @@ elif head -3 "$BUNFIG" | grep -q "Created.*by the socket-audit"; then
     elif awk '
       /^# Created.*by the socket-audit/ { next }
       /#[[:space:]]*socket-audit[[:space:]]*$/ { next }
-      /^[[:space:]]*scanner[[:space:]]*=[[:space:]]*"@socketsecurity\/bun-security-scanner"[[:space:]]*$/ { next }
-      /^[[:space:]]*minimumReleaseAge[[:space:]]*=/ { next }
       { print }
     ' "$BUNFIG" > "$tmp"; then
       if awk '
         /^[[:space:]]*$/ { next }
-        /^[[:space:]]*#/ { next }
         /^[[:space:]]*\[install(\.security)?\][[:space:]]*$/ { next }
         { found=1 }
         END { exit !found }
       ' "$tmp"; then
         if mv "$tmp" "$BUNFIG"; then
-          say "   ✓ Removed owned values; preserved later user settings (backup: $BUNFIG.socket-audit-backup)"
+          say "   ✓ Removed the creation header and inline-marked values; preserved unmarked content (backup: $BUNFIG.socket-audit-backup)"
+          if grep -Eq '^[[:space:]]*scanner[[:space:]]*=[[:space:]]*"@socketsecurity/bun-security-scanner"|^[[:space:]]*minimumReleaseAge[[:space:]]*=' "$BUNFIG"; then
+            say "   ⚠ Unmarked Bun protection values remain because ownership is uncertain"
+            RESIDUE=1
+          fi
         else
           /bin/rm -f "$tmp"
           warn_failure "Could not replace $BUNFIG"

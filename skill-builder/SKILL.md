@@ -16,7 +16,7 @@ State the objective and posture before changing files:
 - **Evidence:** Every claim needs proportionate evidence, but evaluation grants no edit authority. Load [evaluate.md](references/evaluate.md) only for execution comparisons, blind judging, or durable benchmarks; otherwise use the specialist's evidence gate.
 - **Release:** Installation, synchronization, packaging, commit, push, and publication need separate authority. Load [release.md](references/release.md) only when requested.
 
-Read the target `SKILL.md` completely, inspect only relevant package state and raw evidence, pin compared versions, and preserve unrelated work. Then load only:
+If the target `SKILL.md` exists, read it completely; for greenfield Create, inspect the intended destination for conflicts instead. Inspect only relevant package state and raw evidence, pin compared versions, and preserve unrelated work. Then load only:
 
 - **Create:** [create.md](references/create.md) and [quality-model.md](references/quality-model.md)
 - **Diagnose:** [diagnose.md](references/diagnose.md) and [quality-model.md](references/quality-model.md)

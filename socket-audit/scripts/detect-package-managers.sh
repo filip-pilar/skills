@@ -40,7 +40,10 @@ bun|false|true|bun.lock,bun.lockb
 pip|false|false|requirements.txt,Pipfile.lock,poetry.lock,pyproject.toml
 uv|false|false|uv.lock
 cargo|false|false|Cargo.lock
-gem|false|false|Gemfile.lock"
+gem|false|false|Gemfile.lock
+go|false|false|go.mod,go.sum
+maven|false|false|pom.xml
+gradle|false|false|build.gradle,build.gradle.kts"
 
 # Check if any of comma-separated filenames exists in repo (depth-limited, prunes caches)
 has_any_file() {
@@ -72,7 +75,7 @@ count_for_manager() {
 }
 
 # Total repos and binary-bun-lockfile count
-TOTAL=$(grep -c . "$REPOS" 2>/dev/null || echo 0)
+TOTAL=$(awk 'NF { count++ } END { print count+0 }' "$REPOS" 2>/dev/null)
 BUN_LOCKB=0
 while IFS= read -r repo; do
   [ -z "$repo" ] && continue
@@ -100,8 +103,10 @@ JSON_TMP="${OUT}.tmp"
     [ -z "$row" ] && continue
     IFS='|' read -r name wrapper bunscan patterns <<< "$row"
 
+    binary="$name"
+    [ "$name" = "maven" ] && binary="mvn"
     on_path="false"
-    if command -v "$name" >/dev/null 2>&1; then
+    if command -v "$binary" >/dev/null 2>&1; then
       on_path="true"
     fi
 

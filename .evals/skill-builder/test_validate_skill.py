@@ -21,6 +21,7 @@ class MetadataValidationTests(unittest.TestCase):
         default_prompt: str,
         short_description: str = "Validate sample metadata behavior",
         reference: str | None = None,
+        bundled_evals: bool = False,
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temp_dir:
             skill_dir = Path(temp_dir) / "sample"
@@ -54,6 +55,10 @@ class MetadataValidationTests(unittest.TestCase):
                 references = skill_dir / "references"
                 references.mkdir()
                 (references / "status.md").write_text(reference, encoding="utf-8")
+            if bundled_evals:
+                evals = skill_dir / "evals"
+                evals.mkdir()
+                (evals / "answer-key.md").write_text("Expected output.\n", encoding="utf-8")
             return subprocess.run(
                 [sys.executable, str(VALIDATOR), str(skill_dir)],
                 check=False,
@@ -168,6 +173,15 @@ class MetadataValidationTests(unittest.TestCase):
             reference="[TODO: replace this reference]\n",
         )
         self.assertIn("unresolved TODO placeholder", result.stdout)
+
+    def test_bundled_evaluation_directory_is_rejected(self) -> None:
+        result = self.validate(
+            description="Format supplied notes when the user requests a compact summary.",
+            implicit=True,
+            default_prompt="Format these supplied notes.",
+            bundled_evals=True,
+        )
+        self.assertIn("evaluation directory must live outside", result.stdout)
 
 
 if __name__ == "__main__":
