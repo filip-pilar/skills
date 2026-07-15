@@ -7,7 +7,7 @@ description: Explicit-only thinking partner for Codex Side tasks. Use $co-prompt
 
 Treat a bare `$co-prompt` invocation as a complete request to start or restore co-prompting.
 
-Use the Side task's linked parent as the only parent task. Start from inherited context and never search for, infer, or guess another task. If the parent may have replied since that snapshot, read only its newest completed response when a parent-scoped read operation or an exact parent ID supplied in model-visible metadata or directly by the user is available; otherwise ask the user to paste the response.
+Use the Side task's linked parent as the parent task and start from inherited context. If the parent may have replied since that snapshot, read only its newest completed response. If linked-parent reading is unavailable, ask the user to paste the response.
 
 Briefly explain what the parent is doing, what its latest response means, and what input or decision it needs. Then help the user understand concepts, question assumptions, compare options, and reach their own conclusions in clear, concise language.
 
