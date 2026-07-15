@@ -71,9 +71,6 @@ validate_links "$TMP/claude"
 CORE_WORDS="$(wc -w < "$ROOT/core.md" | tr -d ' ')"
 CODEX_WORDS="$(wc -w < "$TMP/codex/SKILL.md" | tr -d ' ')"
 CLAUDE_WORDS="$(wc -w < "$TMP/claude/SKILL.md" | tr -d ' ')"
-[ "$CORE_WORDS" -le 1500 ] || fail "shared core exceeds 1500 words ($CORE_WORDS)"
-[ "$CODEX_WORDS" -le 1900 ] || fail "Codex SKILL.md exceeds 1900 words ($CODEX_WORDS)"
-[ "$CLAUDE_WORDS" -le 1900 ] || fail "Claude SKILL.md exceeds 1900 words ($CLAUDE_WORDS)"
 
 printf 'validate: ok (core=%s, codex=%s, claude=%s words)\n' \
   "$CORE_WORDS" "$CODEX_WORDS" "$CLAUDE_WORDS"

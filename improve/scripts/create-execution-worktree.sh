@@ -76,7 +76,11 @@ cleanup_failed() {
 }
 trap cleanup_failed EXIT
 
-if ! git -C "$REPO" worktree add -b "$BRANCH" "$WORKTREE" "$PLANNED_SHA" >/dev/null; then
+if ! git -C "$REPO" branch "$BRANCH" "$PLANNED_SHA" >/dev/null 2>&1; then
+  /bin/rm -rf -- "$CONTAINER"
+  die "executor branch already exists or could not be created"
+fi
+if ! git -C "$REPO" worktree add "$WORKTREE" "$BRANCH" >/dev/null; then
   git -C "$REPO" branch -D "$BRANCH" >/dev/null 2>&1 || true
   /bin/rm -rf -- "$CONTAINER"
   die "git worktree creation failed"

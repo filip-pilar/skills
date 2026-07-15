@@ -137,7 +137,7 @@ fi
 
 # --- CI (often the source of truth for the real commands) --------------------
 section "CI config"
-CI=$(find . -maxdepth 2 \( -path './.github/workflows/*' -o -name '.gitlab-ci.yml' -o -name '.circleci' -o -name 'azure-pipelines.yml' -o -name '.travis.yml' -o -name 'Jenkinsfile' \) -not -path '*/.git/*' 2>/dev/null | head -10)
+CI=$(find . -maxdepth 3 \( -path './.github/workflows/*' -o -path './.circleci/*' -o -name '.gitlab-ci.yml' -o -name 'azure-pipelines.yml' -o -name '.travis.yml' -o -name 'Jenkinsfile' \) -type f -not -path '*/.git/*' 2>/dev/null | head -10)
 if [ -n "$CI" ]; then echo "$CI" | sed 's/^/  /'; echo "  → read these for the canonical build/test/lint invocations"; else echo "(none found)"; fi
 
 # --- Intent & design docs (strictly additive; read what exists) --------------

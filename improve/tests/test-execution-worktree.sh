@@ -73,6 +73,26 @@ if "$HELPER" "$REPO" "$SHA" invalid -- ../outside >/dev/null 2>&1; then
   fail "unsafe scope path was accepted"
 fi
 
+make_repo branch-collision
+FAKE_BIN="$TMP/fake-bin"
+mkdir -p "$FAKE_BIN"
+cat > "$FAKE_BIN/mktemp" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+template="${@: -1}"
+path="${template%XXXXXX}fixed"
+mkdir -p "$path"
+printf '%s\n' "$path"
+EOF
+chmod +x "$FAKE_BIN/mktemp"
+COLLISION_BRANCH="improve/collision-${SHA:0:8}-fixed"
+git -C "$REPO" branch "$COLLISION_BRANCH" "$SHA"
+if PATH="$FAKE_BIN:$PATH" "$HELPER" "$REPO" "$SHA" collision -- src/a.txt >/dev/null 2>&1; then
+  fail "pre-existing executor branch was accepted"
+fi
+git -C "$REPO" show-ref --verify --quiet "refs/heads/$COLLISION_BRANCH" || \
+  fail "pre-existing executor branch was deleted"
+
 if "$HELPER" "$TMP/not-a-repo" deadbeef bad -- file >/dev/null 2>&1; then
   fail "non-repository input was accepted"
 fi

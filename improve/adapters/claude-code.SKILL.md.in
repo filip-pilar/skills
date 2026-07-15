@@ -35,6 +35,6 @@ bash ${CLAUDE_SKILL_DIR}/scripts/create-execution-worktree.sh <repo-root> <full-
 
 Use `EnterWorktree` with the returned existing worktree path. Then dispatch one foreground `general-purpose` Agent in that worktree without requesting a second isolation layer. Inline the complete plan and executor preamble. Default the executor to the Claude-native `sonnet` alias; an explicit user-supplied Claude model overrides it.
 
-For revision feedback, use `SendMessage` to the same agent. After review, return to the original checkout with `ExitWorktree` while retaining the executor branch/worktree for the user. Update the plan index only after returning to the original checkout.
+Review the first execution before requiring a revision channel. If the verdict is `REVISE` and `SendMessage` is available, send the evidence to the same agent. If revision is required but `SendMessage` is unavailable, render `BLOCK` with the specific revision feedback and retain the executor branch/worktree for manual continuation; do not start a replacement agent. After review, return to the original checkout with `ExitWorktree` while retaining the executor branch/worktree for the user. Update the plan index only after returning to the original checkout.
 
-If `EnterWorktree`, `Agent`, the returned worktree path, or `SendMessage` is unavailable, stop and hand over the plan manually. Do not fall back to a fresh default-base worktree.
+If `EnterWorktree`, `ExitWorktree`, `Agent`, or the returned worktree path is unavailable, stop before dispatch and hand over the plan manually. Do not fall back to a fresh default-base worktree.
