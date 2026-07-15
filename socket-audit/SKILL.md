@@ -29,7 +29,7 @@ If intent is unclear, propose A followed by B; do not launch A until scope and e
 
 ## A — Retro audit
 
-1. Read `references/socket-cli.md` and `references/cli-version.md`. Check `node`, `npm`, `jq`, and `socket`; give one fix-it summary. Install `socket` only with approval.
+1. Read `references/cli-version.md`. Check `node`, `npm`, `jq`, and `socket`; give one fix-it summary. Install `socket` only with approval.
 2. Survey repositories:
 
    ```bash
@@ -47,7 +47,7 @@ If intent is unclear, propose A followed by B; do not launch A until scope and e
    ```
 
    Run only the applicable command. Do not poll with blocking sleeps.
-6. Aggregate the per-repository JSON and `ioc-hits.json`. Save the full report to `/tmp/socket-audit/report.md` and `~/Desktop/socket-audit-report-<YYYY-MM-DD>.md`; show only headline counts and critical findings in chat. Include scope, online/offline split, exact-version hits, package-only matches, Socket policy failures, clean repositories, artifact paths, and next steps. Treat package-only matches as leads, not confirmed compromise.
+6. Aggregate the per-repository JSON and `ioc-hits.json`. Use the command status, preserved raw JSON, and log together; inspect the response shape actually returned instead of inferring success from one assumed field. Save the full report to `/tmp/socket-audit/report.md` and `~/Desktop/socket-audit-report-<YYYY-MM-DD>.md`; show only headline counts and critical findings in chat. Include scope, online/offline split, exact-version hits, package-only matches, Socket policy failures, clean repositories, artifact paths, and next steps. Treat package-only matches as leads, not confirmed compromise.
 7. If findings exist, offer a guided investigation: lockfile history for the relevant window, named credential locations that may need rotation, and a clean dependency reinstall. Do not delete files or rotate credentials without separate approval.
 8. Offer B. Detection is automatic; installation still requires manager/mechanism approval.
 
@@ -59,11 +59,7 @@ Read `references/protection-mechanisms.md`, then detect usage:
 bash "<skill-dir>/scripts/detect-package-managers.sh" /tmp/socket-audit/pm-detection.json
 ```
 
-Summarize only relevant managers and `bun.lockb` warnings. Explain the choice briefly:
-
-- A configured Bun project uses its Socket scanner regardless of who invokes Bun.
-- npm/pnpm PATH wrappers cover interactive terminals, agents, and scripts; recommend them by default.
-- Shell aliases cover interactive typing only and must be an explicit lower-coverage choice.
+Summarize only relevant managers and `bun.lockb` warnings. Use the reference's coverage matrix to explain only the applicable choices.
 
 Ask one compact question covering selected managers, wrapper versus alias for npm/pnpm, which Bun projects to configure, and whether to add a global Bun release-age gate. Skip irrelevant branches.
 
@@ -108,14 +104,7 @@ bash "<skill-dir>/scripts/install-wrappers.sh" npm pnpm
 
 The script owns only marked wrapper files and refuses to overwrite unrelated shims. If it skips or fails a manager, report that manager as unprotected. If it prints a PATH instruction, get approval before adding one marked, idempotent block to the relevant shell startup file.
 
-For an explicit aliases choice on zsh or bash, back up the relevant shell file and add one idempotent block containing only selected managers. For other shells, recommend wrappers instead of improvising unsupported syntax.
-
-```bash
-# BEGIN socket-audit aliases
-alias npm='sfw npm'
-alias pnpm='sfw pnpm'
-# END socket-audit aliases
-```
+For an explicit aliases choice on zsh or bash, back up the relevant shell file and add the marker-owned block from the reference containing only selected managers. For other shells, recommend wrappers instead of improvising unsupported syntax.
 
 Warn that aliases do not protect agent-, script-, or other non-interactive installs.
 

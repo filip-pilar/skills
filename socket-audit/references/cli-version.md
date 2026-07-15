@@ -12,10 +12,13 @@ Recheck this file when a called CLI changes. It exists to prevent guessed comman
 
 | Command | Contract |
 |---|---|
+| `npm i -g socket` | Install the Socket CLI only after approval. |
 | `socket --version` | Version probe. |
 | `socket login` | Interactive token prompt, not browser OAuth. Keep it outside the agent transcript. |
 | `socket organization list --json` | Authentication probe; do not substitute the nonexistent `socket whoami`. |
-| `socket scan create --report --json .` | Upload supported manifests, wait for analysis, and return machine-readable output. |
+| `socket scan create --report --json .` | Upload supported manifests beneath the current directory, including nested workspaces; wait for analysis and return machine-readable output. A manifest without its lockfile gives weaker transitive-dependency evidence. |
+| `socket scan list` | Inspect recent scans during troubleshooting. |
+| `socket scan view <id>` | Inspect a saved scan during troubleshooting. |
 | `sfw --help` | Firewall readiness probe; `--version` is not a documented interface. |
 | `sfw <command>...` | Run the package-manager command through the firewall. Set `SFW_VERBOSE=true` when a visible verification banner is needed. |
 | `bun add -d @socketsecurity/bun-security-scanner` | Per-project scanner package. Requires Bun 1.3+ for scanner integration. |
