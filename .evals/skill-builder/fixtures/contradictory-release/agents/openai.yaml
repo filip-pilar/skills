@@ -1,7 +1,0 @@
-interface:
-  display_name: "Contradictory Release"
-  short_description: "Review a local package before release"
-  default_prompt: "Use $contradictory-release to review this package before release."
-
-policy:
-  allow_implicit_invocation: false

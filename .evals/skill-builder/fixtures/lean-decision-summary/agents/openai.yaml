@@ -1,7 +1,0 @@
-interface:
-  display_name: "Lean Decision Summary"
-  short_description: "Format supplied decisions without inference"
-  default_prompt: "Use $lean-decision-summary to turn these notes into a compact decision summary."
-
-policy:
-  allow_implicit_invocation: false
