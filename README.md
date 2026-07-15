@@ -50,7 +50,7 @@ Use the folder for the skill you want. Installation, loading, and invocation dep
 - Manual-only skills are `co-prompt`, `devils-advocate`, `gitprep`, `reply`, `sidekick`, `skill-builder`, `socket-audit`, and `tldr`; invoke them explicitly as `$name`.
 - `dr-react` runs `npx react-doctor@latest`, which may require network/package-manager access in a target repository.
 - `skill-builder` uses Improve for intentional behavior changes and Compress for behavior-preserving compression.
-  - Its development-only benchmark rubrics live under `.evals/skill-builder/`, outside the distributable skill package.
+  - Its development-only regression cases live under `.evals/skill-builder/`, outside the distributable skill package.
 - `setup-cli-proxy-gateway` can change local authentication, listeners, services, and harness configuration; it requires explicit approval for mutations and paid provider calls.
 - `poke-negotiator` can require Full Disk Access and Messages Automation permissions on macOS when using iMessage/Messages.
 - `poke-negotiator` requires browser automation for Telegram Web.
