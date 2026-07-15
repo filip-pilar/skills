@@ -26,7 +26,7 @@ Use this template to generate the GTV Profile artifact at the end of the eligibi
 
 **Decision**: [Apply now / Build first / No current GTV route]
 
-**Case thesis**: [One sentence: why this person is a leader/potential leader in digital technology]
+**Case-thesis facts (fragments only)**: [leader/potential leader; strongest recognition; attributable contribution; supporting proof]
 
 **Strongest proof**: [The 1-2 evidence items that carry the case]
 
@@ -47,6 +47,8 @@ Use this template to generate the GTV Profile artifact at the end of the eligibi
 ---
 
 ## Target Criteria
+
+Use the current four-criterion labels: O1 — Innovation, O2 — Work beyond occupation, O3 — Significant contributions, O4 — Academic contributions. Founder/executive and employee innovation are sub-routes of O1, not separate criteria.
 
 ### Mandatory Criterion
 [Talent: "Recognised by others as being a leading talent in the digital technology field in the last 5 years"]
@@ -76,8 +78,8 @@ Raw list of potential evidence items identified during the conversation. Keep th
 
 | # | Evidence Item | Target Criterion | Role | Strength | Metric / Proof Source | Notes |
 |---|---|---|---|---|---|---|
-| 1 | [e.g., "Led development of X product, 500K users"] | OC4 | Core / Backup / Build / Cut | Strong | [metric, screenshot, URL, letter, analytics source] | [any notes] |
-| 2 | [e.g., "Open source project Y, 2K GitHub stars"] | OC3 | Core / Backup / Build / Cut | Moderate | [source] | [notes] |
+| 1 | [e.g., "Led development of X product, 500K users"] | O3 — Significant contributions | Core / Backup / Build / Cut | Strong | [metric, screenshot, URL, letter, analytics source] | [any notes] |
+| 2 | [e.g., "Open source project Y, acknowledged adoption"] | O2 — Work beyond occupation | Core / Backup / Build / Cut | Moderate | [source] | [notes] |
 | ... | | | | | | |
 
 **For items rated Weak or Moderate**: Consider whether they can be strengthened through better framing or supplementary proof — getting a third-party quote confirming impact, pulling analytics you haven't collected yet, requesting a formal confirmation letter from an event organizer, or finding press coverage you hadn't thought to look for.
@@ -90,13 +92,13 @@ Raw list of potential evidence items identified during the conversation. Keep th
 
 ## Potential Recommenders
 
-| Name | Role/Org | Relationship to Work | Evidence They Can Verify | Recency | Credibility / Independence | Strength | Notes |
+| Name | Role/Org | Established-Expert Basis | 12+ Month Knowledge | Claims They Can Substantiate | Relationship / Recency Context | Strength | Notes |
 |---|---|---|---|---|---|---|---|
-| [Name] | [Title, Company] | [How they know the applicant's work] | [e.g., Evidence 1, OC4 contribution] | [current/recent/older] | [public credibility signal; internal/external] | [Strong/Moderate/Weak] | [e.g., "could speak to OC1 + OC3"] |
-| [Name] | [Title, Company] | [Relationship] | [evidence] | [recency] | [signal] | [Strength] | [notes] |
-| [Name] | [Title, Company] | [Relationship] | [evidence] | [recency] | [signal] | [Strength] | [notes] |
+| [Name] | [Title, Company] | [relevant expertise] | [duration and context] | [specific achievements] | [informational context] | [Strong/Moderate/Weak] | [notes] |
+| [Name] | [Title, Company] | [basis] | [knowledge] | [claims] | [context] | [Strength] | [notes] |
+| [Name] | [Title, Company] | [basis] | [knowledge] | [claims] | [context] | [Strength] | [notes] |
 
-**Recommended 3 for letters**: [names, with brief reasoning. Explain why these are stronger than convenient older or lower-credibility alternatives.]
+**Recommended 3 for letters**: [names, with brief reasoning based first on the official gates, then direct knowledge and specificity.]
 
 **Backup options**: [any alternates discussed]
 
@@ -105,8 +107,8 @@ Raw list of potential evidence items identified during the conversation. Keep th
 ## Gaps and Risks
 
 - [e.g., "Limited external recognition — no conference talks or press coverage"]
-- [e.g., "2 years at an outsourcing firm may raise questions — frame carefully"]
-- [e.g., "Third recommender is weak — consider finding someone from open source community"]
+- [e.g., "Primary employment evidence is service-delivery; product-led connection is unclear"]
+- [e.g., "No third recommender yet meets both the established-expert and 12-month-knowledge gates"]
 - [e.g., "No metrics for product impact — need to dig up data before writing evidence docs"]
 
 ---
@@ -117,20 +119,21 @@ Raw list of potential evidence items identified during the conversation. Keep th
 
 | Action | Target Criterion | Timeline | Expected Outcome |
 |---|---|---|---|
-| [e.g., "Submit CFP to PyCon UK"] | OC3 (contributions outside work) | [e.g., "2-3 months"] | [e.g., "Conference talk demonstrating community contribution"] |
-| [e.g., "Publish analysis on industry platform"] | Mandatory (recognition) | [e.g., "1-2 months"] | [e.g., "Editorially reviewed publication showing thought leadership"] |
+| [e.g., "Submit a proposal to a relevant independently selected event"] | O2 — Work beyond occupation | [realistic timeline based on event] | [e.g., "Documented talk demonstrating contribution beyond occupation"] |
+| [e.g., "Complete a genuine activity that could produce credible recognition"] | Mandatory (recognition) | [timeline derived from the activity] | [what recognition and corroboration would exist] |
 | ... | | | |
 
 **Recommended submission timing**: [Apply now / Delay X months to build stronger evidence]
 
 ---
 
-## Key Dates & Timeline
+## Current Rules & Timeline
 
-- **Processing time**: [estimated, based on field — e.g., "3 weeks (AI fast-track)" or "5-8 weeks"]
+- **Official sources checked**: [date + GOV.UK links used]
+- **Current endorsement timing**: [quote the live GOV.UK guidance, or "not checked"]
+- **Current visa timing / endorsement-use deadline**: [quote the live GOV.UK guidance, or "not checked"]
 - **Target submission**: [if discussed]
-- **Important deadlines**: [if any]
-- **Suggested prep timeline**: [e.g., "4-6 weeks to gather evidence and write documents"]
+- **Applicant-specific preparation timeline**: [derive from actual evidence gaps; do not assume a universal duration]
 
 ---
 
