@@ -1,272 +1,245 @@
 # Review Criteria — Detailed Reference
 
-## Contents
-- Pass 1: Technical Validation (personal statement, CV, rec letters, evidence docs, founder proof)
-- Pass 2: Constructive Review (criterion alignment, specificity, proof quality, narrative quality, positioning, ratings)
-- Pass 3: Adversarial Tech Nation Simulation (what assessors question, rejection patterns, skeptic questions by criterion)
-- Pass 4: AI Detection Scan (prohibition, telltale patterns, voice consistency, what to flag, practitioner-observed flags)
-- Pass 5: Cross-Document Consistency (dates, names, metrics, claims, evidence mapping, MVE comparison)
+## Authority and Review Boundary
 
-## Review Pass 1: Technical Validation
+Before technical validation, check the live:
 
-### Personal Statement
-- [ ] Addresses the mandatory criterion (recognition as leader/potential leader)
-- [ ] Addresses the target optional criteria
-- [ ] Describes who the applicant is, their achievements, why the UK, future plans
-- [ ] References specific evidence documents where appropriate
-- [ ] Contains specific metrics and concrete details
+- [Appendix Global Talent](https://www.gov.uk/guidance/immigration-rules/immigration-rules-appendix-global-talent)
+- [Digital technology eligibility page](https://www.gov.uk/global-talent-digital-technology/eligibility)
+- [Endorsement document requirements](https://www.gov.uk/global-talent-digital-technology/documents-you-need-to-apply-endorsement)
+- [Application page](https://www.gov.uk/global-talent-digital-technology/apply-for-endorsement)
+- Tech Nation application guidance, when available
+
+State which sources were checked and when. Do not treat stored limits, process details, or practitioner anecdotes as current law.
+
+Appendix Global Talent defines **four** optional criteria. GOV.UK's simplified page displays five bullets because it separates the two routes within innovation. Use this mapping:
+
+- **O1 — Innovation:** founder/executive in a product-led company, or employee in a new digital field or concept
+- **O2 — Work beyond occupation:** recognition for work outside the applicant's occupation that advances the field
+- **O3 — Significant contributions:** technical, commercial, or entrepreneurial contributions in a product-led company
+- **O4 — Academic contributions:** research published or endorsed by an expert, subject to the pathway wording
+
+Never rewrite submitted application prose. Give findings, questions, factual gaps, and revision goals only.
+
+## Pass 1: Technical Validation
+
+### Narrative Form Responses / Personal Statement
+
+- [ ] Exact current form prompt and character limit were checked live
+- [ ] Response addresses every current prompt
+- [ ] Material claims map to supporting evidence where appropriate
+- [ ] Applicant, achievements, UK plans, and future contribution are clear if the form asks for them
+- [ ] Content remains applicant-authored
+
+The current public GOV.UK document page does not state a fixed personal-statement limit. Do not enforce a cached 7,000-character limit without checking the live form.
 
 ### CV
-- [ ] Maximum 3 sides of A4, typed
-- [ ] Clear dates (month/year) for all roles
-- [ ] Includes career and publication history
-- [ ] Contact information present
-- [ ] Impact-focused (achievements, not responsibilities)
-- [ ] Key achievements section prominent
 
-### Recommendation Letters (each)
+- [ ] Typed and no more than 3 sides of A4
+- [ ] Includes career and relevant publication history
+- [ ] Dates and roles are clear
+- [ ] Material claims are consistent with the rest of the application
+
+### Recommendation Letters
+
+For each of the 3 letters:
+
 - [ ] Typed and dated
-- [ ] Signed by author (or someone on behalf of organisation)
-- [ ] Telephone number included
-- [ ] Email address included
-- [ ] Organisation's logo and registered address included (if applicable)
-- [ ] Maximum 3 sides of A4 (excluding author's credentials and contact details)
-- [ ] Author's CV or credentials proof accompanies the letter
+- [ ] Signed by the author or authorised organisation representative
+- [ ] Up to 3 single sides of A4, excluding author credentials and contact details
+- [ ] Telephone number and email included
+- [ ] Organisation logo and registered address included where applicable
+- [ ] Author CV or other accepted credentials proof included
 - [ ] Author is an established expert in digital technology
-- [ ] Author has known applicant's work for at least 12 months
-- [ ] Author can credibly verify one or more of the applicant's strongest evidence items
-- [ ] Author's knowledge is recent or the older work they discuss is unusually significant / still relevant
-- [ ] The set of 3 letters balances credibility, recency, independence, and criteria coverage
-- [ ] Says how the recommender knows the applicant
-- [ ] Shows achievements and how applicant is a leader/potential leader
-- [ ] Says how applicant would benefit from living in the UK
-- [ ] Says how applicant would contribute to UK digital technology
-- [ ] Explains applicant's future work plans
-- [ ] Written specifically for this application (not reused from another purpose)
-- [ ] Provides different examples from the other letters
+- [ ] Author has known the applicant's work for at least 12 months
+- [ ] Specific to this Global Talent application
+- [ ] Explains how the author knows the applicant
+- [ ] Shows achievements and why they indicate talent or promise
+- [ ] Addresses benefit from living in the UK
+- [ ] Addresses contribution to UK digital technology
+- [ ] Explains future work plans
+- [ ] Uses examples different from the other letters
 
-### Evidence Documents (each)
-- [ ] Maximum 3 sides of A4
-- [ ] Has a clear headline/summary
-- [ ] Includes documentary proof (screenshots, data, etc.)
-- [ ] Explains how proof supports the criterion
-- [ ] States why this matters
-- [ ] Assigned to only ONE criterion (not reused across criteria)
-- [ ] At least 2 documents for mandatory criterion
-- [ ] At least 2 documents per selected optional criterion (4 minimum for optional)
-- [ ] Total evidence documents ≤ 10
+Also assess whether the author can substantiate the case. Recency, direct knowledge, specificity, credibility, and the perspectives across the set are review factors, not extra legal requirements. Do not automatically reject an internal author or invent an external-letter quota.
 
-### Proof of Tech Business Connection
-- [ ] If applicant was founder/senior exec in last 5 years: evidence provided (sales data, audited accounts, or accounts covering 12+ months)
+### Criteria Evidence
 
-## Review Pass 2: Constructive Review
+- [ ] At least 2 documents show recognition as a leader or potential leader
+- [ ] At least 2 documents support each of 2 selected optional criteria
+- [ ] No more than 10 criteria-evidence documents total
+- [ ] Each document is no more than 3 sides of A4
+- [ ] Each document is assigned to only one criterion
+- [ ] No cosmetic duplicate is counted as independent evidence
+- [ ] Each document clearly explains its claim, proof, attribution, and criterion fit
+
+If distinct documents concern one underlying achievement, ask whether each contains genuinely different evidence and independently proves its criterion. Different framing alone is not enough.
+
+### Technology-Business Connection
+
+- [ ] If the applicant has been a founder or senior executive of a technology business in the last 5 years, the current required proof is included
+- [ ] Any established business, share ownership, or dissolved-business evidence required by Appendix Global Talent is addressed
+
+## Pass 2: Constructive Review
 
 ### Criterion Alignment
-For each document, assess:
-- Does it clearly address the relevant criterion?
-- Would an assessor immediately understand which criterion this supports?
-- Is the connection explicit or does it require the reader to infer?
 
-### Evidence Specificity
-- Are claims backed by specific metrics? (not "significant growth" but "47% increase in MAU")
-- Are dates, numbers, and details concrete?
-- Is there third-party validation (press, awards, external metrics)?
-- Could another applicant make the same claims, or are these uniquely yours?
-- Can each claim be independently verified online? Assessors check — if they can't find it, it doesn't count
-- Is the evidence recent (within 5 years)? Evidence created suspiciously close to the submission date looks manufactured
+For each document:
 
-### Proof Quality Assessment
-Evaluate the strength of documentary proof:
-- **Strong proof**: Press articles, third-party analytics, awards from recognized bodies, conference invitations with independent selection, published research, independent usage data
-- **Moderate proof**: Client testimonials, partnership agreements, internal analytics with context, signed letters from industry figures
-- **Weak proof**: Internal emails, self-reported screenshots without context, internal company praise, dashboard screenshots without baselines
-- **Early-stage startup nuance**: For early-stage startups (<20 employees), mostly internal proof may be legitimate — there simply aren't many external sources yet. Look for whether recommenders corroborate the claims and whether the company itself has external validation (funding announcements, accelerator acceptance, notable customers, press coverage). The smaller the company, the more weight recommender corroboration carries
-- **Not valid as proof**: Self-published articles (LinkedIn posts, personal blogs, unreviewed Medium), sponsored/paid speaking engagements, AI-generated content, salary/equity as OC4 evidence (reported 2025 guideline: salary evidence is now mandatory criterion only)
-- Flag when ALL proof in a document is internal — assessors need external validation
-- Note: assessors are overloaded — applications that are easy to read and clearly structured get a fairer hearing than dense, complex submissions
+- Which exact requirement does it support?
+- Does it use the correct Talent or Promise wording?
+- Would the connection be clear without insider knowledge?
+- Is innovation incorrectly split into two independent criteria?
 
-### Narrative Quality
-- Does the personal statement tell a coherent story?
-- Is there a clear thread connecting achievements?
-- Does each document add new information or just repeat?
-- Are UK plans specific and credible? Check for:
-  - A named city/region with a reason connected to their expertise
-  - Both professional plans AND activities outside their day job (assessors explicitly want both)
-  - Plans that logically extend their demonstrated track record (not aspirational claims with no history)
-  - Specific UK organisations, communities, or programmes referenced by name
-  - Evidence of concrete steps already taken toward the UK
-  - Flag generic plans ("contribute to the ecosystem") or plans that could apply to any country
+### Specificity and Attribution
 
-### Positioning Evaluation
-Beyond checking that story elements are present, evaluate whether the application positions the applicant distinctively. Ask: "If I read 50 applications today, would this one stick with me?" Look for a clear, memorable narrative thread — not just compliance with the checklist.
+- Are actions, dates, baselines, and outcomes concrete?
+- Does the document distinguish the applicant's work from team or company success?
+- Are metrics contextualised and consistently stated?
+- Can material claims be corroborated by credible records or witnesses?
+- Does the document explain significance rather than only activity?
 
-### Strength Rating Per Document
-Rate each document: Strong / Adequate / Needs Work / Weak
+Do not assert that every claim must be publicly searchable. External evidence can strengthen a claim; internal evidence can still be relevant when its source, context, and limitations are clear.
 
-**Strong**: Clear criterion alignment, specific metrics, third-party validation, compelling narrative — the assessor would remember this application positively after reading dozens
-**Adequate**: Addresses criterion, has some specifics, but could be more compelling — technically sufficient but unlikely to stand out. Consider whether stronger positioning could elevate it
-**Needs Work**: Vague claims, missing metrics, unclear criterion connection
-**Weak**: Doesn't clearly address any criterion, generic, could be anyone
+### Proof Quality
 
-**Personal statement rating calibration:**
-- **Strong**: Opens with a specific founding story, cites 500K users and £2M ARR, names a CogX talk and Wired UK feature, UK plans reference a specific accelerator conversation already started
-- **Adequate**: Mentions achievements but in general terms ("significant growth"), has UK plans but they're vague ("contribute to the ecosystem"), technically covers all required beats
-- **Needs Work**: Heavy on backstory, light on metrics, UK section is one sentence, reads like a job cover letter not a sector leadership case
+Assess each source on:
 
-## Review Pass 3: Adversarial Tech Nation Simulation
+- provenance and authenticity;
+- directness to the claim;
+- independence and possible bias;
+- context and interpretability;
+- consistency with other evidence; and
+- legibility within the current document limit.
 
-Adopt the perspective of a skeptical assessor who reviews hundreds of applications.
+Do not use blanket rules such as “self-published content never counts,” “paid speaking never counts,” “salary belongs only to one criterion,” or “internal screenshots are invalid” unless the current official guidance says so. Explain the actual evidential weakness: lack of recognition, independence, context, attribution, or significance.
 
-### What Assessors Question
-- "How do I know this person did this, not their team?"
-- "Where's the external proof of this claim?"
-- "This sounds impressive but what's the actual impact?"
-- "Is this digital technology, or just using technology?"
-- "Why should I believe this number?"
-- "This recommender is their direct manager — of course they'd say nice things"
+### Narrative and UK Plans
 
-### Common Rejection Patterns
-- All evidence is self-reported with no external validation
-- Achievements are company achievements, not personal contributions
-- "Innovation" is really "did their job well"
-- Recognition is limited to within their company
-- Personal statement reads as a job application, not a sector leadership case
-- Recommenders lack industry standing or are too close to the applicant
-- Evidence documents describe activity rather than impact
-- UK plans are generic or absent
+- Does the application tell a coherent and truthful story?
+- Does each document add material evidence rather than repeat?
+- Are UK plans specific enough to be credible and consistent with the applicant's record?
+- Do future plans address the current form and recommendation-letter requirements?
+- Are named organisations, cities, programmes, or communities genuine and current rather than ornamental?
 
-**Non-obvious rejection patterns:**
-- **Pathway mismatch**: claiming Exceptional Talent with under 5 years of experience. The criteria are clear: under 5 years = Promise, which gives the same day-to-day rights. Help the applicant find their strongest frame within the right pathway
-- **UK-inside bias**: UK-based applicants appear to face additional scrutiny. When reviewing a UK-based application, check that it emphasizes ecosystem contribution beyond the current employer, includes external recommenders, and highlights international dimensions. This is a risk factor to strengthen against, not a reason to discourage applying
-- **No concrete metrics**: "I did a startup" without specific revenue, users, or growth numbers. Assessors see through vague claims immediately
-- **Assessor committee composition**: the panel includes lawyers and tech community builders — they're looking for both legal compliance and genuine tech community contribution
-- **Recommender credibility matters more than you think**: assessors google the letter writers. If your recommender has no online presence or credibility, the letter loses weight regardless of content
-- **Stale or underpowered recommenders**: an old manager or friendly colleague can weaken an otherwise strong case if they are disconnected from the applicant's best recent evidence. Recent senior witnesses, customers, partners, conference organizers, open source maintainers, investors, or other credible external observers usually carry more weight when they can speak specifically.
-- **Strong evidence, weak corroboration**: if evidence documents are strong but the recommendation letters cannot personally verify them, treat recommender fit as a material weakness and include it in priority fixes
+Specific UK contribution is an assessment factor. No named city, accelerator, institution, or activity is inherently required.
 
-### Skeptic Questions by Criterion
+### Ratings
 
-**Mandatory (recognised as leading/potential talent)**:
-- "Who outside your company considers you a leader? Show me."
-- "What evidence of recognition exists that I can verify?"
-- "Leading compared to whom? What's your peer group?"
+Rate each document:
 
-**OC1 (founder/exec innovation in product-led company)**:
-- "Is this company actually product-led, or is it a services company with a product?"
-- "How much of the product vision was yours vs inherited?"
-- "What metrics demonstrate the product's market impact?"
-- "Where's the proof of your connection to this business?"
+- **Strong:** clear criterion fit, attributable facts, credible corroboration, and material significance
+- **Adequate:** relevant and supportable but with limited context, corroboration, or distinctiveness
+- **Needs Work:** material gaps in attribution, proof, criterion fit, consistency, or clarity
+- **Weak:** does not credibly establish the assigned requirement
 
-**OC2 (innovation in new field/concept as employee)**:
-- "What makes this field genuinely 'new'? Isn't this standard engineering?"
-- "What was innovative about your specific approach?"
-- "Is this a new concept, or existing tech applied to a new domain?"
+Ratings are review judgements, not outcome predictions.
 
-**OC3 (contributions outside of work)**:
-- "Are these open source contributions meaningful, or trivial PRs?"
-- "Is this mentoring documented, or just a claim?"
-- "What's the adoption/engagement beyond your immediate network?"
+## Pass 3: Adversarial Assessment
 
-**OC4 (contributions in product-led digital tech company)**:
-- "How do I distinguish your contribution from the company's overall performance?" (at early-stage startups with small teams, individual and company contribution are often inseparable — this isn't automatically a weakness, but the applicant must articulate specific decisions they made and their consequences)
-- "Would this have happened without you specifically?"
-- "Is this what any competent person in this role would do?" (at a 5-person startup, "any competent person" wouldn't have joined at that stage — the risk-taking and breadth of contribution is itself noteworthy)
-- "Is this company genuinely product-led?"
+Ask the hardest supportable questions without pretending to know how a particular assessor will decide.
 
-**OC5 (research published or endorsed by expert)**:
-- "Are these publications in respected venues or predatory journals?"
-- "Citations by others, or self-citations?"
-- "Is the research connected to digital technology?"
-- "Who is the endorsing expert and why should I trust their judgment?"
+### Mandatory Recognition
 
-## Review Pass 4: AI Detection Scan
+- Who recognises this applicant as a leader or potential leader, and where is that shown?
+- Does the evidence concern the last 5 years?
+- Is the recognition about the applicant's digital-technology work rather than employer prestige alone?
 
-### Official Prohibition
+### O1 — Innovation
 
-Tech Nation's guidance states: "The use of Artificial Intelligence and/or language processing tools (e.g. ChatGPT) within your application is not acceptable (e.g. Letters of Reference, Personal Statement, Criteria Evidence, etc.)"
+- Which O1 route applies under this pathway?
+- What is genuinely innovative rather than competent delivery?
+- Is the relevant company product-led?
+- What did the applicant personally originate or change?
+- What evidence shows an outcome?
 
-Templates are also prohibited: "Letters deemed to be duplicates or templates, or closely matching the contents of evidence submitted by other applicants, may be considered fraudulent."
+### O2 — Work Beyond Occupation
 
-Detection appears to rely primarily on human reviewers identifying telltale patterns, not automated AI detection tools.
+- Is the work genuinely outside the applicant's occupation?
+- How did it advance the field?
+- What was the applicant's specific contribution and outcome?
+- What corroborates the activity and impact?
 
-### Telltale AI Writing Patterns
-Flag specific sections that exhibit:
-- Overly formal or corporate language where natural voice would be expected
-- Generic phrasing that could apply to anyone ("leveraging cutting-edge technologies")
-- Buzzword clusters: "leverage", "spearhead", "synergy", "paradigm shift", "innovative solutions"
-- Known red flag words: "seamlessly", "meticulous", "cutting-edge", "transformational"
-- Perfect parallel structure across unrelated paragraphs
-- Absence of personal voice, quirks, or informal markers
-- Overly long sentences with multiple clauses
-- Suspiciously consistent tone and complexity level throughout
-- Opening sentences that sound like ChatGPT ("In the rapidly evolving landscape of...")
-- Lists that feel generated rather than remembered
-- Lack of specific details that only the applicant would know
+### O3 — Significant Contributions
 
-**Calibration examples:**
-- Flagged: "Leveraging my extensive experience in cutting-edge AI technologies, I have consistently spearheaded innovative solutions that drive transformational outcomes across diverse stakeholder ecosystems."
-- Clean: "I've spent 6 years building fraud detection models. The one I built at Monzo catches 40% more fraudulent transactions than the previous system."
+- Is this a product-led digital technology company?
+- What contribution belongs to the applicant rather than the team or company?
+- Why is the contribution significant?
+- Which source supports the claimed outcome?
 
-### Voice Consistency Check
-- Does the personal statement sound like the same person as the CV?
-- Is the writing level consistent throughout each document?
-- Are there sudden shifts in quality or style mid-document?
-- Note: recommendation letters can have different voices (nominally different authors)
+### O4 — Academic Contributions
 
-### What to Flag
-- Highlight specific sentences or paragraphs that sound AI-generated
-- Explain WHY they sound AI-generated (which pattern they match)
-- Suggest the user rewrite those sections in more natural language
-- Check for words/phrases the user would never naturally use
+- Does the exact Talent or Promise wording apply?
+- Is the research relevant to digital technology?
+- What was the applicant's contribution?
+- Where is publication or expert endorsement shown?
+- What demonstrates credible academic significance?
 
-### Practitioner-Observed AI Flags
-- **Em dashes** are the most basic flag — overuse of em dashes is associated with AI-generated text
-- AI writing is detectable when it sounds robotic or automated — apply the "would a real person tweet this?" test
-- AI tends to get repetitive, especially when the text was one-shotted (generated in a single pass without iteration)
-- One-shotted essays hammer specific points repeatedly rather than building a coherent logical sequence
-- The best filter: read it aloud and ask "does this sound like something this specific person would actually say?" If it sounds like it could be anyone's writing, it's likely AI-influenced
-- Iteratively written text (built up over time with revisions) reads very differently from AI-generated text — encourage applicants to write in layers, not all at once
+### Cross-Cutting Risks
 
-## Review Pass 5: Cross-Document Consistency
+- pathway chosen by a mechanical years-of-experience rule;
+- recognition or impact stated without credible support;
+- company outcomes substituted for personal contribution;
+- service delivery presented as product-led innovation;
+- recommendation authors unable to verify the core case;
+- one document reused or repackaged across criteria;
+- generic UK plans; or
+- material inconsistency across documents.
 
-### Date Verification
-Compare all role dates across:
-- CV
-- Personal statement
-- Evidence documents
-- Any dates in recommendation letters
-- Note LinkedIn alignment issues
+Do not claim an undocumented “UK-inside bias,” a guaranteed rejection pattern, a fixed funding/citation/audience threshold, or privileged knowledge of panel composition.
 
-### Name Consistency
-Check across all documents:
-- Applicant's name (exact same form everywhere)
-- Company names (exact same form everywhere)
-- Product/project names
-- Recommender names and titles
+## Pass 4: Authorship and Voice-Risk Review
 
-### Metric Consistency
-Any number that appears in multiple documents must match:
-- User counts
-- Revenue figures
-- Growth percentages
-- Team sizes
-- Dates of specific events
+### What This Pass Can and Cannot Do
 
-### Claim Consistency
-- Achievements described in personal statement should align with evidence documents
-- Recommendation letters should reference correct evidence documents
-- No document should contradict another
-- Level of involvement should be consistent (don't claim "I built it" in one doc and "my team built it" in another)
+Tech Nation has published authorship guidance and warnings about AI- or language-tool-created material. Verify the live wording before submission. Keep roles distinct: the applicant authors their documents and each recommender authors their own letter.
 
-### Evidence-to-Criteria Mapping
-- Each evidence document must be assigned to ONE criterion only (gov.uk requirement) — but the same event can generate different documents for different criteria if framing and proof differ
-- Check that no evidence document is claimed for multiple criteria
-- Ensure at least 2 documents support the mandatory criterion
-- Ensure at least 2 documents support each selected optional criterion
-- Each recommendation letter should provide different examples from the others
+Text style cannot reliably determine whether AI was used or who wrote a passage. This pass must **not** label text “AI-generated,” assign a probability of AI authorship, or treat punctuation, vocabulary, polish, or sentence structure as proof.
 
-### MVE Document Comparison (if provided)
-If the user also provides their MVE Document (structured bullet points they planned from):
-- Check that all planned bullet points made it into the written documents
-- Flag anything significant that was planned but dropped
-- Note if the written version lost important specifics from the bullet points
+### Observable Risks to Flag
+
+Flag only what can be observed and explain its application impact:
+
+- generic claims that could describe almost anyone;
+- repeated slogans or unsupported superlatives;
+- sudden voice, vocabulary, or factual-detail shifts within one document;
+- templated or duplicate passages across letters that should have different authors and examples;
+- prose the responsible author says they did not write or cannot explain;
+- claims lacking personal detail or documentary support; and
+- language inconsistent with underlying facts or with other documents.
+
+These features may weaken authenticity, specificity, or credibility for many reasons. They are not authorship detection.
+
+### Recommended Review Language
+
+Use:
+
+- “This passage is generic and unsupported; rewrite it independently with facts only you can verify.”
+- “The voice shifts here. I cannot infer authorship from that; confirm the responsible author and ask them to revise independently.”
+- “These two letters share unusually similar wording; because each must be specific and use different examples, ask each author to revise independently.”
+
+Do not provide replacement sentences. Point to genuine passages elsewhere only to help the applicant identify their own natural level of detail and voice.
+
+## Pass 5: Cross-Document Consistency
+
+### Dates and Names
+
+Compare role dates, event dates, organisation names, product names, applicant name, and recommender titles across every provided document and any source the applicant asks to use. Flag discrepancies; do not assume one source is automatically correct.
+
+### Metrics and Attribution
+
+- repeated metrics use the same value, unit, timeframe, and baseline;
+- “I” versus “we/team” claims remain consistent;
+- revenue, users, funding, performance, team size, and dates do not drift; and
+- letters do not claim first-hand knowledge the author could not have had.
+
+### Evidence Mapping
+
+- every evidence document has one assigned criterion;
+- mandatory recognition has at least 2 documents;
+- each selected optional criterion has at least 2 documents;
+- the four-criterion taxonomy is used consistently; and
+- recommendation letters use different examples and make only claims their authors can substantiate.
+
+### MVE Comparison
+
+If an MVE planning document is provided, check whether important facts or proof disappeared, changed, or became less specific. The MVE is a planning aid, not submitted prose and not an authority on current requirements.

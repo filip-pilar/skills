@@ -10,6 +10,7 @@ Use this template to generate the Review Report artifact after completing all re
 > **Review Date**: [date]
 > **Pathway**: [Exceptional Talent / Exceptional Promise]
 > **Documents Reviewed**: [list what was provided]
+> **Official Requirements Checked**: [date + live GOV.UK / Appendix Global Talent links]
 
 ---
 
@@ -25,6 +26,8 @@ Use this template to generate the Review Report artifact after completing all re
 ---
 
 ## Overall Assessment
+
+Use the current four-criterion labels throughout: O1 — Innovation, O2 — Work beyond occupation, O3 — Significant contributions, O4 — Academic contributions. Do not count O1's founder/executive and employee routes separately.
 
 **Rating**: [Strong / Adequate / Needs Work / Not Ready]
 
@@ -50,9 +53,9 @@ Use this template to generate the Review Report artifact after completing all re
 - [specific issue with actionable suggestion]
 - [specific issue]
 
-**AI Detection Flags:**
-- [specific sections that sound AI-generated, with explanation]
-- [or "None detected"]
+**Authorship / Voice-Risk Observations:**
+- [specific observable issue: generic, templated, inconsistent, duplicated, or unsupported]
+- [or "No material authorship or voice-risk signals observed; this is not a determination of authorship or AI use"]
 
 ---
 
@@ -82,10 +85,10 @@ Use this template to generate the Review Report artifact after completing all re
 - Max 3 pages (excl. credentials): [Within limit / Over]
 - Author is established expert in digital tech: [Appears so / Unclear / Concern]
 - Author has known applicant's work 12+ months: [Confirmed / Not stated / Concern]
-- Evidence fit: [Strong / Adequate / Weak — which evidence can they verify?]
-- Recency / independence: [Recent / Older but relevant / Stale / Internal / External]
-- Public credibility: [Independently verifiable / Internal authority only / Unclear]
-- Stronger recent alternatives visible: [No / Yes — who and why they may be stronger]
+- Direct knowledge and specificity: [Strong / Adequate / Weak — which claims can they substantiate and how?]
+- Relationship / recency context: [describe without treating internal, external, recent, or older as an automatic result]
+- Established-expert basis: [Supported / Unclear / Concern]
+- Better-fit alternatives visible: [No / Yes — who and why their knowledge or specificity is stronger]
 - Material weakness if not fixed: [No / Yes — explain if evidence is strong but this recommender cannot verify it]
 - Written specifically for this application: [Yes / Appears generic]
 - Provides different examples from other letters: [Yes / Overlaps with Letter X]
@@ -112,11 +115,11 @@ Use this template to generate the Review Report artifact after completing all re
 **Target Criterion**: [which]
 **Rating**: [Strong / Adequate / Needs Work / Weak]
 
-**Template Check:**
-- Headline: [Clear / Vague / Missing]
-- Proof: [Strong / Adequate / Weak / Missing]
-- Explanation: [Strong / Adequate / Weak / Missing]
-- Call to action: [Present / Missing]
+**Evidence Quality Check:**
+- Assigned-criterion fit: [Clear / Weak / Missing]
+- Applicant attribution: [Clear / Weak / Missing]
+- Proof and provenance: [Strong / Adequate / Weak / Missing]
+- Significance and context: [Clear / Weak / Missing]
 
 **Strengths:**
 - [specific strength]
@@ -153,8 +156,8 @@ Use this template to generate the Review Report artifact after completing all re
 
 [or "No metric inconsistencies found"]
 
-### LinkedIn Alignment Notes
-- [any alignment issues to check against LinkedIn]
+### Public-Profile Alignment Notes
+- [material discrepancies to resolve; do not assume a public profile is automatically correct]
 
 ---
 
@@ -177,22 +180,22 @@ Use this template to generate the Review Report artifact after completing all re
 ## Positioning Assessment
 
 **Narrative Distinctiveness**: [Memorable / Adequate / Generic]
-**What an assessor would remember**: [One sentence — what stands out about this application after reading 50 others?]
-**Positioning Suggestions**: [Specific suggestions for making the application more distinctive and memorable — what story should the applicant be telling?]
+**Memorable facts**: [fact fragments only — which supported facts distinguish the case]
+**Positioning revision goals**: [facts or connections to clarify; no replacement wording]
 
 ---
 
-## AI Detection Summary
+## Authorship and Voice-Risk Summary
 
-**Overall AI Risk**: [Low / Moderate / High]
+**Important limitation**: Prose style cannot establish whether AI was used or who wrote a passage. The observations below concern specificity, consistency, responsible-author control, and duplicate/template risk only.
 
 **Flagged Sections:**
-| Document | Section/Passage | Pattern Detected | Risk Level |
+| Document | Section/Passage | Observable concern | Application impact |
 |---|---|---|---|
-| [doc name] | "[quoted text or description]" | [which AI pattern] | [Low/Med/High] |
+| [doc name] | "[short quoted text or description]" | [generic / voice shift / duplicate wording / unsupported claim] | [why it weakens specificity, credibility, or confidence in responsible authorship] |
 
 **Recommendations:**
-- [specific rewriting suggestions]
+- [revision goal or question; do not provide replacement text]
 
 ---
 
@@ -208,7 +211,7 @@ Ranked from most to least critical:
 [continue as needed]
 
 **Evidence that doesn't yet exist**: If any fix above requires evidence the applicant hasn't created yet, note it separately:
-- [e.g., "OC3 needs a second evidence document — consider speaking at a conference or publishing; timeline: 2-3 months"]
+- [e.g., "O2 — Work beyond occupation needs a second credible evidence document; identify genuine work and derive timing from the activity"]
 - [or "All fixes can be addressed with existing materials"]
 
 ---
@@ -225,11 +228,11 @@ Ranked from most to least critical:
 ---
 
 ## What Happens After Submission
-- **Endorsement decision**: 5-8 weeks (3 weeks for AI/cybersecurity)
-- **If endorsed**: apply for visa within 3 months
-- **If refused**: you can reapply once with additional evidence — the refusal letter will state specific reasons, address each one directly
-- **Simultaneous application**: if endorsement refused, visa fee refunded minus £25
+- **Current endorsement timing**: [quote the live GOV.UK guidance checked on the review date]
+- **Endorsement-use deadline**: [quote the live GOV.UK guidance checked on the review date]
+- **If refused**: [summarise the current endorsement-review and reapplication options from live GOV.UK; do not assume new evidence is allowed in a review]
+- **If endorsement and visa applications were simultaneous**: [state current consequences/refund handling only if verified live]
 
-*This is guidance, not a guarantee of outcome.*
+*This is guidance, not legal or immigration advice and not a guarantee of outcome.*
 *To iterate: revise your documents based on this feedback and paste them back for another review.*
 ```
