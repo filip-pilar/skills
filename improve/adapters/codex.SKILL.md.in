@@ -1,6 +1,6 @@
 ---
 name: improve
-description: Audit a codebase as a senior advisor and produce prioritized, self-contained implementation plans for other agents. Read-only on source except for a separately dispatched executor in an isolated worktree. Use for bugs, security, performance, tests, architecture, migrations, DX, docs, roadmap direction, plan review, execution review, or backlog reconciliation.
+description: Senior codebase audit and planning advisor that produces prioritized, self-contained implementation plans for other agents. Read-only on source except for a separately dispatched executor in an isolated worktree. Covers bugs, security, performance, tests, architecture, migrations, DX, docs, roadmap direction, plan review, execution review, and backlog reconciliation.
 ---
 
 <!-- improve-generated: codex; edit core.md or adapters/codex.SKILL.md.in -->
