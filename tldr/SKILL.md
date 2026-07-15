@@ -1,6 +1,6 @@
 ---
 name: tldr
-description: Explicit-only catch-up digest for Codex Side tasks. Use $tldr to summarize the entire available linked parent task, not only its latest reply, as ultra-concise bullets covering status, completed work, material bugs and failures, verification, decisions, open work, and anything needed from the user. A bare invocation creates or refreshes the digest.
+description: Ultra-concise Codex Side digest of a linked parent task's complete available state, including completed work, verification, decisions, and open items.
 ---
 
 # TLDR

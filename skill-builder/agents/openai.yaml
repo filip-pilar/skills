@@ -1,0 +1,7 @@
+interface:
+  display_name: "Skill Builder"
+  short_description: "Build and improve skills by behavior"
+  default_prompt: "Use $skill-builder to create, diagnose, improve, compress, evaluate, or release a Codex skill."
+
+policy:
+  allow_implicit_invocation: false

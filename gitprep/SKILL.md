@@ -1,6 +1,6 @@
 ---
 name: gitprep
-description: Explicit-only git commit workflow. Use $gitprep to inspect the working tree and upstream publication state, propose coherent commits and proportionate checks, then after approval stage and commit only the exact files or hunks with the approved messages. Never push unless the user separately asks after the commit workflow.
+description: Inspect repository and publication state, plan coherent commits, and create only user-approved commits without pushing.
 ---
 
 # Gitprep

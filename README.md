@@ -6,6 +6,8 @@ Most top-level folders are standalone skills. The `gtv/` folder groups related U
 
 ## Available Skills
 
+- `co-prompt`: Use a Codex Side task to understand and reason through its linked parent without producing or sending the final reply.
+  - Use directly in a Side task: invoke `$co-prompt` to start or restore the discussion.
 - `devils-advocate`: Constructively pressure-test ideas, plans, decisions, arguments, and research without empty contrarianism, surfacing material risks and proportionate responses.
   - Use directly: `Use $devils-advocate to pressure-test this plan.`
 - `dr-react`: Run a guarded React Doctor score-improvement workflow with root-cause fixes, concise impact evidence, verification gates, visual regression checks, and anti-score-gaming rules.
@@ -14,10 +16,13 @@ Most top-level folders are standalone skills. The `gtv/` folder groups related U
   - Override the target: `Use $dr-react to raise this repo's React Doctor score to 85.`
 - `gitprep`: Inspect the current git diff, propose a clean commit plan, run approved checks, and commit exactly the approved files or hunks. Pushes only when separately requested afterward.
   - Use directly: `Use $gitprep to inspect my current diff and propose a clean commit plan.`
-- `optimize-skill`: Remove bloat from an existing skill while preserving its behavior, utility, safety, and task fit.
-  - Use directly: `Use $optimize-skill to optimize sidekick without changing its behavior.`
+- `skill-builder`: Create, diagnose, semantically improve, compress, evaluate, and release Codex skills through an outcome-first lifecycle with behavioral regression evidence.
+  - Use directly: `Use $skill-builder to diagnose this skill from the attached bad output.`
+  - Compression only: `Use $skill-builder to compress this skill without changing its behavior.`
 - `poke-negotiator`: Negotiate with Poke by Interaction through macOS Messages/iMessage or Telegram Web, verify checkout links, and stop before payment or account-connection steps.
   - Use directly: `Use $poke-negotiator to start a Poke negotiation.`
+- `reply`: Turn a settled Codex Side discussion into the smallest sufficient reply for its linked parent.
+  - Use directly in a Side task: invoke `$reply` after the response has been decided.
 - `socket-audit`: Audit local git repos for compromised dependencies and optionally install Socket.dev-based npm/pnpm/Bun protection.
   - Use directly: `Use $socket-audit to audit my local repos for compromised dependencies.`
   - Protection only: `Use $socket-audit to set up going-forward Socket protection.`
@@ -42,13 +47,12 @@ Use the folder for the skill you want. Installation, loading, and invocation dep
 
 - Skills are not guaranteed to be portable everywhere.
 - Read each skill's `SKILL.md` for supported tools, permissions, and safety stops.
+- Manual-only skills are `co-prompt`, `devils-advocate`, `gitprep`, `reply`, `sidekick`, `skill-builder`, `socket-audit`, and `tldr`; invoke them explicitly as `$name`.
 - `dr-react` runs `npx react-doctor@latest`, which may require network/package-manager access in a target repository.
-- `gitprep` is manual-only and should be explicitly invoked as `$gitprep`.
-- `optimize-skill` is manual-only and should be explicitly invoked as `$optimize-skill`.
-- `sidekick` is manual-only and should be explicitly invoked as `$sidekick` inside a Codex Side task.
-- `tldr` is manual-only and should be explicitly invoked as `$tldr` inside a Codex Side task.
+- `skill-builder` uses Improve for intentional behavior changes and Compress for behavior-preserving compression.
+  - Its development-only benchmark rubrics live under `.evals/skill-builder/`, outside the distributable skill package.
 - `setup-cli-proxy-gateway` can change local authentication, listeners, services, and harness configuration; it requires explicit approval for mutations and paid provider calls.
 - `poke-negotiator` can require Full Disk Access and Messages Automation permissions on macOS when using iMessage/Messages.
 - `poke-negotiator` requires browser automation for Telegram Web.
-- `socket-audit` is manual-only and can require network access, Socket.dev auth, package-manager installs, and explicit approval before modifying shell/package-manager configuration.
+- `socket-audit` can require network access, Socket.dev auth, package-manager installs, and explicit approval before modifying shell/package-manager configuration.
 - The GTV skills provide application guidance, not legal or immigration advice, and intentionally refuse to generate paste-ready application text.

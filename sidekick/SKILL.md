@@ -1,6 +1,6 @@
 ---
 name: sidekick
-description: Explicit-only companion for Codex Side tasks. Use $sidekick to explain the linked parent's newest completed response, surface its needs, support without making the user's decisions, draft only explicit choices, and send only the approved draft. A bare invocation starts or checks while waiting.
+description: Codex Side companion for understanding a linked parent's latest response, working through decisions, and preparing a reply.
 ---
 
 # Sidekick

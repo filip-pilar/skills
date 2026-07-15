@@ -1,0 +1,7 @@
+interface:
+  display_name: "Bloated Evidence Brief"
+  short_description: "Separate supplied evidence without invention"
+  default_prompt: "Use $bloated-evidence-brief to separate these notes into facts, inferences, disagreements, and unknowns."
+
+policy:
+  allow_implicit_invocation: false

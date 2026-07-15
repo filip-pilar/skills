@@ -1,6 +1,6 @@
 ---
 name: co-prompt
-description: Explicit-only thinking partner for Codex Side tasks. Use $co-prompt to understand and reason through the linked parent task without drafting or sending its final reply. A bare invocation starts or restores the workflow.
+description: Thinking partner for understanding and reasoning through a Codex Side task's linked parent without producing or sending its final reply.
 ---
 
 # Co-prompt

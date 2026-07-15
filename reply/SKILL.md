@@ -1,6 +1,6 @@
 ---
 name: reply
-description: Explicit-only reply workflow for Codex Side tasks. Use $reply to turn the Side-task discussion into the smallest sufficient response to its linked parent. A bare invocation drafts and never sends.
+description: Turn the user's settled Codex Side discussion into a concise reply for its linked parent.
 ---
 
 # Reply

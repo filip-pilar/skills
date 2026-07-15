@@ -1,6 +1,6 @@
 ---
 name: devils-advocate
-description: Explicit-only constructive scrutiny for ideas, plans, decisions, arguments, and research. Use $devils-advocate or when the user explicitly asks to play devil's advocate, pressure-test or red-team a proposal, challenge assumptions, find material risks or blind spots, or make the strongest case against it. Do not use for ordinary brainstorming or general feedback.
+description: Constructive scrutiny of ideas, plans, decisions, arguments, and research, focused on material assumptions, risks, blind spots, and credible opposing cases.
 ---
 
 # Devil's Advocate

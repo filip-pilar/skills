@@ -1,9 +1,6 @@
 ---
 name: socket-audit
-description: >
-  Use only when the user explicitly invokes $socket-audit to scan local repositories
-  for supply-chain indicators, configure npm/pnpm/Bun install-time protection, run
-  the bundled offline IOC check, or uninstall protection previously added by this skill.
+description: Audit local repositories for supply-chain indicators and configure or remove npm, pnpm, or Bun install-time protection.
 ---
 
 # Socket Audit
