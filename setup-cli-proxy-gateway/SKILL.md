@@ -89,6 +89,5 @@ Report the route, versions and paths, auth type, model, verified features, expec
 - `references/installation.md`: installation, migration, service, and rollback procedure.
 - `references/harness-claude-code.md` and `references/harness-codex.md`: host-specific configuration and tests.
 - `references/validation.md` and `references/acceptance.md`: evidence ladder and result matrix.
-- `references/compatibility.md`: dated acceptance evidence only; retest current builds.
 
 Use the scripts and assets named by those references instead of recreating their logic.

@@ -34,7 +34,7 @@ OAuth browser success does not prove the account tier has inference entitlement.
 
 For a reasoning-capable Grok model, use `scripts/test_route.sh --reasoning-effort low|medium|high` on Responses and Chat Completions. Record parameter acceptance and returned reasoning-token metadata separately; an exact short answer may legitimately use zero visible reasoning tokens.
 
-After OAuth, verify the new credential mode immediately. CLIProxyAPI 7.2.71 was observed creating an xAI credential as `0644` on macOS; correct it to `0600` before inference if reproduced, without printing the account-bearing filename.
+After OAuth, verify the new credential mode immediately. Correct an overly permissive xAI credential to `0600` before inference without printing the account-bearing filename.
 
 The requested Grok model ID and upstream response/build ID may differ. Treat that as alias resolution only after `/v1/models` attributes the requested ID to xAI and the route is verified.
 

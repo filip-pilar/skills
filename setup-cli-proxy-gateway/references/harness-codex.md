@@ -83,6 +83,6 @@ Inspect the actual parent `spawn_agent` call before claiming support:
 - `spawn_agent(agent_type=...)`: role-based custom-agent configuration can apply. Test one child and parallel children.
 - `spawn_agent(task_name=...)`: the name is a workflow label, not proof that a same-named custom-agent TOML was applied. Inspect child state; if it inherited the parent model, mark custom model selection unsupported.
 
-Do not enable under-development metadata flags to rewrite a model's reserved collaboration schema. A dated acceptance run found that exposing hidden spawn metadata caused an upstream reserved-tool-schema rejection. Re-test after Codex/model updates instead.
+Do not enable under-development metadata flags to rewrite a model's reserved collaboration schema; exposing hidden spawn metadata can trigger an upstream reserved-tool-schema rejection. Re-test after Codex/model updates instead.
 
 Named profiles are selected by the CLI. The Codex app inherits `config.toml` but has no documented `--profile` selector, so an app mixed-provider session requires an app-accessible gateway credential and a user-level gateway provider/default for that session. Explain and approve that routing tradeoff before changing the base config.

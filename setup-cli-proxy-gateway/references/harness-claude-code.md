@@ -22,7 +22,7 @@ The launcher:
 - Forwards `-p`, permission flags, output formats, resume/continue, MCP, and other non-wrapper flags.
 - Implements Ultracode as xhigh routing plus Claude's Ultracode session mode without an xhigh launch pin.
 
-The dated acceptance evidence verified six effort values on selected OpenAI models, but model families and accepted controls change. Discover the desired IDs, confirm their documented effort set, and pass those IDs explicitly to `scripts/test_openai_efforts.sh`. ClaudeX encodes explicit `none` in the proxy model suffix but does not pass `none` as a native Claude Code effort, because that harness value is not independently documented.
+Model families and accepted controls change. Discover the desired IDs, confirm their documented effort set, and pass those IDs explicitly to `scripts/test_openai_efforts.sh`. ClaudeX encodes explicit `none` in the proxy model suffix but does not pass `none` as a native Claude Code effort, because that harness value is not independently documented.
 
 Validate Ultracode with `scripts/test_claudex_ultracode.sh`. It requires a real `Workflow` call, `TaskOutput`, exact final text, an isolated child transcript on the selected model, a `Read` tool result, and fixture-derived output. A successful parent response alone is insufficient.
 

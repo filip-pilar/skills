@@ -59,9 +59,9 @@ Start the explicit config in the foreground first. Verify loopback binding, auth
 
 Only then create a per-user LaunchAgent/systemd user service. Use a stable binary/config path, restart on failure, and private logs. Validate the service with the platform's service inspector plus a real HTTP request.
 
-Test a same-port second start and require a bind-error log, unchanged listener PID, and authenticated health afterward. Do not trust the second process's exit status alone: CLIProxyAPI 7.2.71 was observed logging `address already in use` while exiting `0`.
+Test a same-port second start and require a bind-error log, unchanged listener PID, and authenticated health afterward. Do not infer success from the second process's exit status alone.
 
-Preflight OAuth callback ports before showing the authorization URL. On the tested 7.2.71 Claude, Codex, and xAI flows, an occupied explicit callback port was not rejected before browser completion. Use `scripts/test_callback_collision.sh` to characterize the installed build and a platform listener check to prevent that late failure. Treat callback collision, expired OAuth, and entitlement rejection as separate lifecycle results rather than generic installation failures.
+Preflight OAuth callback ports before showing the authorization URL because an occupied explicit port may not be rejected until browser completion. Use `scripts/test_callback_collision.sh` to characterize the installed build and a platform listener check to prevent that late failure. Treat callback collision, expired OAuth, and entitlement rejection as separate lifecycle results rather than generic installation failures.
 
 ## Updates
 
