@@ -31,13 +31,13 @@ Each defense layer targets a different point.
 
 **Always-on**: Yes, for code you edit in VS Code/Cursor.
 
-**Gap**: Doesn't catch deps added by agents that bypass the editor (Codex's Edit tool modifies files programmatically; some IDE extensions still surface the warning on next file save).
+**Gap**: Doesn't catch dependencies added by tools that bypass the editor; some extensions surface the warning only after the file is opened or saved.
 
 ## Layer 2 — Bun's scanner API + Socket scanner package
 
 **Where it fires**: Step 4 — inside Bun's install process, before any tarball is downloaded.
 
-**How it works**: Bun has a first-class security scanner API. `~/.bunfig.toml` declares:
+**How it works**: Bun has a first-class security scanner API. Each protected project's `bunfig.toml` declares:
 
 ```toml
 [install.security]
@@ -46,9 +46,9 @@ scanner = "@socketsecurity/bun-security-scanner"
 
 On every `bun install` / `bun add`, Bun calls the scanner module for each candidate package. The scanner queries Socket's catalog. `fatal` verdict aborts the install; `warn` prompts (or fails in CI).
 
-**Always-on**: Yes. Config-based — fires regardless of who/how `bun install` is invoked.
+**Always-on**: Yes within a configured project. Config-based — fires regardless of who/how `bun install` is invoked.
 
-**Gap**: Only for Bun. Doesn't help with `npm install` / `pnpm install`.
+**Gap**: Only for Bun and only where the scanner package is installed locally. A global scanner key plus `bun add -g` does not make the package resolvable in ordinary projects on Bun 1.3.5. A global `minimumReleaseAge` is still useful, but it is an age gate rather than Socket scanner coverage.
 
 ## Layer 3 — `sfw` (Socket Firewall) network proxy
 
@@ -64,7 +64,7 @@ On every `bun install` / `bun add`, Bun calls the scanner module for each candid
 **Always-on**: **No — opt-in per invocation.** Only fires when something explicitly runs `sfw npm` (or via alias / PATH wrapper). Bare `npm install` runs unprotected.
 
 **Gap**: Anything that calls `npm` / `pnpm` directly without going through `sfw`. This includes:
-- Non-interactive shells (Codex's shell tool, scripts, Makefiles, package.json scripts)
+- Non-interactive shells (agent tools, scripts, Makefiles, package.json scripts)
 - A user who forgets the `sfw` prefix
 - Custom registries (free tier proxies public registries only)
 
@@ -75,7 +75,7 @@ On every `bun install` / `bun add`, Bun calls the scanner module for each candid
 **How it works**: Interactive shells expand aliases before executing commands.
 
 **Always-on**: **No — interactive shells only.** Aliases are not expanded in:
-- Non-interactive shells (Codex's shell tool, bash scripts)
+- Non-interactive shells (agent tools and shell scripts)
 - Login-non-interactive shells (`#!/bin/zsh -l` scripts)
 - Subprocess invocations
 - Anything that uses `command npm` or `\npm` to bypass
@@ -108,18 +108,18 @@ On every `bun install` / `bun add`, Bun calls the scanner module for each candid
 
 ## Mechanism choice for an AI-agent-driven workflow
 
-A workflow where Codex (or another agent) runs `bun install` / `npm install` on the user's behalf changes the calculus:
+A workflow where an agent runs `bun install` / `npm install` on the user's behalf changes the calculus:
 
 | Mechanism | Catches AI-driven installs? | Notes |
 |---|---|---|
 | IDE extension | Partial — only when user manually edits | Edit-tool changes from agents may bypass |
-| Bun scanner via bunfig | **Yes** | Config-based, fires regardless of invoker |
+| Project-local Bun scanner | **Yes** | Config-based, fires regardless of invoker in configured projects |
 | `sfw` invoked manually | No | Agent won't prefix with `sfw` |
 | Shell alias | **No** | Non-interactive shell bypasses |
 | PATH wrapper | **Yes** | Survives any execve |
 | GitHub App | **Yes** | Catches anything that PRs |
 
-**Default recommendation for any user**: Bun scanner via bunfig.toml + PATH wrapper for npm/pnpm + GitHub App for PR-time backstop. Shell aliases add no value if the wrapper is installed.
+**Default recommendation for any user**: project-local Bun scanner + PATH wrapper for npm/pnpm + GitHub App for PR-time backstop. Add a global Bun release-age gate if desired. Shell aliases add no value if the wrapper is installed.
 
 This skill's install-time protection workflow covers npm, pnpm, and Bun. Other ecosystems that Socket can audit, such as PyPI, Cargo, RubyGems, or Go modules, should be described as audit-only here unless the user has separate tooling.
 
@@ -132,7 +132,7 @@ Common ways a naive npm wrapper script breaks, and how this skill's `install-wra
 | Pitfall | Mitigation |
 |---|---|
 | Infinite loop (sfw spawns npm via PATH, finds the wrapper, re-invokes sfw) | Wrapper passes the **absolute path** of the real npm to sfw, e.g. `sfw /opt/homebrew/bin/npm "$@"`. sfw spawns that absolute path, never re-hitting the wrapper. |
-| 700ms overhead on `npm --version`, `npm run`, etc. | Wrapper checks the first arg. Only install-adjacent subcommands route through sfw; everything else execs the real npm directly. |
+| Unnecessary overhead on `npm --version`, `npm run`, etc. | Wrapper checks the first arg. Only install-adjacent subcommands route through sfw; everything else execs the real npm directly. |
 | Different real-npm path on Apple Silicon vs Intel vs Linux | Installer scans `PATH` first, then falls back to `/opt/homebrew/bin`, `/usr/local/bin`, `/usr/bin`. |
 | Node installed through Volta/asdf/fnm/Corepack | Installer scans `PATH` first and skips only the wrapper directory / existing socket-audit wrappers. |
 | Existing user shim at `~/.local/bin/npm` | Installer refuses to overwrite non-socket-audit files. |

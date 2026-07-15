@@ -8,7 +8,7 @@
 #   REPOS_FILE     Path to a newline-separated list of repo paths (produced by survey-repos.sh).
 #   OUT_DIR        Where to write per-repo JSON results, the IOC hits file, and the log.
 #
-# Requires: `socket` on PATH (unless --offline), `jq` recommended but optional.
+# Requires: `socket` on PATH unless --offline; `jq` for the IOC check.
 # IOC source: ../references/ioc-list.json (relative to this script).
 
 set -uo pipefail
@@ -41,7 +41,13 @@ IOC_LIST="$SCRIPT_DIR/../references/ioc-list.json"
 IOC_HITS="$OUTDIR/ioc-hits.json"
 
 if [ ! -f "$IOC_LIST" ]; then
-  echo "WARNING: IOC list not found at $IOC_LIST — offline check will be empty." | tee -a "$LOG"
+  echo "ERROR: IOC list not found at $IOC_LIST." >&2
+  exit 5
+fi
+
+if ! command -v jq >/dev/null 2>&1; then
+  echo "ERROR: 'jq' is required for the IOC check." >&2
+  exit 5
 fi
 
 # Verify socket CLI if we're going online.
@@ -58,9 +64,8 @@ if [ "$OFFLINE" = "0" ]; then
     cat >&2 <<'EOF'
 ERROR: Socket CLI is installed but not authenticated.
 
-Do NOT run `socket login` from a non-interactive shell (including Codex's
-`!` prefix). It will fail with "Cannot prompt for credentials in a
-non-interactive shell".
+Do not automate `socket login` in an agent transcript. It needs an interactive
+terminal, and tokens must stay out of conversation and tool output.
 
 Pick one:
 
@@ -69,13 +74,7 @@ Pick one:
     Then re-run this script. Socket persists the token to your home dir
     and this script will pick it up automatically.
 
-  Option 2: Get an API token from
-      https://socket.dev/dashboard/settings/api-tokens
-    Then run:
-      export SOCKET_CLI_API_TOKEN=<your-token>
-      bash run-audit.sh ...
-
-  Option 3: Skip the upload entirely and run with --offline:
+  Option 2: Skip the upload entirely and run with --offline:
       bash run-audit.sh --offline ...
 EOF
     exit 4
@@ -125,9 +124,9 @@ echo "Running offline IOC check against $IOC_LIST..." | tee -a "$LOG"
 # Initialize hits file as a JSON array.
 echo "[]" > "$IOC_HITS"
 
-if [ -f "$IOC_LIST" ] && command -v jq >/dev/null 2>&1; then
-  # Build a list of "package|version" tokens to grep for, plus a separate
-  # list of "package|*" (any version) tokens for hijacked-maintainer cases.
+# Build a list of "package|version" tokens to grep for, plus a separate
+# list of "package|*" (any version) tokens for hijacked-maintainer cases.
+{
   TOKENS_EXACT=$(jq -r '.entries[] | . as $e | $e.versions[] | select(. != "*") | "\($e.ecosystem)\t\($e.package)\t\(.)\t\($e.campaign)\t\($e.severity)"' "$IOC_LIST")
   TOKENS_ANY=$(jq -r   '.entries[] | . as $e | $e.versions[] | select(. == "*") | "\($e.ecosystem)\t\($e.package)\t*\t\($e.campaign)\t\($e.severity)"' "$IOC_LIST")
 
@@ -217,15 +216,11 @@ if [ -f "$IOC_LIST" ] && command -v jq >/dev/null 2>&1; then
   else
     echo "[]" > "$IOC_HITS"
   fi
-  rm -f "$HITS_TMP"
+  /bin/rm -f "$HITS_TMP"
 
   HITCOUNT=$(jq 'length' "$IOC_HITS")
   echo "IOC check complete: $HITCOUNT hit(s) -> $IOC_HITS" | tee -a "$LOG"
-else
-  if ! command -v jq >/dev/null 2>&1; then
-    echo "WARNING: 'jq' not installed — skipping IOC grep. Install with: brew install jq" | tee -a "$LOG"
-  fi
-fi
+}
 
 echo
 echo "Audit complete."

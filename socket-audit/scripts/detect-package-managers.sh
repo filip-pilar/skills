@@ -31,7 +31,7 @@ if [ ! -f "$REPOS" ]; then
   fi
 fi
 
-# Manager definitions: name|workflow_protection|bun_scanner_applies|comma-separated-patterns
+# Manager definitions: name|wrapper_supported_by_this_skill|bun_scanner_applies|comma-separated-patterns
 # (one per line; no associative arrays so this is portable to bash 3.2)
 MANAGERS="npm|true|false|package-lock.json
 yarn|false|false|yarn.lock
@@ -98,7 +98,7 @@ JSON_TMP="${OUT}.tmp"
   first=1
   while IFS= read -r row; do
     [ -z "$row" ] && continue
-    IFS='|' read -r name sfw bunscan patterns <<< "$row"
+    IFS='|' read -r name wrapper bunscan patterns <<< "$row"
 
     on_path="false"
     if command -v "$name" >/dev/null 2>&1; then
@@ -108,15 +108,15 @@ JSON_TMP="${OUT}.tmp"
     count=$(count_for_manager "$patterns")
 
     if [ "$first" = "1" ]; then first=0; else echo ","; fi
-    printf '    "%s": {"on_path": %s, "repo_count": %d, "sfw_supports": %s, "bun_scanner": %s}' \
-      "$name" "$on_path" "$count" "$sfw" "$bunscan"
+    printf '    "%s": {"on_path": %s, "repo_count": %d, "wrapper_supported": %s, "bun_scanner": %s}' \
+      "$name" "$on_path" "$count" "$wrapper" "$bunscan"
 
     # Stash a human-readable row only if relevant
     if [ "$on_path" = "true" ] || [ "$count" -gt 0 ]; then
       marker="✗"; [ "$on_path" = "true" ] && marker="✓"
       if [ "$bunscan" = "true" ]; then
         tool="@socketsecurity/bun-security-scanner"
-      elif [ "$sfw" = "true" ]; then
+      elif [ "$wrapper" = "true" ]; then
         tool="sfw wrapper"
       else
         tool="(audit-only in this skill)"
@@ -157,5 +157,5 @@ fi
   else
     echo "  (no package managers detected on PATH or in repos)"
   fi
-  rm -f "$SUMMARY_TMP"
+  /bin/rm -f "$SUMMARY_TMP"
 } >&2

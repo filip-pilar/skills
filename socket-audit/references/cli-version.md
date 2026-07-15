@@ -1,50 +1,44 @@
-# CLI Version Reference
+# CLI Contract Reference
 
-This skill calls subcommands of third-party CLIs. When a major release ships, re-verify the commands listed here and update this file. The whole point is to prevent the kind of drift that caused early-2026 churn in this skill (assumed `socket whoami` existed when it didn't, assumed `socket login` was browser OAuth when it was token-paste).
+Recheck this file when a called CLI changes. It exists to prevent guessed command equivalence, especially around authentication and Bun configuration.
 
-## Last verified
+## Last checked — 2026-07-15
 
-- **Socket CLI (`socket`)**: v1.1.94 (verified 2026-05-14)
-- **Socket Firewall Free (`sfw`)**: v1.x (verified 2026-05-14)
-- **Bun (`bun`)**: 1.2+ required for text `bun.lock` support (verified 2026-05-14)
+- Socket CLI: local `v1.1.94`; help surfaces checked for every command below.
+- Socket Firewall Free: local npm launcher `v2.0.4`, firewall binary `v1.12.0`; use `sfw --help` as the readiness probe.
+- Bun: local `v1.3.5`; project-local Socket scanner smoke test passed, while the global-package variant failed project resolution. Bun 1.3+ is required for the scanner API; text `bun.lock` support starts in Bun 1.2.
 
-## Socket CLI commands this skill calls
+## Called commands
 
-| Command | Verified in | Notes |
-|---|---|---|
-| `socket --version` | v1.1.94 | Prints version banner. |
-| `socket login` | v1.1.94 | Prompts for API token at terminal. NOT a browser OAuth flow. Needs interactive TTY (won't work via `!` in Codex). |
-| `socket organization list --json` | v1.1.94 | Canonical auth probe. Exits non-zero if not authenticated. **Use this instead of `socket whoami`** — `whoami` does not exist in this CLI version. |
-| `socket scan create --report --json .` | v1.1.94 | Core audit call. `--report` waits for analysis to complete; `--json` is for machine parsing. |
-| `socket scan list` | v1.1.94 | List recent scans. Reference only. |
-| `socket scan view <id>` | v1.1.94 | Pretty-print a scan. Reference only. |
-
-## Bun commands this skill calls
-
-| Command | Verified in | Notes |
-|---|---|---|
-| `bun --version` | 1.2+ | Version probe. |
-| `bun add -d @socketsecurity/bun-security-scanner` | 1.2+ | Per-project install of Socket's Bun scanner. |
-| `bun add -g @socketsecurity/bun-security-scanner` | 1.2+ | Global install (optional pre-pull). |
-| `bun install --save-text-lockfile` | 1.2+ | Convert `bun.lockb` (binary) to text `bun.lock`. |
-
-## How to re-verify when a CLI updates
-
-1. Run `socket --version` (or `sfw --version` / `bun --version`).
-2. If major or minor changed, run `socket --help` and confirm every command above still exists with documented flags.
-3. Special focus on auth: `socket organization list --json` should still work as the auth probe.
-4. Smoke test: run a one-repo audit and a one-Bun-project scanner install.
-5. Update the "Last verified" section above.
-6. If a command was renamed or removed, search SKILL.md, references/, and scripts/ for the old command name and update.
-
-## Known landmines — don't reintroduce these
-
-| Anti-pattern | Why it broke before |
+| Command | Contract |
 |---|---|
-| `socket whoami` | Doesn't exist in v1.1.x — exits 2 with help dump. Cost ~30 min of debugging. |
-| `socket login` via Codex's `!` prefix | `!` is non-interactive; Socket explicitly errors: "Cannot prompt for credentials in a non-interactive shell". |
-| "A browser tab will open for OAuth" wording | v1.1.x is token-paste, not browser-OAuth. Misleads users into waiting for a tab that never opens. |
-| `socket config get apiToken` | Prints full token to stdout — leaks it into Codex conversation history. Forces user to rotate. |
-| Treating `sfw` as Bun-compatible | `sfw` doesn't wrap `bun`. Use `@socketsecurity/bun-security-scanner` via Bun's native scanner API. |
-| Treating `bun.lockb` as scannable by `socket scan` | Socket only supports text `bun.lock`. Regenerate first. |
-| Polling background jobs with `sleep N && tail` | Codex harness blocks chained sleeps. Use `run_in_background: true` and wait for the completion notification. |
+| `socket --version` | Version probe. |
+| `socket login` | Interactive token prompt, not browser OAuth. Keep it outside the agent transcript. |
+| `socket organization list --json` | Authentication probe; do not substitute the nonexistent `socket whoami`. |
+| `socket scan create --report --json .` | Upload supported manifests, wait for analysis, and return machine-readable output. |
+| `sfw --help` | Firewall readiness probe; `--version` is not a documented interface. |
+| `sfw <command>...` | Run the package-manager command through the firewall. Set `SFW_VERBOSE=true` when a visible verification banner is needed. |
+| `bun add -d @socketsecurity/bun-security-scanner` | Per-project scanner package. Requires Bun 1.3+ for scanner integration. |
+| `bun install --save-text-lockfile` | Replace unsupported binary `bun.lockb` with text `bun.lock`. |
+| `bun pm ls -g` / `bun remove -g @socketsecurity/bun-security-scanner` | Detect and remove legacy global installs during uninstall; current setup does not create them. |
+
+`minimumReleaseAge` in Bun config is measured in seconds: `3600` is one hour; `86400` is one day. `install.ignoreScripts` defaults to `false`, although Bun separately limits untrusted dependency lifecycle scripts by default.
+
+## Recheck procedure
+
+1. Record local versions.
+2. Inspect `--help` for each called command and flag.
+3. Confirm `socket organization list --json` remains the auth probe without printing credentials.
+4. Run isolated smoke tests for one offline audit, one approved online scan, one wrapper, and one Bun scanner config.
+5. Search `SKILL.md`, `references/`, and `scripts/` for changed commands or units before updating this date.
+
+## Do not reintroduce
+
+- `socket whoami`: absent from Socket CLI 1.1.x.
+- Automated `socket login` or token-bearing commands in an agent transcript.
+- `socket config get apiToken` or reading Socket config files: both can expose the token.
+- Treating `sfw` as Bun support; Bun uses its native scanner API.
+- Treating `bun add -g` plus a global scanner key as machine-wide scanner protection. Bun 1.3.5 still requires the scanner package in each project; use project-local dev dependencies and config. A global release-age key is supported separately.
+- Treating `bun.lockb` as scannable by Socket.
+- Assuming a default `sfw` banner; request verbose output for verification.
+- Polling foreground work with blocking sleeps; use the host's normal process-completion mechanism.

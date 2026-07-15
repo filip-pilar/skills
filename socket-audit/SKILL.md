@@ -1,393 +1,161 @@
 ---
 name: socket-audit
 description: >
-  Audit local git repos for supply-chain-compromised npm/Bun/PyPI/Cargo dependencies
-  using Socket.dev (Shai-Hulud, chalk/debug, axios, @tanstack — exact-version and
-  package-name IOC matching). Sets up JavaScript going-forward protection tailored to the user's
-  package managers: @socketsecurity/bun-security-scanner via ~/.bunfig.toml for Bun,
-  and PATH wrappers routing npm/pnpm installs through Socket Firewall (sfw) — handles
-  AI-agent-driven installs correctly, unlike shell aliases. Includes a clean uninstall.
-  Invoke explicitly with $socket-audit.
+  Use only when the user explicitly invokes $socket-audit to scan local repositories
+  for supply-chain indicators, configure npm/pnpm/Bun install-time protection, run
+  the bundled offline IOC check, or uninstall protection previously added by this skill.
 ---
 
-# Socket Supply Chain Audit
+# Socket Audit
 
-This skill walks a developer through three workflows that can run together or independently, plus uninstall:
+Audit existing repositories, add future install protection, or remove that protection. Resolve `<skill-dir>` to this file's directory before running bundled scripts.
 
-1. **Retro audit (A)** — scan every git repository for compromised package versions and high-risk supply-chain signals using Socket.dev's CLI, plus an offline indicator-of-compromise (IOC) check against a bundled list.
-2. **Going-forward protection (B)** — install JavaScript install-time protection tailored to what the user uses AND how they invoke installs (manual vs AI-agent-driven). npm/pnpm get a smart PATH wrapper (covers all invocation contexts) or shell aliases (interactive only) per user preference. Bun gets `@socketsecurity/bun-security-scanner` via `~/.bunfig.toml`. **Can be invoked standalone.**
-3. **Offline IOC check (C)** — same lockfile grep as A but with no Socket upload. Smaller catalog but zero data egress.
-4. **Uninstall (D)** — remove everything installed by Workflow B with backups. Triggered by phrases like "uninstall socket protection", "remove sfw", "undo socket-audit".
+## Guardrails
 
-Audience: small dev teams without CI/CD, including those whose installs are often driven by Codex or other agents. Everything works on Socket's free tier or with no Socket account (`sfw`, Bun scanner free mode, offline IOC check). The audit can inspect several ecosystems; Workflow B actively protects only npm, pnpm, and Bun.
+- Confirm the exact repository scope and data egress before any online scan.
+- Get approval before global installs, home/project config edits, browser opens, or uninstall actions. Back up every existing config file before editing it.
+- Never print Socket tokens or read Socket config files into the conversation. Never run `socket config get apiToken`. If a token appears in output, stop and tell the user to rotate it.
+- Online personal repositories and company repositories are separate trust scopes. Never upload company manifests to a personal Socket organization; use offline mode unless the company has approved its own Socket organization.
+- Workflow B installs protection only for npm, pnpm, and Bun. Report every other detected ecosystem as audit-only in this skill.
+- Do not claim a scan or protection succeeded without checking its outputs. A skipped wrapper, invalid Bun config, failed command, or unverified shell path is a partial setup.
 
-Resolve `<skill-dir>` to the directory containing this `SKILL.md` before running bundled scripts.
+## Route
 
-## Routing
-
-| User intent | Workflow |
+| Intent | Workflow |
 |---|---|
-| "audit my machine", "did Shai-Hulud hit me", "scan my repos" | **A → then B** (default chain) |
-| "set up going-forward protection", "I already audited, just install", "I use bun how do I protect installs" | **B only** (standalone) |
-| "I don't want to upload anything", "offline only" | **C → then B** |
-| "uninstall socket protection", "remove sfw", "undo socket-audit" | **D** (uninstall) |
-| Unclear or first time | Default: **A → B**. Confirm scope before launching A. |
+| Audit repositories / check for compromise | **A**, then offer **B** |
+| Install future protection only | **B** |
+| No upload / offline check | **C**, then offer **B** |
+| Remove this skill's protection | **D** |
 
-**The audit answers "did anything get me?". The protection answers "will anything get me next?".** Workflow B is both package-manager-aware AND invocation-pattern-aware — it asks how installs are typically invoked (you typing, Codex running them, or both) and picks the right mechanism.
+If intent is unclear, propose A followed by B; do not launch A until scope and egress are confirmed.
 
----
+## A — Retro audit
 
-## Workflow A — Retro audit
+1. Read `references/socket-cli.md` and `references/cli-version.md`. Check `node`, `npm`, `jq`, and `socket`; give one fix-it summary. Install `socket` only with approval.
+2. Survey repositories:
 
-### A0. Prereq check (fail fast)
+   ```bash
+   bash "<skill-dir>/scripts/survey-repos.sh" /tmp/socket-audit/repos.txt "$HOME"
+   ```
 
-```bash
-command -v node && command -v npm   || echo "MISSING: Node.js"
-command -v jq                        || echo "MISSING: jq (brew install jq)"
-command -v socket                    || echo "Will install via npm i -g socket in A3"
-```
+   Show the count and a short sample, then confirm the final list. Split personal and company repositories into separate list files when needed.
+3. Explain that the normal scan uploads supported dependency manifests and lockfiles to Socket. It is not a source-tree scan, but do not reduce the disclosure to “package names and versions only.” Offer `--offline` for any repository the user does not approve for upload.
+4. Probe authentication with `socket organization list --json`. If it fails, have the user run `socket login` in their own interactive terminal and return after the probe works. Do not ask them to paste a token into chat or expose it in a tool command.
+5. Run the approved lists in the foreground:
 
-Surface a single fix-it summary and stop if anything's missing other than `socket`.
+   ```bash
+   bash "<skill-dir>/scripts/run-audit.sh" /tmp/socket-audit/repos.txt /tmp/socket-audit/results
+   bash "<skill-dir>/scripts/run-audit.sh" --offline /tmp/socket-audit/company-repos.txt /tmp/socket-audit/company-results
+   ```
 
-### A1. Survey
+   Run only the applicable command. Do not poll with blocking sleeps.
+6. Aggregate the per-repository JSON and `ioc-hits.json`. Save the full report to `/tmp/socket-audit/report.md` and `~/Desktop/socket-audit-report-<YYYY-MM-DD>.md`; show only headline counts and critical findings in chat. Include scope, online/offline split, exact-version hits, package-only matches, Socket policy failures, clean repositories, artifact paths, and next steps. Treat package-only matches as leads, not confirmed compromise.
+7. If findings exist, offer a guided investigation: lockfile history for the relevant window, named credential locations that may need rotation, and a clean dependency reinstall. Do not delete files or rotate credentials without separate approval.
+8. Offer B. Detection is automatic; installation still requires manager/mechanism approval.
 
-```bash
-bash "<skill-dir>/scripts/survey-repos.sh" /tmp/socket-audit/repos.txt "$HOME"
-```
+## B — Going-forward protection
 
-Writes deduplicated repo list with supported manifests. Show user count + sample. Confirm scope before scanning.
-
-### A2. Disclose egress + handle personal/company split
-
-Tell the user:
-
-> Socket's scan uploads each repo's manifest and lockfile (not source code) to socket.dev — package names and versions only.
-
-**For mixed personal/company audits**: personal repos → online; company repos → `--offline`. **Don't upload company manifests to a personal Socket org.** Write two repo lists and run twice if needed.
-
-### A3. Install + authenticate Socket CLI
-
-```bash
-command -v socket || npm i -g socket
-socket organization list --json   # canonical auth probe
-```
-
-**Don't try to log in from this session** — `socket login` needs an interactive TTY and Codex's `!` is non-interactive. In v1.1.x, `socket login` prompts for a token at the terminal (NOT browser OAuth). The "leave blank" option creates a public token that can't scan.
-
-**Auth path** — keeps the token out of conversation:
-1. User signs up at https://socket.dev, creates a personal token at https://socket.dev/dashboard/settings/api-tokens
-2. User opens Terminal.app (NOT Codex) and runs `socket login`, pastes token (NOT blank)
-3. User verifies `socket organization list --json` works
-4. User returns. Run the auth probe from this session to verify.
-
-**Critical token-leak hygiene:**
-- **Never** run `socket config get apiToken` — prints the full token to stdout
-- **Never** print `~/.config/socket-cli/*` to chat
-- If a `sktsec_...` value appears in any tool output, **stop**, tell the user to rotate at https://socket.dev/dashboard/settings/api-tokens
-
-### A4. Run audit
-
-```bash
-bash "<skill-dir>/scripts/run-audit.sh" /tmp/socket-audit/repos.txt /tmp/socket-audit/results
-```
-
-Use `--offline` for company repos. Run foreground; don't poll with `sleep N && tail`.
-
-### A5. Aggregate report
-
-Read per-repo JSON + `ioc-hits.json`, write report. **Save to both `/tmp/socket-audit/report.md` AND `~/Desktop/socket-audit-report-<YYYY-MM-DD>.md`** — `/tmp` is volatile.
-
-Structure: Summary (with date, machine, org, counts) → Critical findings (exact-version IOC hits) → Offline IOC package-name matches (cross-reference Socket's per-repo verdict to flag false positives) → Socket policy failures → All-clear repos → Audit artifacts → Next steps.
-
-Show user only headline counts + critical findings.
-
-### A6. Remediation (only if findings)
-
-If exact-version hits exist, walk through:
-1. **Timeline**: `git log --oneline -- <lockfile>` for the attack window
-2. **Credential rotation** (be specific — name files): `~/.npmrc`, GitHub PATs/SSH keys, `~/.aws/credentials`, `~/.config/gcloud/`, MCP tokens in `~/.codex/`/`~/.vscode/`, browser-stored passwords
-3. **Clean install**: nuke `node_modules`, pin known-good, reinstall
-
-Package-only matches where Socket marked the repo healthy: optional 15-min manual cross-check. Skip-by-default is fine.
-
-### A7. Chain into Workflow B
-
-> "Now let's set up going-forward protection. I'll detect what package managers you use and ask how you typically run installs, then install the right tool."
-
-B asks for per-manager + per-mechanism consent. Don't make the user re-summon as a separate step.
-
----
-
-## Workflow B — Going-forward protection
-
-Can be invoked standalone ("just set up protection") or chained from A.
-
-### B0. Standalone prereq check
-
-If invoked standalone, do A0 first. Then move on.
-
-### B1. Detect package managers
+Read `references/protection-mechanisms.md`, then detect usage:
 
 ```bash
 bash "<skill-dir>/scripts/detect-package-managers.sh" /tmp/socket-audit/pm-detection.json
 ```
 
-Writes JSON + human summary to stderr. Auto-surveys `$HOME` if no repo list exists. Show the user the summary, including any `bun.lockb` warnings.
+Summarize only relevant managers and `bun.lockb` warnings. Explain the choice briefly:
 
-### B1.5. Explain the manual-vs-agent distinction
+- A configured Bun project uses its Socket scanner regardless of who invokes Bun.
+- npm/pnpm PATH wrappers cover interactive terminals, agents, and scripts; recommend them by default.
+- Shell aliases cover interactive typing only and must be an explicit lower-coverage choice.
 
-Before asking what to install, briefly explain why this matters. This is the most important step you can take to set up the right mechanism — getting it wrong gives the user a false sense of security.
+Ask one compact question covering selected managers, wrapper versus alias for npm/pnpm, which Bun projects to configure, and whether to add a global Bun release-age gate. Skip irrelevant branches.
 
-> Two ways your installs run, with different protection mechanisms:
->
-> 1. **You typing `npm install X` in a terminal.** Interactive shell. Shell aliases work here (`alias npm='sfw npm'`).
-> 2. **An agent or script running `npm install X` on your behalf.** Non-interactive shell. Aliases do NOT expand here — the real npm runs unprotected. This includes Codex's shell tool, `bash script.sh`, Makefiles, and `npm run` lifecycle scripts.
->
-> If your installs are sometimes driven by Codex or other agents — even occasionally — shell aliases are insufficient. A PATH wrapper at `~/.local/bin/npm` works for both cases: real executable found by every shell, every invocation, every program. We recommend wrappers as the default.
->
-> Bun's protection is different — it's config-based via `~/.bunfig.toml`. Always-on regardless of mechanism. No invocation question needed for Bun.
+### Bun
 
-Ask the user about their pattern. Default to wrappers — they're strictly more comprehensive at no real cost. Aliases only as an explicit alternative for users with a stated reason.
+Require Bun 1.3+ for the security-scanner API. The reliable scanner path is per project: after approval, run `bun add -d @socketsecurity/bun-security-scanner` in every selected Bun project.
 
-### B1.6. Ask which managers + which mechanism
+Do not substitute `bun add -g` or a scanner entry only in `~/.bunfig.toml`. Bun 1.3.5 accepts the global package install but ordinary projects still report that the configured scanner is not installed. For machine-wide baseline protection, offer a global `minimumReleaseAge`; describe it as an age gate, not Socket scanner coverage.
 
-After explanation, ask in ONE question:
+Merge this target state into each selected project's `bunfig.toml`:
 
-> Detected managers in use:
->   bun  — N repos
->   npm  — M repos  
->   pnpm — K repos
->
-> Which protection level?
->   [1] All managers, AI-agent-aware (wrappers) — recommended
->   [2] All managers, manual-only (aliases) — lighter, but skips agent-driven installs
->   [3] Bun only (skip npm/pnpm protection entirely)
->   [4] Choose individually
-
-If user has only Bun and no npm/pnpm in their detected stack, skip B3 — Bun's protection is already comprehensive for Bun installs. If the detector reports yarn, pip, uv, cargo, or gem, describe those as audit-only in this skill unless the user has a separate approved protection mechanism.
-
-### B2. Bun branch — install Socket's Bun scanner
-
-Always run this if Bun was selected. Ask: **global** (every Bun project on this machine) or **per-project** (commits to team repos)?
-
-**Global** (recommended for personal dev machines):
-
-```bash
-# Create or append to ~/.bunfig.toml
-[ -f "$HOME/.bunfig.toml" ] || touch "$HOME/.bunfig.toml"
-cat >> "$HOME/.bunfig.toml" <<'EOF'
-
-# Created by the socket-audit skill.
+```toml
 [install.security]
 scanner = "@socketsecurity/bun-security-scanner"
 
 [install]
-minimumReleaseAge = 60
-EOF
-
-# Pre-pull the scanner package globally so the first bun install in any project
-# doesn't have to fetch it on-demand
-cd "$HOME" && bun add -g @socketsecurity/bun-security-scanner
+minimumReleaseAge = 3600
 ```
 
-**Per-project** (recommended for team repos):
+`minimumReleaseAge` is seconds: `3600` is one hour and `86400` is one day. Preserve an existing user value unless they explicitly choose a replacement.
 
-```bash
-cd <project>
-bun add -d @socketsecurity/bun-security-scanner
-[ -f bunfig.toml ] || touch bunfig.toml
-cat >> bunfig.toml <<'EOF'
+If approved, merge only the `[install]` release-age key into `~/.bunfig.toml` as the optional global baseline. Never put the scanner key there; it can break new or unconfigured projects. Keep scanner config project-local.
 
-[install.security]
-scanner = "@socketsecurity/bun-security-scanner"
+Make the edit idempotent:
 
-[install]
-minimumReleaseAge = 60
-EOF
-```
+- For a new file, add `# Created by the socket-audit skill.` at the top and mark the inserted values with inline `# socket-audit` comments.
+- In an existing file, merge keys into existing tables; never append duplicate TOML tables. Mark only newly inserted values with the same inline comment.
+- Leave identical pre-existing values unmarked. Stop on conflicting scanner values and ask the user rather than overwriting them.
+- Back up an existing file, validate the resulting TOML, and read back only the relevant non-secret lines. Do not claim protection if validation fails.
 
-Read back the bunfig.toml to confirm. Tell the user:
+Bun does not run arbitrary dependency lifecycle scripts by default, but `install.ignoreScripts` itself defaults to `false`; do not claim otherwise.
 
-- Bun's default `install.ignoreScripts = true` already blocks the most common attack vector (malicious postinstall scripts). The scanner adds a second layer at the registry level.
-- `minimumReleaseAge = 60` refuses package versions less than 60 minutes old. The May 2026 @tanstack attack published 84 bad versions in 6 minutes — this setting would have blocked all of them. Tune to taste (60 aggressive → 1440 = 1 day, pnpm's default).
+### npm / pnpm
 
-### B3. npm-stack branch (wrappers path — default)
+With approval, install Socket Firewall Free using `npm i -g sfw` and verify the command with `sfw --help`. Never wrap Bun.
 
-**For users who picked "all managers, AI-agent-aware" or who let agents drive installs.** This is the recommended default.
-
-Install `sfw` (the firewall binary):
-
-```bash
-npm i -g sfw
-sfw --version
-```
-
-Then install the PATH wrappers:
+For the recommended wrapper path, run only the selected managers:
 
 ```bash
 bash "<skill-dir>/scripts/install-wrappers.sh" npm pnpm
 ```
 
-The script:
-- Writes `~/.local/bin/npm` and `~/.local/bin/pnpm` (or `~/bin/` as fallback)
-- Each wrapper checks the subcommand: install-adjacent commands (`install`, `add`, `ci`, `update`, `exec`...) → routes through `sfw` with the real npm's absolute path → no infinite loop. Everything else → direct pass-through, no `sfw` overhead.
-- Prints a PATH shim instruction if `~/.local/bin` isn't already in PATH (rare on macOS / modern Linux).
-- Refuses to overwrite an existing `npm`/`pnpm` file in the wrapper directory unless it was created by this skill. If it skips a wrapper, do not claim protection is active for that manager.
+The script owns only marked wrapper files and refuses to overwrite unrelated shims. If it skips or fails a manager, report that manager as unprotected. If it prints a PATH instruction, get approval before adding one marked, idempotent block to the relevant shell startup file.
 
-**Never wrap `bun`** — `sfw` doesn't support it; Bun's protection in B2 is the right tool.
-
-Verify per B6.
-
-### B3-alt. npm-stack branch (aliases path — if user explicitly opted out of wrappers)
-
-**For users who picked "manual-only".** Lighter touch but covers ONLY interactive-shell typing.
+For an explicit aliases choice on zsh or bash, back up the relevant shell file and add one idempotent block containing only selected managers. For other shells, recommend wrappers instead of improvising unsupported syntax.
 
 ```bash
-npm i -g sfw
-
-case "$SHELL" in
-  *zsh)  SHELL_RC="$HOME/.zshrc" ;;
-  *bash) SHELL_RC="$HOME/.bashrc" ;;
-  *fish) SHELL_RC="$HOME/.config/fish/config.fish" ;;
-  *)     SHELL_RC="$HOME/.profile" ;;
-esac
-
-{
-  echo
-  echo "# Socket Firewall aliases (added by socket-audit skill on $(date +%Y-%m-%d))"
-  echo "alias npm='sfw npm'"
-  echo "alias pnpm='sfw pnpm'"
-} >> "$SHELL_RC"
+# BEGIN socket-audit aliases
+alias npm='sfw npm'
+alias pnpm='sfw pnpm'
+# END socket-audit aliases
 ```
 
-**Warn user prominently**: these aliases only fire in interactive shells. If anything else on this machine runs `npm install` (Codex, scripts, Makefiles), it bypasses protection. Aliases are the lower-coverage option — the user explicitly chose this.
+Warn that aliases do not protect agent-, script-, or other non-interactive installs.
 
-Bypass for one call: `\npm install` or `command npm install`.
+### Verify and report
 
-### B4. Cross-cutting layers (always offer, regardless of choices above)
+Verify the selected path, not every possible path:
 
-> Two more free layers, both PM-agnostic. Want me to open them in your browser?
-> - **Socket GitHub App** — scans every PR touching a lockfile/`package.json`/`bunfig.toml`. https://github.com/apps/socket-security
-> - **Socket VS Code / Cursor extension** — inline warnings as you edit. https://marketplace.visualstudio.com/items?itemName=SocketSecurity.vscode-socket-security
+- The Bun config is valid and contains the intended scanner/value.
+- Each wrapper resolves before the real manager in both the current shell and a representative non-interactive shell; pass-through commands reach the real manager, and an approved dry run with `SFW_VERBOSE=true` shows Socket Firewall handling an install command.
+- Each alias exists in a fresh interactive shell; non-interactive bypass is an expected limitation.
 
-On macOS: `open <url>`. Otherwise print URLs.
+Offer, but do not open without approval, the [Socket GitHub App](https://github.com/apps/socket-security) and [Socket VS Code extension](https://marketplace.visualstudio.com/items?itemName=SocketSecurity.vscode-socket-security). Keep personal and company integrations separated.
 
-For users with mixed personal/company repos: install GitHub App on **personal** GitHub only. Company repos need a separate Socket org owned by the company.
+Finish with a per-manager status (`protected`, `partial`, `skipped`, or `failed`), modified files and backups, limitations, and the D dry-run command.
 
-### B5. Limitations
+## C — Offline IOC check
 
-- **`sfw` doesn't wrap Bun** → Bun's protection comes from B2.
-- **Workflow B protects npm/pnpm/Bun only** → other ecosystems may be audited by Socket but are not made install-time protected by this skill.
-- **Bun scanner free mode** → uses Socket's public API. Set `SOCKET_API_KEY` to enable org-policy enforcement (matters for teams).
-- **Shell aliases are interactive-shell only** (B3-alt). The wrapper path (B3) avoids this entirely.
-- **No custom registries in `sfw` free** → private Artifactory / Verdaccio needs Socket Firewall Enterprise.
-- **Wrapper edge case**: scripts with `#!/bin/zsh -l` (login non-interactive) may bypass `~/.local/bin` precedence. Uncommon.
-
-### B6. Verify everything works
-
-After install, verify in each shell context the user might use. Tell the user to run (or run on their behalf):
+Require `jq`, survey as in A, confirm scope, then run:
 
 ```bash
-# 1. Wrapper takes precedence
-which npm    # expected: ~/.local/bin/npm (or ~/bin/npm)
-which pnpm   # expected: ~/.local/bin/pnpm
-
-# 2. Pass-through has zero sfw overhead
-npm --version    # should print version, NO "Protected by Socket Firewall" banner
-
-# 3. Install goes through sfw
-npm install --dry-run --silent 2>&1 | head -3   # should show "Protected by Socket Firewall"
-
-# 4. Bun config is wired
-bun pm version 2>/dev/null || cat ~/.bunfig.toml | grep -A2 "install.security"
-
-# 5. Check from a non-interactive shell (simulates Codex's bash tool)
-bash -c 'which npm'    # should still print the wrapper path
+bash "<skill-dir>/scripts/run-audit.sh" --offline /tmp/socket-audit/repos.txt /tmp/socket-audit/results
 ```
 
-If any of these fail, the protection isn't applying — surface the failure and don't claim "all set".
+This path needs no Socket account and performs no Socket upload. Report from `ioc-hits.json`, state that the bundled IOC snapshot is not exhaustive, then offer B.
 
-### B7. Tell the user about the uninstall path
+## D — Uninstall
 
-> If you ever want to remove all of this:
->   `bash ~/.codex/skills/socket-audit/scripts/uninstall.sh`
-> Use `--dry-run` first to preview, or `--yes` to skip the confirmation prompt. The script backs up any files it modifies.
-
----
-
-## Workflow C — Offline IOC check only
-
-1. `survey-repos.sh` (same as A1)
-2. `run-audit.sh --offline /tmp/socket-audit/repos.txt /tmp/socket-audit/results`
-3. Aggregate report from `ioc-hits.json` only
-4. Chain into B (works without a Socket account)
-
----
-
-## Workflow D — Uninstall
-
-When the user wants to undo Workflow B:
+Preview first:
 
 ```bash
-# Preview what will be removed (recommended first):
 bash "<skill-dir>/scripts/uninstall.sh" --dry-run
-
-# Actually remove:
-bash "<skill-dir>/scripts/uninstall.sh"
-# or skip the confirmation:
-bash "<skill-dir>/scripts/uninstall.sh" --yes
 ```
 
-The script removes:
-- PATH wrappers (only if they carry the `socket-audit-wrapper` marker — won't touch other wrappers)
-- `sfw` global package
-- `@socketsecurity/bun-security-scanner` global package
-- Socket Firewall alias block from `~/.zshrc` / `~/.bashrc`
-- Scanner config from `~/.bunfig.toml` (whole file if we created it, just the block if we appended)
-- PATH shim lines we added to `.zshenv` / `.zprofile`
+Show what is owned, skipped, or uncertain. After approval, run `uninstall.sh`; use `--yes` only when that approval is already explicit. The script may remove marked wrappers, marked aliases/PATH entries, global `sfw`, a legacy global Bun scanner package, and marker-owned global Bun config. It must leave unmarked or conflicting config for manual review.
 
-It backs up any modified file with a `.socket-audit-backup` suffix.
+Do not remove the Socket CLI, per-project Bun config, accounts, tokens, GitHub App installations, or unrelated shims. Verify the post-uninstall state and report any residue.
 
-It does NOT remove:
-- Socket CLI (`socket` — still useful for re-running audits)
-- Per-project `bunfig.toml` (those live in committed repos)
-- Socket account, API tokens, GitHub App installs (handle via dashboard)
+## IOC snapshot
 
----
-
-## Mechanism reference
-
-For "how does X actually work" questions, see `references/protection-mechanisms.md`. Highlights the kill-chain point each layer fires at and where each has gaps. Read this if a user asks about anything mechanism-related ("why don't aliases work for Codex?", "what's the difference between sfw and the bun scanner?", "what does the GitHub App add?").
-
----
-
-## Keeping the IOC list current
-
-`references/ioc-list.json` is a snapshot. Refresh quarterly or after major incidents from:
-- Socket blog (exact versions): https://socket.dev/blog
-- GitHub Security Advisories: https://github.com/advisories?query=type%3Areviewed+ecosystem%3Anpm+malware
-- OSV: https://osv.dev
-
-Schema in the file's `notes` field. `versions: ["*"]` flags any installed version — conservative, produces false positives Socket's online catalog often clears. Note this in audit reports.
-
----
-
-## Quick reference — common phrasings
-
-- **"I already audited, just set up protection"** → B standalone
-- **"I mainly use Bun"** → B routes to B2; npm/pnpm wrapper still useful as backup
-- **"Does sfw support bun?"** → No. `@socketsecurity/bun-security-scanner` via bunfig.toml is the Bun-native equivalent. Different mechanism (Bun's scanner API), better integrated.
-- **"Does this protect Python/Rust/Ruby installs?"** → No install-time protection is installed for those ecosystems by this skill. They are audit-only here; use offline IOC plus Socket scans and project-specific controls.
-- **"Why don't aliases work for Codex?"** → Aliases are interactive-shell-only. Codex's shell tool is non-interactive. Wrappers fire for every execve regardless of shell — recommend B3 wrapper path.
-- **"Will this break my npm?"** → Wrappers pass through non-install commands directly (zero overhead, exact same behavior). Install commands route through `sfw` which adds ~700ms latency and blocks confirmed malware. Reversible: `uninstall.sh`.
-- **"How long?"** → Audit 5–15 sec/repo. Detection <30 sec. Install per branch ~1 min. Total fresh setup: ~5 min.
-- **"What about monorepos?"** → Socket walks nested manifests; one scan from root covers all.
-- **"Is this free?"** → Audit: free up to 1,000 scans/month + 3 members. Firewall + Bun scanner: free, no account.
-- **"I have personal and company repos"** → Personal online, company `--offline`. Don't upload company manifests to a personal Socket org.
-- **"Uninstall it"** → Workflow D.
-
----
-
-## Versioning safeguard
-
-Socket CLI surface verified against `socket-cli v1.1.94`. When Socket releases a new version, re-verify the commands this skill calls — see `references/cli-version.md`.
+`references/ioc-list.json` is a dated snapshot, not a complete malware catalog. Preserve its date and distinguish exact-version hits from wildcard/package-only signals. Refresh it only from authoritative incident sources when explicitly maintaining the skill.

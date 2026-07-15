@@ -4,23 +4,23 @@
 #
 # WHY wrappers instead of shell aliases:
 #   Shell aliases only fire in INTERACTIVE shells. Non-interactive subprocesses
-#   bypass them entirely — that includes Codex's shell tool, scripts run
-#   via `bash script.sh`, Makefiles, and `npm run` lifecycle scripts. PATH
+#   bypass them entirely — that includes agent shell tools, scripts run via
+#   `bash script.sh`, Makefiles, and `npm run` lifecycle scripts. PATH
 #   wrappers fire for every invocation regardless of shell type, so this is
 #   the right approach for any user whose installs are sometimes driven by
 #   AI agents or scripts.
 #
 # WHY smart pass-through (only wrap install-adjacent commands):
-#   sfw adds ~700ms of startup overhead per call. For non-install commands like
-#   `npm --version`, `npm config get`, `npm run`, that overhead is wasted —
+#   sfw adds startup overhead per call. For non-install commands like
+#   `npm --version`, `npm config get`, and `npm run`, that overhead is wasted —
 #   those commands don't fetch packages so there's nothing to scan. The wrapper
 #   checks the subcommand and only invokes sfw for fetch-adjacent ones.
 #
 # Usage:
 #   install-wrappers.sh [MANAGER...]
 #     MANAGER  Space-separated list of managers to wrap. Default: npm pnpm.
-#              Supported: npm, pnpm. NOT bun — bun protection is config-based
-#              via ~/.bunfig.toml (different and better mechanism).
+#              Supported: npm, pnpm. NOT bun — Bun scanner protection is
+#              project-config-based (a different mechanism).
 #
 # Output: wrapper scripts written to ~/.local/bin/ (preferred) or ~/bin/.
 
@@ -93,6 +93,12 @@ write_wrapper() {
   local real
   real=$(detect_real "$mgr") || { echo "  ✗ $mgr — not found on PATH, skipping" >&2; return 1; }
   local wrapper="$WRAPPER_DIR/$mgr"
+
+  if [[ -L "$wrapper" ]]; then
+    echo "  ✗ $wrapper is a symbolic link; leaving it untouched" >&2
+    echo "    Resolve it manually or choose a different wrapper directory before retrying." >&2
+    return 1
+  fi
 
   if [[ -e "$wrapper" ]] && ! grep -q "socket-audit-wrapper" "$wrapper" 2>/dev/null; then
     echo "  ✗ $wrapper already exists and is not a socket-audit wrapper; leaving it untouched" >&2
@@ -170,6 +176,8 @@ fi
 
 echo
 echo "Verify with:"
-echo "  which npm    # should print: $WRAPPER_DIR/npm"
-echo "  npm install --dry-run --silent 2>&1 | head -3   # should show 'Protected by Socket Firewall'"
-echo "  npm --version                                   # should NOT show sfw banner (pass-through)"
+for mgr in "${MANAGERS[@]}"; do
+  echo "  command -v $mgr   # should print: $WRAPPER_DIR/$mgr"
+done
+echo "  Run an approved install dry run with SFW_VERBOSE=true; it should show the Socket Firewall banner."
+echo "  Run <manager> --version; it should pass through without the banner."

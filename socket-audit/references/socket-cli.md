@@ -1,107 +1,47 @@
 # Socket CLI Reference
 
-Quick reference for the Socket CLI commands this skill uses. Verified against **`socket-cli v1.1.94`**.
-Full docs: https://docs.socket.dev/docs/
+Command reference for Socket CLI `v1.1.94`, rechecked 2026-07-15. See the [official CLI documentation](https://docs.socket.dev/docs/socket-cli) and `cli-version.md` before changing command assumptions.
 
-When Socket releases a new version, see `cli-version.md` for the re-verification checklist.
-
-## Install
+## Install and authenticate
 
 ```bash
 npm i -g socket
-```
-
-Verify:
-```bash
 socket --version
+socket organization list --json
 ```
 
-## Authenticate
+`socket organization list --json` is the authentication probe. There is no `socket whoami` command in this version.
 
-`socket login` needs an interactive terminal. **Do not run it via `!` from a Codex session** — Codex's `!` prefix is non-interactive and Socket errors:
+If the probe fails, the user must run `socket login` in their own interactive terminal. It prompts for an API token; it does not open browser OAuth. Do not automate login or place a token in chat, a tool command, or visible environment output.
 
-> `Invalid input: Cannot prompt for credentials in a non-interactive shell. Use SOCKET_CLI_API_TOKEN environment variable instead.`
+Never run `socket config get apiToken` or print files under the Socket config directory. If a token appears in output, stop and have the user rotate it at [Socket API tokens](https://socket.dev/dashboard/settings/api-tokens).
 
-In v1.1.x, `socket login` does **not** open a browser. It prompts at the terminal for an API token. The "leave blank for limited public token" option creates a read-only session that **cannot create scans** — don't use it for audits.
-
-### Recommended path
-
-1. Sign up / log in at https://socket.dev (free).
-2. Visit https://socket.dev/dashboard/settings/api-tokens, create a personal token with scan-create scope.
-3. Open Terminal.app / iTerm and run:
-   ```bash
-   socket login
-   ```
-4. Paste your token at the prompt (NOT blank).
-5. Verify:
-   ```bash
-   socket organization list --json
-   ```
-
-Socket persists the token to `~/.config/socket-cli/` (or similar) and any future `socket` invocation — including from Codex — picks it up automatically.
-
-### Alt: environment variable
-
-For CI/CD or locked-down environments:
-
-```bash
-export SOCKET_CLI_API_TOKEN=<your-token>
-socket organization list --json    # should succeed
-```
-
-### How to verify auth in a script
-
-Use `socket organization list --json`. There is **no `socket whoami` subcommand** in v1.1.x; calling it exits 2 and dumps the help text. `socket organization list --json` is the canonical auth probe — it returns a small JSON payload of orgs you belong to if auth is good, fails clearly otherwise.
-
-### Token-leak hygiene — read this
-
-**Never run these:**
-- `socket config get apiToken` — prints the full token to stdout, leaking it into logs / conversations.
-- `cat ~/.config/socket-cli/*` — same risk.
-
-If a `sktsec_...` value appears in any tool output, stop and rotate the token at https://socket.dev/dashboard/settings/api-tokens before continuing.
-
-## Scan a project
+## Scan
 
 ```bash
 socket scan create --report --json .
 ```
 
-Flags used by this skill:
-- `--report` — wait for processing and evaluate against org policy. Without this you get just a scan ID.
-- `--json` — machine-readable output.
-- `.` — scan current directory. Socket walks the tree for manifests.
+- `--report` waits for the scan report.
+- `--json` requests machine-readable output.
+- `.` searches the current tree for supported manifests.
 
-### Supported manifest / lockfile types
+This command uploads the supported dependency manifests it finds. Treat manifest and lockfile contents as data egress. It does not enable source reachability analysis unless `--reach` is added; this skill does not add that flag.
 
-`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, **`bun.lock` (text, Bun 1.2+)**, `requirements.txt`, `Pipfile.lock`, `poetry.lock`, `pyproject.toml`, `uv.lock`, `Cargo.lock`, `Gemfile.lock`, `go.sum`.
+Useful result fields include the scan ID and reported alerts/issues. Do not assume a single field is stable enough to determine success: retain the raw JSON, command exit status, and log, then aggregate the actual response shape.
 
-**Not supported**: `bun.lockb` (binary Bun lockfile). If a repo has only `bun.lockb`, regenerate the text version:
+## Lockfiles and repository boundaries
 
-```bash
-bun install --save-text-lockfile
-```
+- Text `bun.lock` is supported; binary `bun.lockb` is not. With user approval, regenerate using `bun install --save-text-lockfile`.
+- A manifest without its lockfile gives weaker transitive-dependency evidence.
+- Socket walks nested supported manifests, so scanning a monorepo root can cover nested workspaces.
+- Dependency metadata can itself be sensitive. Use the bundled `--offline` workflow for company or private repositories that are not approved for upload.
 
-### Key JSON output fields
-
-- `healthy` — `false` means at least one policy threshold was crossed.
-- `id` — scan ID. Dashboard URL: `https://socket.dev/dashboard/scans/<id>`.
-- `issues` / `alerts` — flagged packages and reasons.
-
-## Other useful commands
+## Relevant commands
 
 | Command | Purpose |
 |---|---|
-| `socket organization list --json` | Validate auth + list orgs you belong to (use this instead of `whoami`) |
-| `socket scan list` | List recent scans |
-| `socket scan view <id>` | Pretty-print a scan by ID |
-| `socket package score <ecosystem> <name>` | Score a single package without scanning a repo |
-| `socket diff <a> <b>` | Diff two scans |
-
-## Common gotchas
-
-- **Private repos.** Manifests are uploaded. Sensitive package names may leak — use `--offline` in `run-audit.sh` for company repos.
-- **Workspaces / monorepos.** Socket walks nested manifests; one scan from the root covers all.
-- **Lockfile required for full signal.** A `package.json` alone gives partial info; commit the lockfile for transitive-dep analysis.
-- **`bun.lockb` is unsupported.** Binary Bun lockfile — Socket only handles the text `bun.lock` introduced in Bun 1.2. Regenerate as text (see above).
-- **Free tier quota.** 1,000 scans/month — re-running this audit weekly on 60 repos uses ~240/month.
+| `socket organization list --json` | Verify authentication and list organizations. |
+| `socket scan create --report --json .` | Create and wait for a machine-readable scan report. |
+| `socket scan list` | Inspect recent scans during troubleshooting. |
+| `socket scan view <id>` | Inspect a saved scan by ID. |
