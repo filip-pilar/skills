@@ -30,4 +30,4 @@ Write testable behavioral conditions. Use exact wording, size, or formatting onl
 
 ## Validation record
 
-Record date, environment, evidence level, result, and unresolved variance without placing the expected answer where a fresh evaluator can discover it.
+Record date, environment, verification-maturity level, result, and unresolved variance without placing the expected answer where a fresh evaluator can discover it.

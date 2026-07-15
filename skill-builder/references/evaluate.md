@@ -1,6 +1,6 @@
 # Evaluate Claims About a Skill
 
-Evaluation is the evidence process for every objective and assessment. It measures claims; structural validation only establishes that a package is well formed.
+Evaluation is the evidence process for every objective and assessment. This reference supplies the advanced scenario and comparison procedure; the root verification-maturity ladder applies even when this file is not loaded. Structural validation only establishes that a package is well formed.
 
 ## Select representative scenarios
 
@@ -47,13 +47,6 @@ Execution agents receive only the pinned target, realistic request, and raw task
 
 Separate execution from judgment. Randomize candidate labels; have a judge record rubric scores and rationale before identities are revealed. Unblind only afterward for attribution and synthesis, without silently changing the scores. Use the same scenarios and environment for every candidate, repeat probabilistic cases, and include at least one holdout case that did not shape the edit when the claim is material.
 
-## State the evidence level
+## State verification maturity
 
-Report the strongest completed level:
-
-1. Structural validation only.
-2. Manual contract or scenario replay.
-3. Isolated execution on synthetic artifacts.
-4. Replay of the real-world regression.
-
-Never describe levels 1 or 2 as execution-level proof or a single run as reliable parity. Record durable cases with [eval-case-template.md](eval-case-template.md), keeping raw evidence, interpretation, and pass conditions distinct.
+Use the root maturity ladder and report the strongest completed level. Never describe levels 1 or 2 as execution-level proof or a single run as reliable parity. Record durable cases with [eval-case-template.md](eval-case-template.md), keeping raw evidence, interpretation, and pass conditions distinct.

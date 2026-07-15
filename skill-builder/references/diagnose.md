@@ -34,13 +34,7 @@ Trace the behavior through these layers:
 
 Identify the smallest causal instruction cluster. Do not blame the model generically when the instructions reward the behavior, but do not stack a duplicate rule merely because one run disobeyed an existing clear rule. If the current version no longer reproduces the failure, report whether the evidence supports a resolved historical defect, version drift, or unresolved variance.
 
-Use calibrated confidence:
-
-- **Observed:** directly established by the supplied artifact or source.
-- **Supported:** reproduced or corroborated by independent evidence.
-- **Plausible:** consistent with evidence but not isolated from alternatives.
-
-Only Supported causal claims justify a semantic edit without further user choice. Plausible corrections remain proposals.
+Use the root claim-confidence labels separately from verification maturity. Only Supported causal claims justify a semantic edit without further user choice. Plausible corrections remain proposals.
 
 ## Report
 
@@ -52,6 +46,6 @@ State:
 - Whether the issue is semantic, representational, operational, or evaluative.
 - Whether a source change is warranted now; “no change warranted” is valid.
 - The smallest supported correction and the regression case that would prove it.
-- The strongest completed evidence level and the replay or evidence still missing.
+- The strongest completed verification-maturity level and the replay or evidence still missing.
 
 If the user requested diagnosis only, make no edits. If they requested a fix and the desired behavior is explicit, continue through [improve.md](improve.md).

@@ -13,7 +13,7 @@ State the objective and posture before changing files:
 
 - **Objective:** **Create** a skill or capability; **Diagnose** an observed failure; **Improve** behavior intentionally; or **Compress** an accepted contract without changing it. A broad audit is assessment only, with no transformation objective.
 - **Posture:** Assess, audit, evaluate, compare, suggest, and diagnose-without-fix are **report-only**. Use **edit** only for an authorized scoped change; an explicit no-edit constraint wins.
-- **Evidence:** Every claim needs proportionate evidence, but evaluation grants no edit authority. Load [evaluate.md](references/evaluate.md) only for execution comparisons, blind judging, or durable benchmarks; otherwise use the specialist's evidence gate.
+- **Evidence:** Every claim needs proportionate evidence, but evaluation grants no edit authority. Load [evaluate.md](references/evaluate.md) when a specialist directs it for scenario design, or for execution comparisons, blind judging, or durable benchmarks; otherwise use the specialist's evidence gate.
 - **Release:** Installation, synchronization, packaging, commit, push, and publication need separate authority. Load [release.md](references/release.md) only when requested.
 
 If the target `SKILL.md` exists, read it completely; for greenfield Create, inspect the intended destination for conflicts instead. Inspect only relevant package state and raw evidence, pin compared versions, and preserve unrelated work. Then load only:
@@ -34,8 +34,17 @@ If user intent and accepted evidence do not settle a material behavior, explain 
 
 Treat activation metadata as a coordinated contract with separate owners: invocation policy alone controls automatic selection; the description identifies purpose and—only for implicit skills—matching boundaries; `short_description` summarizes the capability in the UI; `default_prompt` demonstrates explicit invocation; and the body owns runtime behavior.
 
+## Calibrate evidence
+
+Report claim confidence and verification maturity separately:
+
+- **Claim confidence:** **Observed** is directly established by an artifact or source; **Supported** is reproduced or independently corroborated; **Plausible** fits the evidence but has not been isolated from alternatives.
+- **Verification maturity:** **Level 1** is structural validation or source inspection; **Level 2** is manual contract or scenario replay; **Level 3** is isolated execution on synthetic artifacts; **Level 4** is replay of the real-world regression.
+
+These axes answer different questions. A directly observed failure can still have only a plausible cause. Never use a confidence label as a maturity level. Report the strongest completed maturity level, what it establishes, and material evidence still missing.
+
 ## Finish
 
 For edits, run the Builder inspector and validator, test changed scripts, and replay applicable baselines. Use inspector `--load <relative-reference>` for actual runtime paths rather than summing every reference.
 
-Report objective, posture, semantic and representation changes, affected loading-path size, evidence level, validation, and uncertainty. Do not install, sync, commit, push, or publish without authorization.
+Report objective, posture, semantic and representation changes, affected loading-path size, claim confidence when applicable, verification maturity, validation, and uncertainty. Do not install, sync, commit, push, or publish without authorization.
