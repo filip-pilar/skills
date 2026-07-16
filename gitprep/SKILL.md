@@ -7,7 +7,7 @@ description: Inspect repository and publication state, plan coherent commits, an
 
 Treat a bare `$gitprep` invocation as a complete request to inspect and propose a commit plan, not to mutate the repository. Preserve all user work: never revert, delete, rewrite, or silently stage unrelated changes. Keep GitHub state read-only unless the user separately requests an action, and never push during this workflow.
 
-Use `git` for local repository operations. Use authenticated `gh` only when GitHub context materially clarifies the plan or verification state; skip it when irrelevant, unavailable, unauthenticated, or likely to add avoidable network friction. If a separately requested GitHub action is in scope, prefer `gh` to raw HTTP.
+Use `git` for local repository operations. When read-only GitHub context materially clarifies the plan or verification state, prefer the connected GitHub app when it supports the needed operation; otherwise use authenticated `gh`. Skip remote context when irrelevant or unavailable, and prefer either supported route to raw HTTP.
 
 ## Workflow
 
