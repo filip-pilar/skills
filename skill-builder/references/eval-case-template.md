@@ -1,5 +1,7 @@
 # Evaluation Case Title
 
+Use this structure ephemerally by default. Save a completed case only as part of an explicitly authorized durable benchmark suite; prefer a focused deterministic executable regression when one can protect the behavior.
+
 ## Purpose
 
 State the behavior or regression this case protects.

@@ -12,7 +12,7 @@ Inspect coupled surfaces before changing one in isolation. In particular, treat 
 
 ## Encode and protect the change
 
-Add or update a regression case using [eval-case-template.md](eval-case-template.md). Its pass conditions should describe observable behavior, not required phrases in `SKILL.md`. Keep answer keys outside the distributable skill package and fresh executor context. Preserve accepted behavior outside the intended delta.
+Define or replay a regression scenario with observable pass conditions, not required phrases in `SKILL.md`. Commit it only when it can be a focused deterministic executable test worth maintaining. Otherwise keep prompts, outputs, answer keys, judgments, and histories ephemeral and outside the repository unless the user explicitly authorizes a durable benchmark suite; use [eval-case-template.md](eval-case-template.md) temporarily when useful. Preserve accepted behavior outside the intended delta.
 
 Rewrite the smallest coherent instruction cluster. Remove superseded wording so the new rule does not compete with its predecessor. Update metadata, references, scripts, and examples only when the semantic change reaches them.
 

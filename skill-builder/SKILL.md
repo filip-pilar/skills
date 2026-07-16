@@ -13,7 +13,7 @@ State the objective and posture before changing files:
 
 - **Objective:** **Create** a skill or capability; **Diagnose** an observed failure; **Improve** behavior intentionally; or **Compress** an accepted contract without changing it. A broad audit is assessment only, with no transformation objective.
 - **Posture:** Assess, audit, evaluate, compare, suggest, and diagnose-without-fix are **report-only**. Use **edit** only for an authorized scoped change; an explicit no-edit constraint wins.
-- **Evidence:** Every claim needs proportionate evidence, but evaluation grants no edit authority. Load [evaluate.md](references/evaluate.md) when a specialist directs it for scenario design, or for execution comparisons, blind judging, or durable benchmarks; otherwise use the specialist's evidence gate.
+- **Evidence:** Every claim needs proportionate evidence, but evaluation grants no edit authority. Load [evaluate.md](references/evaluate.md) when a specialist directs it for scenario design, or for execution comparisons, blind judging, or an explicitly authorized durable benchmark; otherwise use the specialist's evidence gate.
 - **Release:** Installation, synchronization, packaging, commit, push, and publication need separate authority. Load [release.md](references/release.md) only when requested.
 
 If the target `SKILL.md` exists, read it completely; for greenfield Create, inspect the intended destination for conflicts instead. Inspect only relevant package state and raw evidence, pin compared versions, and preserve unrelated work. Then load only:

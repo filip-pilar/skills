@@ -47,6 +47,8 @@ Execution agents receive only the pinned target, realistic request, and raw task
 
 Separate execution from judgment. Randomize candidate labels; have a judge record rubric scores and rationale before identities are revealed. Unblind only afterward for attribution and synthesis, without silently changing the scores. Use the same scenarios and environment for every candidate, repeat probabilistic cases, and include at least one holdout case that did not shape the edit when the claim is material.
 
+Evaluation prompts, outputs, answer keys, judgments, and histories are ephemeral by default and stay outside the repository and distributable package. Do not create a persistent eval workspace or saved evidence unless the user explicitly authorizes a durable benchmark suite. A narrow deterministic executable regression may be committed when it protects stable behavior and earns its maintenance cost; use [eval-case-template.md](eval-case-template.md) to structure temporary cases or an authorized suite.
+
 ## State verification maturity
 
-Use the root maturity ladder and report the strongest completed level. Never describe levels 1 or 2 as execution-level proof or a single run as reliable parity. Record durable cases with [eval-case-template.md](eval-case-template.md), keeping raw evidence, interpretation, and pass conditions distinct.
+Use the root maturity ladder and report the strongest completed level. Never describe levels 1 or 2 as execution-level proof or a single run as reliable parity. Keep raw evidence, interpretation, and pass conditions distinct without implying that the record should persist.

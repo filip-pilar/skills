@@ -9,7 +9,7 @@ Release is an optional stage for an already accepted skill. It does not grant co
 3. Run added or changed scripts on representative inputs only when execution is safe and authorized. Otherwise use an existing mock or dry-run when permitted, or report the verification gap; do not invent authority.
 4. Verify metadata, links, resource routing, executable permissions, and symlinks. Confirm invocation policy, description, `short_description`, `default_prompt`, and runtime instructions have distinct, consistent ownership.
 5. Replay accepted behavioral scenarios and known regressions at the strongest feasible verification-maturity level.
-6. Confirm that answer keys, raw benchmark outputs, caches, bytecode, generated outputs, and temporary work are outside the distributable skill directory. Runtime-needed templates may remain.
+6. Confirm that the target's evaluation cases and histories, answer keys, raw benchmark outputs, caches, bytecode, generated outputs, and temporary work are outside the repository and distributable skill directory unless explicitly authorized. Focused deterministic executable tests and runtime-needed templates may remain.
 7. Compare repository, installed, and packaged copies when the request includes synchronization.
 
 Do not silently overwrite a divergent installed copy. Report the difference and use the user-authorized source of truth. Do not commit, push, install globally, or publish without the corresponding authorization.
