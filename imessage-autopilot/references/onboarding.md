@@ -1,78 +1,47 @@
-# Onboarding and delegation contract
+# Onboarding and activation
 
-Collect only information needed to govern the proposed run. Explain that the current implementation uses synthetic chat identifiers and data. The SQLite source accepts hashed chat IDs, but chat discovery and real-Messages onboarding remain deferred; do not improvise them from live data.
+Interview naturally and produce one reviewed contract. Do not turn each field into a separate consent prompt.
 
-## Required decisions
+Collect:
 
-Ask for:
+- Owner label.
+- Concise reply-style instructions: tone, length, formality, humor or emoji preferences, phrases to avoid, and when to escalate rather than guess.
+- Disclosure: `none` or `explicit`.
+- Exact direct or group chats selected from `chats`. Review every participant list and membership hash.
+- Foreground `run` or current-session background `start`; use foreground for the first live smoke.
 
-- An owner label.
-- Reply style.
-- Exact included chats.
-- Explicit exclusions, if any.
-- Whether group chats are allowed.
-- A non-empty participant snapshot hash for each included group.
-- Terms or topics that always escalate.
-- Backlog behavior: ignore existing events or process them.
-- Disclosure preference for a future live reply.
+Useful starting styles are a faithful ghostwriter, a disclosed assistant, or a cautious concierge. Regardless of style, the runtime prompt escalates money or credentials, legal or medical judgment, consequential commitments, conflict, and missing private context.
 
-Use this contract shape:
+Explain that a newly created isolated Codex thread receives up to 12 recent plain-text messages from that selected chat. Later turns reuse the same thread and receive only new eligible bursts. Attachments and rich content are not sent to Codex.
+
+## Contract
+
+Use exact discovery values:
 
 ```json
 {
   "version": 1,
   "owner_label": "Phil",
-  "reply_style": "brief, warm, and direct",
+  "reply_style": "Brief, warm, direct, and natural. Escalate commitments and unknown personal facts.",
   "included_chats": [
     {
-      "id": "chat-alice",
+      "id": "messages-chat:<hash>",
       "kind": "direct",
-      "participants_hash": ""
+      "participants_hash": "<hash from chats>"
     }
   ],
-  "excluded_chats": [],
-  "allow_groups": false,
-  "sensitive_terms": ["password", "bank transfer"],
-  "backlog_policy": "ignore_existing",
   "disclosure": "none"
 }
 ```
 
-`disclosure` may be `none` or `explicit`. It is stored as a future-facing product choice; mock dispatch never sends a real reply.
-
-Before rehearsal, choose the decision adapter:
-
-- `mock` is deterministic and makes no model request.
-- `codex-app-server` sends only the eligible synthetic message burst plus owner
-  label, reply style, disclosure choice, and conversation kind to an isolated
-  ephemeral chat thread inside one controller-owned Codex process. An explicit
-  user request for a bounded synthetic `codex-app-server` pass
-  authorizes that described transmission; do not request duplicate consent.
-  Ask again only if the payload, destination, retention, permissions, or
-  live-system scope materially changes.
-
-## Review and store
-
-Show the complete contract and resolve overlaps or unclear scope. Then pass the exact reviewed JSON through stdin:
+Show the complete contract before storing it:
 
 ```bash
 scripts/autopilot configure --stdin-json
 ```
 
-The CLI validates and atomically stores the contract, rebuilds deterministic scope state, and pauses operation. A changed contract must never silently resume an active controller. Reconfiguration must also preserve any chat-level safety pause until it is explicitly acknowledged.
+Configuration pauses Autopilot. After reviewing the stored authority, obtain one explicit activation approval covering the exact chats, participant membership, style and disclosure, selected-chat text being sent to isolated Codex threads, and automatic replies through Messages until pause, stop, uncertainty, or configuration change.
 
-For `ignore_existing`, the controller commits a backlog boundary for each source identity and chat activation before processing. Newly added or re-added chats receive a new boundary; unrelated contract edits retain the existing activation.
+Then run `resume` and the selected runtime command from [operations](operations.md). Existing messages are always ignored when a new contract generation establishes its boundaries. The activation approval governs the reviewed run; do not ask again for each eligible message.
 
-## Rehearse
-
-Create a nonce-scoped fixture outside the repository. Exercise at least:
-
-- An eligible direct message.
-- An unknown or excluded chat.
-- A sensitive message that escalates.
-- A duplicate event.
-- A manual-reply or newer-message race when relevant.
-
-For Codex-backed rehearsal, add `--decision-adapter codex-app-server` to `run` or `start`. Inspect `status --json`, confirm the selected adapter, resident-runtime health, isolated thread count, and that only mock dispatch outcomes occurred, then delete the fixture and temporary state.
-
-After the user explicitly approves activation, use `resume`, then choose foreground `run` or background-current-session `start`. Synthetic success is not approval for live adapter testing.
+Starting or resuming also establishes a fresh boundary. Autopilot handles messages that arrive while it is actively running, not a backlog accumulated while it was paused or stopped.

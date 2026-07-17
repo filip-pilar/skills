@@ -1,98 +1,62 @@
-# Runtime operations
+# Operations and recovery
 
-The controller accepts a global `--state-dir`; tests and rehearsals should always use a nonce-scoped temporary directory. The default is also temporary and intentionally does not promise persistence across reboot.
+The bundled CLI runs one resident controller and one constrained Codex app-server process. Each selected chat has its own ephemeral Codex thread. Best-effort filesystem events provide fast wakeups; a three-second poll is always the correctness fallback.
 
-## Run modes
+## Run
 
 Foreground:
 
 ```bash
-scripts/autopilot --state-dir <dir> run --fixture <events.jsonl>
+scripts/autopilot run --messages-db ~/Library/Messages/chat.db
 ```
 
-Background for the current session:
+Detached for the current login session:
 
 ```bash
-scripts/autopilot --state-dir <dir> start --fixture <events.jsonl>
+scripts/autopilot start --messages-db ~/Library/Messages/chat.db
 ```
 
-Both use the same resident loop. The loop watches the selected source when the platform supports it and always performs fallback polling. The default fallback interval is three seconds.
-
-The replica-tested SQLite source uses the same loop:
-
-```bash
-scripts/autopilot --state-dir <dir> run \
-  --source-adapter messages_sqlite \
-  --messages-db <synthetic-replica.db>
-```
-
-`--messages-db` must be explicit. Use only a disposable Messages-shaped SQLite replica containing synthetic data; never point this stage at the real Messages database. The adapter opens SQLite in read-only URI mode, enables query-only enforcement, watches the database and sidecars when present, and polls by per-chat message row ID as the correctness fallback.
-
-Select ephemeral Codex decisions explicitly:
-
-```bash
-scripts/autopilot --state-dir <dir> run \
-  --fixture <events.jsonl> \
-  --decision-adapter codex-app-server
-```
-
-The default remains `mock`. `--codex-timeout` bounds resident-runtime startup
-and each Codex decision. The controller starts one app-server process and reuses
-it, while each synthetic chat receives a distinct ephemeral thread and hashed
-empty workspace. Thread identity is scoped to source, chat activation, and chat,
-so a replacement source or reactivated chat cannot inherit stale context.
-Installed plugins, MCP servers, apps, browsing, shell tools,
-computer use, and multi-agent tools are disabled. A parent Codex sandbox may
-still require one bounded approval for the nested model request.
-
-`start` is process convenience only. It does not register with `launchd`, install `SMAppService`, launch at login, or promise restart after logout, reboot, or process failure.
+Both accept `--poll-seconds` from 2 through 5. `start` launches the same CLI and installs no `launchd` job, app bundle, login item, or reboot persistence. A private lock rejects a second controller.
 
 ## Controls
 
 ```bash
-scripts/autopilot --state-dir <dir> status --json
-scripts/autopilot --state-dir <dir> pause
-scripts/autopilot --state-dir <dir> resume
-scripts/autopilot --state-dir <dir> resume-chat --chat-id <id>
-scripts/autopilot --state-dir <dir> stop
+scripts/autopilot status
+scripts/autopilot pause
+scripts/autopilot resume
+scripts/autopilot resume --chat-id <opaque-chat-id>
+scripts/autopilot stop
 ```
 
-- `pause` durably prevents new decisions and mock sends.
-- `resume` validates configuration and state before continuing. It also resets a runtime-recovery circuit breaker after the blocked state has been reviewed.
-- `resume-chat` explicitly acknowledges and clears one safety pause. Global resume or reconfiguration must not clear it.
-- `stop` writes a request into private state and waits for the controller's exclusive lock to release; it does not signal a PID blindly.
-- `status` reports redacted health, counts, controller mode, and whether the watcher is attached.
+- `status` reports only configuration hash, mode, runtime health, selected chat IDs, pause reasons, redacted outcome counts, and the last error.
+- `pause` durably blocks new decisions and sends and closes the resident runtime. Messages received while paused are left for the user; `resume` establishes a fresh boundary rather than answering that backlog.
+- Global `resume` reactivates the reviewed contract. Chat-specific `resume` acknowledges one inspected safety pause without retrying its uncertain event.
+- `stop` requests shutdown through controller state and waits for the lock to be released. A later `run` or `start` also establishes a fresh boundary.
+- Reconfiguring pauses globally and resets boundaries when the new generation is resumed.
 
-## Recovery contract
+## Processing and crash contract
 
-- A second controller is rejected by an exclusive state lock. Runtime controls are authorized by the private state directory's filesystem permissions.
-- Exact event IDs are deduplicated before cursor checks.
-- Ledger, cursor, retry, and backlog state are scoped to source identity; backlog boundaries are also scoped to chat activation.
-- Claims expire and can be recovered after a crash.
-- Known pre-send failures use bounded retry with backoff.
-- A mock send accepted before a synthetic crash is reconciled before any retry.
-- An uncertain mock send pauses that chat and is never repeated automatically.
-- A changed contract pauses the controller.
-- A newer event, manual outbound event, global pause, or scope change invalidates an in-flight draft.
-- A decision thread is retained only after a terminal no-action/escalation or a verified mock send. Invalid output, cancellation, supersession, failed pre-send validation, dispatch failure, and uncertain dispatch evict only that source/activation/chat thread before retry or recovery.
-- Per-chat eviction uses the version-matched stable `thread/delete` method to release the orphaned ephemeral server thread. A normal delete rejection is reported as cleanup debt without resetting unrelated chats; a transport/protocol failure still invokes runtime recovery.
-- Pause, configuration change, or stop terminates the resident Codex process and any in-flight turn before mock dispatch. Resume creates a fresh process and fresh chat threads.
-- An unexpected process exit or protocol failure necessarily clears all ephemeral threads. Recovery uses exponential backoff and stops after three consecutive failures; a successful decision, five stable seconds, or an explicit `resume` resets the circuit breaker. Any observed tool activity or server request fails closed.
-- A bounded protocol dispatcher continuously drains app-server stdout and stderr, including while no decision is active. Turn notifications are bounded and irrelevant idle notifications are discarded.
-- Runtime workspaces and SQLite state are removed on shutdown. A controller-owned startup scavenges safe stale runtime directories from an interrupted prior run; cleanup failures remain visible in status.
-- Unknown or deprecated strict-profile settings fail closed before dispatch.
-- Invalid fixtures, source-schema drift, ambiguous message-to-chat joins, missing configured chat hashes, and unsupported state schemas fail closed.
+For each selected chat, the controller:
 
-Runtime state contains contract data, scope, cursors, hashes, claims, mock outcome identifiers, counts, and redacted health. It must not contain raw fixture bodies or generated reply text.
+1. Reads only rows after its durable boundary.
+2. Ignores a burst ending in an outbound human message.
+3. Escalates unsupported content without sending.
+4. Allows a short quiet interval to coalesce a rapid inbound burst, then asks the chat's isolated Codex thread for `reply`, `no_action`, or `escalate`.
+5. Re-reads the boundary immediately before send; a newer inbound or outbound message invalidates the draft.
+6. Transactionally records `attempted`, then invokes the Poke-derived fixed AppleScript program.
+7. Records `sent` after command success. A failure or crash that leaves `attempted` is changed to `uncertain`, pauses that chat, and is never sent again automatically.
 
-## Stop conditions
+This deliberately prefers a possible missed reply over a duplicate. Codex runtime failure pauses globally; it does not enter an automatic restart loop. Review the error and explicitly resume, which establishes a fresh boundary, starts a fresh runtime, and rehydrates isolated chat context when the next message arrives.
 
-Background readiness means the controller owns its lock, has validated the source, and has committed backlog boundaries. Initial decisions may still be running.
+## Deferred first live smoke
 
-Stop and report rather than improvising when:
+Run only when the user explicitly says they are ready:
 
-- The adapter profile is not `synthetic_fixture` or replica-only `messages_sqlite`, an approved decision adapter, and mock dispatch.
-- State integrity or schema validation fails.
-- The selected synthetic source is invalid.
-- Process ownership cannot be authenticated.
-- A requested action would access Messages, contacts, permissions, Apple Events, or a live send path.
+1. Select one direct test chat, configure it, and use foreground `run` with the default three-second poll.
+2. Confirm `controller_ready` and healthy `status`.
+3. Allow only the expected Automation prompt for Messages, if shown.
+4. Trigger one inbound message from the other participant or device and observe at most one reply.
+5. Check status, then pause and stop immediately.
+6. Review schema compatibility, read and Apple Events attribution, latency, delivery, deduplication, uncertainty behavior, and retained permissions.
+
+Do not broaden scope or test detached operation in the same smoke. Until this succeeds, describe live compatibility and sending as unproven.
