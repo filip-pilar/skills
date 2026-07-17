@@ -1,0 +1,7 @@
+interface:
+  display_name: "iMessage Autopilot"
+  short_description: "Configure and run synthetic iMessage Autopilot"
+  default_prompt: "Use $imessage-autopilot to set up and rehearse a synthetic iMessage Autopilot session."
+
+policy:
+  allow_implicit_invocation: false
