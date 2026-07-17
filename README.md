@@ -21,8 +21,6 @@ Most top-level folders are standalone skills. The `gtv/` folder groups related U
 - `skill-builder`: Create, diagnose, semantically improve, compress, evaluate, and release Codex skills through an outcome-first lifecycle with behavioral regression evidence.
   - Use directly: `Use $skill-builder to diagnose this skill from the attached bad output.`
   - Compression only: `Use $skill-builder to compress this skill without changing its behavior.`
-- `poke-negotiator`: Negotiate with Poke by Interaction through macOS Messages/iMessage or Telegram Web, verify checkout links, and stop before payment or account-connection steps.
-  - Use directly: `Use $poke-negotiator to start a Poke negotiation.`
 - `reply`: Turn a settled Codex Side discussion into the smallest sufficient reply for its linked parent.
   - Use directly in a Side task: invoke `$reply` after the response has been decided.
 - `socket-audit`: Audit local git repos for compromised dependencies and optionally install Socket.dev-based npm/pnpm/Bun protection.
@@ -55,7 +53,5 @@ Use the folder for the skill you want. Installation, loading, and invocation dep
 - `skill-builder` uses Improve for intentional behavior changes and Compress for behavior-preserving compression.
   - Its development-only regression cases live under `.evals/skill-builder/`, outside the distributable skill package.
 - `setup-cli-proxy-gateway` can change local authentication, listeners, services, and harness configuration; it requires explicit approval for mutations and paid provider calls.
-- `poke-negotiator` can require Full Disk Access and Messages Automation permissions on macOS when using iMessage/Messages.
-- `poke-negotiator` requires browser automation for Telegram Web.
 - `socket-audit` can require network access, Socket.dev auth, package-manager installs, and explicit approval before modifying shell/package-manager configuration.
 - The GTV skills provide application guidance, not legal or immigration advice, and intentionally refuse to generate paste-ready application text.

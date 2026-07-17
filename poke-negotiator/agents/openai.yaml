@@ -1,4 +1,0 @@
-interface:
-  display_name: "Poke Negotiator"
-  short_description: "Negotiates Poke Pro pricing through Messages or Telegram Web."
-  default_prompt: "Use $poke-negotiator to negotiate Poke Pro pricing for me, starting with transport selection."
