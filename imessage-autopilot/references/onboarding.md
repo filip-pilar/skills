@@ -1,6 +1,6 @@
 # Onboarding and delegation contract
 
-Collect only information needed to govern the proposed run. Explain that the current implementation uses synthetic chat identifiers and fixtures.
+Collect only information needed to govern the proposed run. Explain that the current implementation uses synthetic chat identifiers and data. The SQLite source accepts hashed chat IDs, but chat discovery and real-Messages onboarding remain deferred; do not improvise them from live data.
 
 ## Required decisions
 
@@ -11,7 +11,7 @@ Ask for:
 - Exact included chats.
 - Explicit exclusions, if any.
 - Whether group chats are allowed.
-- A participant snapshot hash for each included group.
+- A non-empty participant snapshot hash for each included group.
 - Terms or topics that always escalate.
 - Backlog behavior: ignore existing events or process them.
 - Disclosure preference for a future live reply.

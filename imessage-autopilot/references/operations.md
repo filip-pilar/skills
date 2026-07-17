@@ -16,7 +16,17 @@ Background for the current session:
 scripts/autopilot --state-dir <dir> start --fixture <events.jsonl>
 ```
 
-Both use the same resident loop. The loop watches the synthetic fixture when the platform supports it and always performs fallback polling. The default fallback interval is three seconds.
+Both use the same resident loop. The loop watches the selected source when the platform supports it and always performs fallback polling. The default fallback interval is three seconds.
+
+The replica-tested SQLite source uses the same loop:
+
+```bash
+scripts/autopilot --state-dir <dir> run \
+  --source-adapter messages_sqlite \
+  --messages-db <synthetic-replica.db>
+```
+
+`--messages-db` must be explicit. Use only a disposable Messages-shaped SQLite replica containing synthetic data; never point this stage at the real Messages database. The adapter opens SQLite in read-only URI mode, enables query-only enforcement, watches the database and sidecars when present, and polls by per-chat message row ID as the correctness fallback.
 
 Select ephemeral Codex decisions explicitly:
 
@@ -71,7 +81,7 @@ scripts/autopilot --state-dir <dir> stop
 - A bounded protocol dispatcher continuously drains app-server stdout and stderr, including while no decision is active. Turn notifications are bounded and irrelevant idle notifications are discarded.
 - Runtime workspaces and SQLite state are removed on shutdown. A controller-owned startup scavenges safe stale runtime directories from an interrupted prior run; cleanup failures remain visible in status.
 - Unknown or deprecated strict-profile settings fail closed before dispatch.
-- Invalid fixtures and unsupported state schemas fail closed.
+- Invalid fixtures, source-schema drift, ambiguous message-to-chat joins, missing configured chat hashes, and unsupported state schemas fail closed.
 
 Runtime state contains contract data, scope, cursors, hashes, claims, mock outcome identifiers, counts, and redacted health. It must not contain raw fixture bodies or generated reply text.
 
@@ -81,8 +91,8 @@ Background readiness means the controller owns its lock, has validated the sourc
 
 Stop and report rather than improvising when:
 
-- The adapter profile is not synthetic fixture source, an approved synthetic decision adapter, and mock dispatch.
+- The adapter profile is not `synthetic_fixture` or replica-only `messages_sqlite`, an approved decision adapter, and mock dispatch.
 - State integrity or schema validation fails.
-- The fixture is invalid.
+- The selected synthetic source is invalid.
 - Process ownership cannot be authenticated.
 - A requested action would access Messages, contacts, permissions, Apple Events, or a live send path.

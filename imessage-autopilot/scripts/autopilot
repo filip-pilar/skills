@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Synthetic resident controller for the iMessage Autopilot skill.
+"""Resident controller prototype for the iMessage Autopilot skill.
 
-This prototype has no live Messages, Contacts, Apple Events, permission, or
-network adapter. It reads JSONL fixtures and records hashed mock outcomes.
+The controller supports synthetic JSONL and an explicit-path, read-only
+Messages-shaped SQLite source. The SQLite source is replica-tested only. There
+is no Contacts, Apple Events, permission, network, or real dispatch adapter.
 """
 
 from __future__ import annotations
@@ -30,10 +31,15 @@ from pathlib import Path
 from typing import Any, Protocol
 
 
-VERSION = "0.3.0-synthetic"
+VERSION = "0.4.0-read-adapter"
 STATE_SCHEMA_VERSION = "6"
 CONTRACT_VERSION = 1
-SOURCE_ADAPTER_NAME = "synthetic_fixture"
+SYNTHETIC_SOURCE_ADAPTER_NAME = "synthetic_fixture"
+MESSAGES_SQLITE_SOURCE_ADAPTER_NAME = "messages_sqlite"
+SOURCE_ADAPTER_NAMES = {
+    SYNTHETIC_SOURCE_ADAPTER_NAME,
+    MESSAGES_SQLITE_SOURCE_ADAPTER_NAME,
+}
 MOCK_DECISION_ADAPTER_NAME = "mock"
 CODEX_APP_SERVER_DECISION_ADAPTER_NAME = "codex-app-server"
 DECISION_ADAPTER_NAMES = {
@@ -57,6 +63,7 @@ MAX_PROTOCOL_QUEUE_MESSAGES = 512
 MAX_TURN_NOTIFICATIONS = 4_096
 RUNTIME_DIRECTORY_PREFIX = ".imessage-autopilot-codex-"
 MAX_FIXTURE_BYTES = 8 * 1024 * 1024
+MAX_SOURCE_EVENTS_PER_SCAN = 512
 MAX_BODY_CHARS = 16_384
 MAX_CODEX_OUTPUT_BYTES = 1_048_576
 MAX_REPLY_CHARS = 2_000
@@ -117,7 +124,15 @@ class AutopilotError(RuntimeError):
         self.exit_code = exit_code
 
 
-class FixtureError(AutopilotError):
+class SourceError(AutopilotError):
+    pass
+
+
+class FixtureError(SourceError):
+    pass
+
+
+class MessagesSourceError(SourceError):
     pass
 
 
@@ -146,7 +161,7 @@ class DispatchResult:
 
 @dataclass(frozen=True)
 class EligibleEvent:
-    burst: list["SyntheticEvent"]
+    burst: list["MessageEvent"]
     activation_id: str
 
 
@@ -165,7 +180,8 @@ class ThreadContext:
 
 @dataclass(frozen=True)
 class RuntimeOptions:
-    fixture: Path
+    source_adapter: str
+    source_path: Path
     poll_interval: float
     claim_lease: float
     retry_base: float
@@ -500,6 +516,11 @@ def normalize_contract(raw: Any) -> dict[str, Any]:
             allow_empty=True,
             max_length=512,
         )
+        if kind == "group" and not participants_hash:
+            raise AutopilotError(
+                "invalid_contract",
+                f"included_chats[{index}].participants_hash is required for groups",
+            )
         if chat_id in included_ids:
             raise AutopilotError("invalid_contract", f"duplicate included chat: {chat_id}")
         included_ids.add(chat_id)
@@ -573,7 +594,7 @@ def normalize_contract(raw: Any) -> dict[str, Any]:
 
 
 @dataclass(frozen=True)
-class SyntheticEvent:
+class MessageEvent:
     source_id: str
     event_id: str
     chat_id: str
@@ -582,13 +603,14 @@ class SyntheticEvent:
     kind: str
     body: str
     participants_hash: str
+    conversation_kind: str
     simulate: str
     codex_delay_ms: float
     payload_hash: str
-    line_number: int
+    source_order: int
 
 
-def parse_event(raw: Any, line_number: int, source_id: str) -> SyntheticEvent:
+def parse_event(raw: Any, line_number: int, source_id: str) -> MessageEvent:
     if not isinstance(raw, dict):
         raise FixtureError(
             "invalid_fixture", f"fixture line {line_number} must be a JSON object"
@@ -622,6 +644,12 @@ def parse_event(raw: Any, line_number: int, source_id: str) -> SyntheticEvent:
         allow_empty=True,
         max_length=512,
     )
+    conversation_kind = raw.get("conversation_kind", "")
+    if conversation_kind not in {"", "direct", "group"}:
+        raise FixtureError(
+            "invalid_fixture",
+            f"fixture line {line_number} conversation_kind must be direct or group",
+        )
     simulate = raw.get("simulate", "")
     if simulate not in ALLOWED_SIMULATIONS:
         raise FixtureError(
@@ -642,10 +670,11 @@ def parse_event(raw: Any, line_number: int, source_id: str) -> SyntheticEvent:
         "kind": kind,
         "body": body,
         "participants_hash": participants_hash,
+        "conversation_kind": conversation_kind,
         "simulate": simulate,
         "codex_delay_ms": codex_delay_ms,
     }
-    return SyntheticEvent(
+    return MessageEvent(
         source_id=source_id,
         event_id=event_id,
         chat_id=chat_id,
@@ -654,14 +683,15 @@ def parse_event(raw: Any, line_number: int, source_id: str) -> SyntheticEvent:
         kind=kind,
         body=body,
         participants_hash=participants_hash,
+        conversation_kind=conversation_kind,
         simulate=simulate,
         codex_delay_ms=codex_delay_ms,
         payload_hash=sha256_text(canonical_json(normalized)),
-        line_number=line_number,
+        source_order=line_number,
     )
 
 
-def load_fixture(path: Path, source_id: str) -> list[SyntheticEvent]:
+def load_fixture(path: Path, source_id: str) -> list[MessageEvent]:
     try:
         size = path.stat().st_size
     except OSError as exc:
@@ -673,7 +703,7 @@ def load_fixture(path: Path, source_id: str) -> list[SyntheticEvent]:
     except (OSError, UnicodeDecodeError) as exc:
         raise FixtureError("fixture_unavailable", "synthetic fixture is unreadable") from exc
 
-    events: list[SyntheticEvent] = []
+    events: list[MessageEvent] = []
     identities: dict[str, str] = {}
     for line_number, line in enumerate(text.splitlines(), start=1):
         if not line.strip():
@@ -700,7 +730,18 @@ class EventSource(Protocol):
     name: str
     path: Path
 
-    def load(self) -> tuple[str, list[SyntheticEvent]]:
+    def validate(self) -> None:
+        ...
+
+    def maxima(self, chat_ids: set[str]) -> tuple[str, dict[str, int]]:
+        ...
+
+    def load(
+        self, after_by_chat: dict[str, int]
+    ) -> tuple[str, list[MessageEvent]]:
+        ...
+
+    def watch_paths(self) -> list[Path]:
         ...
 
 
@@ -731,8 +772,8 @@ class DecisionAdapter(Protocol):
     def decide(
         self,
         key: ConversationKey,
-        event: SyntheticEvent,
-        burst: list[SyntheticEvent],
+        event: MessageEvent,
+        burst: list[MessageEvent],
         contract: dict[str, Any],
     ) -> dict[str, str]:
         ...
@@ -744,17 +785,23 @@ class DecisionAdapter(Protocol):
 class DispatchAdapter(Protocol):
     name: str
 
-    def dispatch(self, event: SyntheticEvent, draft: str) -> DispatchResult:
+    def dispatch(self, event: MessageEvent, draft: str) -> DispatchResult:
         ...
 
 
 class SyntheticFixtureSource:
-    name = SOURCE_ADAPTER_NAME
+    name = SYNTHETIC_SOURCE_ADAPTER_NAME
 
     def __init__(self, path: Path) -> None:
         self.path = path.expanduser().resolve()
 
-    def load(self) -> tuple[str, list[SyntheticEvent]]:
+    def validate(self) -> None:
+        if not self.path.is_file():
+            raise FixtureError(
+                "fixture_unavailable", "synthetic fixture file does not exist"
+            )
+
+    def _snapshot(self) -> tuple[str, list[MessageEvent]]:
         try:
             info = self.path.stat()
         except OSError as exc:
@@ -771,6 +818,434 @@ class SyntheticFixtureSource:
             )
         )
         return source_id, load_fixture(self.path, source_id)
+
+    def maxima(self, chat_ids: set[str]) -> tuple[str, dict[str, int]]:
+        source_id, events = self._snapshot()
+        maxima = {chat_id: -1 for chat_id in chat_ids}
+        for event in events:
+            if event.chat_id in maxima:
+                maxima[event.chat_id] = max(
+                    maxima[event.chat_id], event.source_seq
+                )
+        return source_id, maxima
+
+    def load(
+        self, after_by_chat: dict[str, int]
+    ) -> tuple[str, list[MessageEvent]]:
+        source_id, events = self._snapshot()
+        selected = [
+            event
+            for event in events
+            if event.chat_id in after_by_chat
+            and event.source_seq > after_by_chat[event.chat_id]
+        ]
+        if len(selected) > MAX_SOURCE_EVENTS_PER_SCAN:
+            raise FixtureError(
+                "source_batch_too_large",
+                "synthetic source has too many unprocessed events",
+            )
+        return source_id, selected
+
+    def watch_paths(self) -> list[Path]:
+        return [self.path, self.path.parent]
+
+
+class MessagesSQLiteSource:
+    """Read-only Messages-shaped SQLite source, currently replica-tested only."""
+
+    name = MESSAGES_SQLITE_SOURCE_ADAPTER_NAME
+    _required_columns = {
+        "message": {"guid", "text", "is_from_me"},
+        "chat": {"chat_identifier"},
+        "chat_message_join": {"chat_id", "message_id"},
+        "handle": {"id"},
+        "chat_handle_join": {"chat_id", "handle_id"},
+    }
+
+    def __init__(self, path: Path) -> None:
+        self.path = path.expanduser().absolute()
+
+    def validate(self) -> None:
+        self._file_info()
+        db: sqlite3.Connection | None = None
+        try:
+            db = self._connect()
+            self._schema(db)
+        except MessagesSourceError:
+            raise
+        except sqlite3.DatabaseError as exc:
+            raise MessagesSourceError(
+                "messages_database_error",
+                "Messages-shaped SQLite source could not be read safely",
+            ) from exc
+        finally:
+            if db is not None:
+                db.close()
+
+    def _file_info(self) -> os.stat_result:
+        try:
+            info = self.path.lstat()
+        except OSError as exc:
+            raise MessagesSourceError(
+                "messages_source_unavailable",
+                "Messages-shaped SQLite source is unavailable",
+            ) from exc
+        if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode):
+            raise MessagesSourceError(
+                "unsafe_messages_source",
+                "Messages-shaped SQLite source must be a regular file, not a link",
+            )
+        if info.st_uid != os.getuid():
+            raise MessagesSourceError(
+                "unsafe_messages_source",
+                "Messages-shaped SQLite source must be owned by the current user",
+            )
+        return info
+
+    def _source_id(self) -> str:
+        info = self._file_info()
+        return sha256_text(
+            canonical_json(
+                {
+                    "adapter": self.name,
+                    "path": str(self.path),
+                    "device": info.st_dev,
+                    "inode": info.st_ino,
+                }
+            )
+        )
+
+    def _connect(self) -> sqlite3.Connection:
+        self._file_info()
+        uri = self.path.as_uri() + "?mode=ro&cache=private"
+        db: sqlite3.Connection | None = None
+        try:
+            db = sqlite3.connect(
+                uri,
+                uri=True,
+                timeout=2,
+                isolation_level=None,
+            )
+            db.row_factory = sqlite3.Row
+            db.execute("PRAGMA query_only=ON")
+            db.execute("PRAGMA trusted_schema=OFF")
+            db.execute("BEGIN")
+            return db
+        except sqlite3.DatabaseError as exc:
+            if db is not None:
+                db.close()
+            raise MessagesSourceError(
+                "messages_database_error",
+                "Messages-shaped SQLite source could not be opened read-only",
+            ) from exc
+
+    @staticmethod
+    def _table_columns(db: sqlite3.Connection, table: str) -> set[str]:
+        return {
+            str(row[1]).casefold()
+            for row in db.execute(f"PRAGMA table_info({table})")
+        }
+
+    def _schema(self, db: sqlite3.Connection) -> dict[str, set[str]]:
+        schema = {
+            table: self._table_columns(db, table)
+            for table in self._required_columns
+        }
+        missing = {
+            table: sorted(required - schema[table])
+            for table, required in self._required_columns.items()
+            if not required <= schema[table]
+        }
+        if missing:
+            detail = ", ".join(
+                f"{table}({','.join(columns)})"
+                for table, columns in sorted(missing.items())
+            )
+            raise MessagesSourceError(
+                "unsupported_messages_schema",
+                f"Messages-shaped SQLite source is missing required schema: {detail}",
+            )
+        schema["message_attachment_join"] = self._table_columns(
+            db, "message_attachment_join"
+        )
+        return schema
+
+    @staticmethod
+    def _chat_hash(guid: Any, service: Any, identifier: Any) -> str:
+        stable = str(guid or "").strip()
+        if not stable:
+            stable = canonical_json(
+                {
+                    "service": str(service or ""),
+                    "identifier": str(identifier or ""),
+                }
+            )
+        return "messages-chat:" + sha256_text(stable)
+
+    def _chat_rows(
+        self,
+        db: sqlite3.Connection,
+        schema: dict[str, set[str]],
+        chat_ids: set[str],
+    ) -> dict[str, list[int]]:
+        guid = "guid" if "guid" in schema["chat"] else "NULL"
+        service = (
+            "service_name" if "service_name" in schema["chat"] else "NULL"
+        )
+        rows_by_hash: dict[str, list[int]] = {}
+        query = (
+            "SELECT ROWID AS rowid, "
+            f"{guid} AS guid, {service} AS service_name, chat_identifier "
+            "FROM chat"
+        )
+        for row in db.execute(query):
+            hashed = self._chat_hash(
+                row["guid"], row["service_name"], row["chat_identifier"]
+            )
+            if hashed in chat_ids:
+                rows_by_hash.setdefault(hashed, []).append(int(row["rowid"]))
+        missing = sorted(chat_ids - set(rows_by_hash))
+        if missing:
+            raise MessagesSourceError(
+                "messages_scope_missing",
+                "one or more configured chat hashes are absent from the source",
+            )
+        return rows_by_hash
+
+    @staticmethod
+    def _placeholders(values: list[int]) -> str:
+        return ",".join("?" for _ in values)
+
+    def _participants_snapshot(
+        self,
+        db: sqlite3.Connection,
+        schema: dict[str, set[str]],
+        chat_rows: list[int],
+    ) -> tuple[str, str]:
+        service = "h.service" if "service" in schema["handle"] else "NULL"
+        placeholders = self._placeholders(chat_rows)
+        participants = sorted(
+            {
+                canonical_json(
+                    {
+                        "service": str(row["service"] or ""),
+                        "id": str(row["handle_id"] or ""),
+                    }
+                )
+                for row in db.execute(
+                    "SELECT h.id AS handle_id, "
+                    f"{service} AS service "
+                    "FROM chat_handle_join chj "
+                    "JOIN handle h ON h.ROWID=chj.handle_id "
+                    f"WHERE chj.chat_id IN ({placeholders})",
+                    chat_rows,
+                )
+            }
+        )
+        return (
+            sha256_text(canonical_json(participants)),
+            "group" if len(participants) > 1 else "direct",
+        )
+
+    def maxima(self, chat_ids: set[str]) -> tuple[str, dict[str, int]]:
+        source_id = self._source_id()
+        db: sqlite3.Connection | None = None
+        try:
+            db = self._connect()
+            schema = self._schema(db)
+            rows_by_hash = self._chat_rows(db, schema, chat_ids)
+            maxima: dict[str, int] = {}
+            for chat_id, chat_rows in rows_by_hash.items():
+                placeholders = self._placeholders(chat_rows)
+                row = db.execute(
+                    "SELECT MAX(m.ROWID) "
+                    "FROM chat_message_join cmj "
+                    "JOIN message m ON m.ROWID=cmj.message_id "
+                    f"WHERE cmj.chat_id IN ({placeholders})",
+                    chat_rows,
+                ).fetchone()
+                maxima[chat_id] = -1 if row is None or row[0] is None else int(row[0])
+        except MessagesSourceError:
+            raise
+        except sqlite3.DatabaseError as exc:
+            raise MessagesSourceError(
+                "messages_database_error",
+                "Messages-shaped SQLite source query failed",
+            ) from exc
+        finally:
+            if db is not None:
+                db.close()
+        if self._source_id() != source_id:
+            raise MessagesSourceError(
+                "messages_source_changed", "SQLite source changed during the scan"
+            )
+        return source_id, maxima
+
+    @staticmethod
+    def _message_kind(row: sqlite3.Row) -> tuple[str, str]:
+        raw_body = row["body"]
+        body = raw_body if isinstance(raw_body, str) else ""
+        if row["associated_message_guid"] is not None:
+            return "associated", ""
+        if int(row["item_type"] or 0) != 0:
+            return "system", ""
+        if str(row["balloon_bundle_id"] or "").strip():
+            return "app", ""
+        if int(row["num_attachments"] or 0) > 0:
+            return "attachment", ""
+        if not body:
+            return "unsupported", ""
+        if "\ufffc" in body:
+            return "inline_attachment", ""
+        if len(body) > MAX_BODY_CHARS:
+            return "oversized_text", ""
+        return "text", body
+
+    def _message_query(
+        self,
+        schema: dict[str, set[str]],
+        chat_rows: list[int],
+    ) -> str:
+        message_columns = schema["message"]
+        item_type = "m.item_type" if "item_type" in message_columns else "0"
+        associated_guid = (
+            "m.associated_message_guid"
+            if "associated_message_guid" in message_columns
+            else "NULL"
+        )
+        balloon = (
+            "m.balloon_bundle_id"
+            if "balloon_bundle_id" in message_columns
+            else "NULL"
+        )
+        if {"message_id"} <= schema["message_attachment_join"]:
+            attachments = (
+                "(SELECT COUNT(*) FROM message_attachment_join maj "
+                "WHERE maj.message_id=m.ROWID)"
+            )
+        elif "cache_has_attachments" in message_columns:
+            attachments = "m.cache_has_attachments"
+        else:
+            attachments = "0"
+        placeholders = self._placeholders(chat_rows)
+        return (
+            "SELECT DISTINCT m.ROWID AS source_seq, m.guid AS message_guid, "
+            "m.text AS body, m.is_from_me AS is_from_me, "
+            f"{item_type} AS item_type, "
+            f"{associated_guid} AS associated_message_guid, "
+            f"{balloon} AS balloon_bundle_id, "
+            f"{attachments} AS num_attachments, "
+            "(SELECT COUNT(DISTINCT cmj2.chat_id) "
+            "FROM chat_message_join cmj2 "
+            "WHERE cmj2.message_id=m.ROWID) AS chat_count "
+            "FROM chat_message_join cmj "
+            "JOIN message m ON m.ROWID=cmj.message_id "
+            f"WHERE cmj.chat_id IN ({placeholders}) AND m.ROWID > ? "
+            "ORDER BY m.ROWID LIMIT ?"
+        )
+
+    def load(
+        self, after_by_chat: dict[str, int]
+    ) -> tuple[str, list[MessageEvent]]:
+        source_id = self._source_id()
+        db: sqlite3.Connection | None = None
+        events: list[MessageEvent] = []
+        event_chats: dict[str, str] = {}
+        try:
+            db = self._connect()
+            schema = self._schema(db)
+            rows_by_hash = self._chat_rows(db, schema, set(after_by_chat))
+            for chat_id, chat_rows in sorted(rows_by_hash.items()):
+                participants_hash, conversation_kind = self._participants_snapshot(
+                    db, schema, chat_rows
+                )
+                query = self._message_query(schema, chat_rows)
+                params: list[int] = [
+                    *chat_rows,
+                    after_by_chat[chat_id],
+                    MAX_SOURCE_EVENTS_PER_SCAN + 1,
+                ]
+                for row in db.execute(query, params):
+                    if int(row["chat_count"] or 0) != 1:
+                        raise MessagesSourceError(
+                            "ambiguous_message_chat",
+                            "one message belongs to multiple chat rows",
+                        )
+                    if len(events) >= MAX_SOURCE_EVENTS_PER_SCAN:
+                        raise MessagesSourceError(
+                            "source_batch_too_large",
+                            "Messages-shaped source has too many unprocessed events",
+                        )
+                    source_seq = int(row["source_seq"])
+                    raw_guid = str(row["message_guid"] or "").strip()
+                    identity = raw_guid or f"{source_id}:{source_seq}"
+                    event_id = "messages-event:" + sha256_text(identity)
+                    previous_chat = event_chats.get(event_id)
+                    if previous_chat is not None:
+                        if previous_chat != chat_id:
+                            raise MessagesSourceError(
+                                "ambiguous_message_chat",
+                                "one message belongs to multiple configured chats",
+                            )
+                        continue
+                    kind, body = self._message_kind(row)
+                    direction = (
+                        "outbound" if int(row["is_from_me"] or 0) else "inbound"
+                    )
+                    normalized = {
+                        "event_id": event_id,
+                        "chat_id": chat_id,
+                        "source_seq": source_seq,
+                        "direction": direction,
+                        "kind": kind,
+                        "body": body,
+                        "participants_hash": participants_hash,
+                        "conversation_kind": conversation_kind,
+                        "simulate": "",
+                        "codex_delay_ms": 0.0,
+                    }
+                    events.append(
+                        MessageEvent(
+                            source_id=source_id,
+                            event_id=event_id,
+                            chat_id=chat_id,
+                            source_seq=source_seq,
+                            direction=direction,
+                            kind=kind,
+                            body=body,
+                            participants_hash=participants_hash,
+                            conversation_kind=conversation_kind,
+                            simulate="",
+                            codex_delay_ms=0.0,
+                            payload_hash=sha256_text(canonical_json(normalized)),
+                            source_order=source_seq,
+                        )
+                    )
+                    event_chats[event_id] = chat_id
+        except MessagesSourceError:
+            raise
+        except sqlite3.DatabaseError as exc:
+            raise MessagesSourceError(
+                "messages_database_error",
+                "Messages-shaped SQLite source query failed",
+            ) from exc
+        finally:
+            if db is not None:
+                db.close()
+        if self._source_id() != source_id:
+            raise MessagesSourceError(
+                "messages_source_changed", "SQLite source changed during the scan"
+            )
+        return source_id, events
+
+    def watch_paths(self) -> list[Path]:
+        candidates = [
+            self.path,
+            self.path.parent,
+            Path(f"{self.path}-wal"),
+            Path(f"{self.path}-shm"),
+        ]
+        return [path for path in candidates if path.exists()]
 
 
 class StateStore:
@@ -877,7 +1352,7 @@ class StateStore:
         )
         defaults = {
             "schema_version": STATE_SCHEMA_VERSION,
-            "source_adapter": SOURCE_ADAPTER_NAME,
+            "source_adapter": SYNTHETIC_SOURCE_ADAPTER_NAME,
             "decision_adapter": MOCK_DECISION_ADAPTER_NAME,
             "dispatch_adapter": DISPATCH_ADAPTER_NAME,
             "paused": "1",
@@ -886,7 +1361,7 @@ class StateStore:
             "last_scan": "0",
             "last_error": "",
             "controller_mode": "",
-            "fixture_path": "",
+            "source_path": "",
             "source_id": "",
             "watcher": "not_running",
             "stop_requested": "0",
@@ -922,13 +1397,13 @@ class StateStore:
             "dispatch": self.get_meta("dispatch_adapter"),
         }
         if (
-            adapters["source"] != SOURCE_ADAPTER_NAME
+            adapters["source"] not in SOURCE_ADAPTER_NAMES
             or adapters["decision"] not in DECISION_ADAPTER_NAMES
             or adapters["dispatch"] != DISPATCH_ADAPTER_NAME
         ):
             raise AutopilotError(
                 "unsupported_adapter",
-                "this prototype accepts only synthetic fixture input, approved synthetic decision adapters, and mock dispatch",
+                "this prototype accepts only approved source and decision adapters with mock dispatch",
             )
         if deep:
             check = self.db.execute("PRAGMA quick_check").fetchone()[0]
@@ -968,12 +1443,28 @@ class StateStore:
         ).fetchone()
         if row is None:
             return None
-        return json.loads(row["contract_json"]), str(row["contract_hash"])
+        try:
+            contract = normalize_contract(json.loads(row["contract_json"]))
+        except (AutopilotError, json.JSONDecodeError) as exc:
+            raise AutopilotError(
+                "invalid_stored_contract", "stored delegation contract is invalid"
+            ) from exc
+        digest = sha256_text(canonical_json(contract))
+        if digest != str(row["contract_hash"]):
+            raise AutopilotError(
+                "state_integrity", "stored delegation contract hash does not match"
+            )
+        return contract, digest
 
     def configure(self, contract: dict[str, Any]) -> tuple[str, bool]:
         payload = canonical_json(contract)
         digest = sha256_text(payload)
-        existing = self.configuration()
+        try:
+            existing = self.configuration()
+        except AutopilotError as exc:
+            if exc.code not in {"invalid_stored_contract", "state_integrity"}:
+                raise
+            existing = None
         changed = existing is None or existing[1] != digest
         previous_scope = {
             str(row["chat_id"]): row
@@ -1092,12 +1583,9 @@ class StateStore:
     def ensure_source_boundaries(
         self,
         source_id: str,
-        events: list[SyntheticEvent],
+        maxima: dict[str, int],
         backlog_policy: str,
     ) -> None:
-        maxima: dict[str, int] = {}
-        for event in events:
-            maxima[event.chat_id] = max(maxima.get(event.chat_id, -1), event.source_seq)
         self.db.execute("BEGIN IMMEDIATE")
         try:
             for row in self.db.execute(
@@ -1148,7 +1636,21 @@ class StateStore:
         ).fetchone()
         return -1 if row is None else int(row[0])
 
-    def ledger_row(self, event: SyntheticEvent) -> sqlite3.Row | None:
+    def scan_floors(self, source_id: str) -> dict[str, int]:
+        floors: dict[str, int] = {}
+        for row in self.db.execute(
+            """SELECT chat_id,activation_id
+                 FROM scope
+                WHERE disposition='include'"""
+        ):
+            chat_id = str(row["chat_id"])
+            boundary = self.source_boundary(
+                source_id, chat_id, str(row["activation_id"])
+            )
+            floors[chat_id] = max(boundary, self.cursor(source_id, chat_id))
+        return floors
+
+    def ledger_row(self, event: MessageEvent) -> sqlite3.Row | None:
         return self.db.execute(
             "SELECT * FROM ledger WHERE source_id=? AND event_id=?",
             (event.source_id, event.event_id),
@@ -1156,7 +1658,7 @@ class StateStore:
 
     def claim(
         self,
-        event: SyntheticEvent,
+        event: MessageEvent,
         *,
         now: float,
         lease_seconds: float,
@@ -1197,13 +1699,13 @@ class StateStore:
             self.db.execute("ROLLBACK")
             raise
 
-    def release_claim(self, event: SyntheticEvent) -> None:
+    def release_claim(self, event: MessageEvent) -> None:
         self.db.execute(
             "DELETE FROM claims WHERE source_id=? AND event_id=?",
             (event.source_id, event.event_id),
         )
 
-    def retry_ready(self, event: SyntheticEvent, now: float) -> bool:
+    def retry_ready(self, event: MessageEvent, now: float) -> bool:
         row = self.db.execute(
             """SELECT next_retry FROM retry_state
                 WHERE source_id=? AND event_id=?""",
@@ -1212,7 +1714,7 @@ class StateStore:
         return row is None or float(row[0]) <= now
 
     def schedule_retry(
-        self, event: SyntheticEvent, reason: str, *, now: float, base_delay: float
+        self, event: MessageEvent, reason: str, *, now: float, base_delay: float
     ) -> tuple[int, float]:
         row = self.db.execute(
             """SELECT attempts FROM retry_state
@@ -1236,7 +1738,7 @@ class StateStore:
 
     def record_terminal(
         self,
-        event: SyntheticEvent,
+        event: MessageEvent,
         status: str,
         reason: str,
         *,
@@ -1282,7 +1784,7 @@ class StateStore:
             self.db.execute("ROLLBACK")
             raise
 
-    def outgoing_for_event(self, event: SyntheticEvent) -> sqlite3.Row | None:
+    def outgoing_for_event(self, event: MessageEvent) -> sqlite3.Row | None:
         return self.db.execute(
             """SELECT * FROM mock_outgoing
                 WHERE source_id=? AND event_id=?""",
@@ -1290,7 +1792,7 @@ class StateStore:
         ).fetchone()
 
     def accept_mock_send(
-        self, event: SyntheticEvent, draft: str, *, now: float
+        self, event: MessageEvent, draft: str, *, now: float
     ) -> str:
         existing = self.outgoing_for_event(event)
         if existing is not None:
@@ -1347,7 +1849,7 @@ class StateStore:
             "last_scan": float(self.get_meta("last_scan", "0")),
             "last_error": self.get_meta("last_error"),
             "controller_mode": self.get_meta("controller_mode"),
-            "fixture_path": self.get_meta("fixture_path"),
+            "source_path": self.get_meta("source_path"),
             "source_id": self.get_meta("source_id"),
             "watcher": self.get_meta("watcher"),
             "startup_ready": (
@@ -1449,8 +1951,8 @@ class MockDecisionAdapter:
     def decide(
         self,
         key: ConversationKey,
-        event: SyntheticEvent,
-        burst: list[SyntheticEvent],
+        event: MessageEvent,
+        burst: list[MessageEvent],
         contract: dict[str, Any],
     ) -> dict[str, str]:
         del key, contract
@@ -1644,8 +2146,8 @@ class CodexAppServerDecisionAdapter:
     def decide(
         self,
         key: ConversationKey,
-        event: SyntheticEvent,
-        burst: list[SyntheticEvent],
+        event: MessageEvent,
+        burst: list[MessageEvent],
         contract: dict[str, Any],
     ) -> dict[str, str]:
         self.store.increment_metric("codex_runtime_invocations")
@@ -1683,8 +2185,8 @@ class CodexAppServerDecisionAdapter:
 
     def _prompt(
         self,
-        event: SyntheticEvent,
-        burst: list[SyntheticEvent],
+        event: MessageEvent,
+        burst: list[MessageEvent],
         contract: dict[str, Any],
     ) -> str:
         conversation = next(
@@ -2414,7 +2916,7 @@ class MockDispatchAdapter:
     def __init__(self, store: StateStore) -> None:
         self.store = store
 
-    def dispatch(self, event: SyntheticEvent, draft: str) -> DispatchResult:
+    def dispatch(self, event: MessageEvent, draft: str) -> DispatchResult:
         if event.simulate == "send_failure":
             raise RetryableFailure("mock_send_failure")
         outgoing_id = self.store.accept_mock_send(event, draft, now=time.time())
@@ -2439,11 +2941,13 @@ class MockDispatchAdapter:
         )
 
 
-class SyntheticWatcher:
+class SourceWatcher:
     """Best-effort kqueue watcher with polling as the correctness fallback."""
 
-    def __init__(self, fixture: Path, wake: threading.Event, *, disabled: bool) -> None:
-        self.fixture = fixture
+    def __init__(
+        self, source: EventSource, wake: threading.Event, *, disabled: bool
+    ) -> None:
+        self.source = source
         self.wake = wake
         self.disabled = disabled
         self.stop_event = threading.Event()
@@ -2455,7 +2959,7 @@ class SyntheticWatcher:
             return False
         self.thread = threading.Thread(
             target=self._run,
-            name="synthetic-fixture-watcher",
+            name="autopilot-source-watcher",
             daemon=True,
         )
         self.thread.start()
@@ -2486,7 +2990,7 @@ class SyntheticWatcher:
                     | getattr(select, "KQ_NOTE_REVOKE", 0)
                 )
                 open_flag = getattr(os, "O_EVTONLY", os.O_RDONLY)
-                for path in (self.fixture, self.fixture.parent):
+                for path in self.source.watch_paths():
                     descriptor = os.open(path, open_flag)
                     descriptors.append(descriptor)
                     queue.control(
@@ -2544,9 +3048,7 @@ class Controller:
         self.retry_base = retry_base
         self.disable_watch = disable_watch
         self.wake = threading.Event()
-        self.watcher = SyntheticWatcher(
-            self.source.path, self.wake, disabled=disable_watch
-        )
+        self.watcher = SourceWatcher(self.source, self.wake, disabled=disable_watch)
         self.lock_handle: Any = None
         self.stop_requested = False
         self.crashed = False
@@ -2575,10 +3077,7 @@ class Controller:
         self.lock_handle.flush()
 
     def run(self) -> int:
-        if not self.source.path.is_file():
-            raise AutopilotError(
-                "fixture_unavailable", "synthetic fixture file does not exist"
-            )
+        self.source.validate()
         if self.store.configuration() is None:
             raise AutopilotError(
                 "not_configured", "configure a reviewed contract before running"
@@ -2600,7 +3099,7 @@ class Controller:
                 "decision_adapter": self.decision_adapter.name,
                 "dispatch_adapter": self.dispatch_adapter.name,
                 "controller_mode": self.mode,
-                "fixture_path": str(self.source.path),
+                "source_path": str(self.source.path),
                 "watcher": "attached" if watcher_attached else "polling_only",
                 "health": "starting",
                 "last_error": "",
@@ -2794,21 +3293,7 @@ class Controller:
 
     def prepare_scan(
         self, *, initial: bool
-    ) -> tuple[list[SyntheticEvent], dict[str, Any], str] | None:
-        try:
-            source_id, events = self.source.load()
-        except FixtureError as exc:
-            if initial:
-                raise
-            self.store.set_meta_many(
-                {
-                    "health": "blocked",
-                    "last_error": exc.code,
-                    "last_scan": str(time.time()),
-                }
-            )
-            return None
-
+    ) -> tuple[list[MessageEvent], dict[str, Any], str] | None:
         configuration = self.store.configuration()
         if configuration is None:
             self.store.set_meta_many(
@@ -2820,10 +3305,32 @@ class Controller:
             )
             return None
         contract, contract_hash = configuration
+        chat_ids = {item["id"] for item in contract["included_chats"]}
+        try:
+            source_id, maxima = self.source.maxima(chat_ids)
+            self.store.ensure_source_boundaries(
+                source_id, maxima, contract["backlog_policy"]
+            )
+            current_source_id, events = self.source.load(
+                self.store.scan_floors(source_id)
+            )
+            if current_source_id != source_id:
+                raise SourceError(
+                    "source_changed", "event source changed during the scan"
+                )
+        except SourceError as exc:
+            self.store.set_meta_many(
+                {
+                    "health": "blocked",
+                    "last_error": exc.code,
+                    "last_scan": str(time.time()),
+                }
+            )
+            if initial:
+                raise
+            return None
+
         self.decision_adapter.bind_source(source_id)
-        self.store.ensure_source_boundaries(
-            source_id, events, contract["backlog_policy"]
-        )
 
         self.store.set_meta_many(
             {
@@ -2842,14 +3349,14 @@ class Controller:
 
     def process_scan(
         self,
-        events: list[SyntheticEvent],
+        events: list[MessageEvent],
         contract: dict[str, Any],
         contract_hash: str,
     ) -> None:
         if self.store.is_paused():
             return
 
-        for event in sorted(events, key=lambda item: item.line_number):
+        for event in sorted(events, key=lambda item: item.source_order):
             if self.stop_requested or self.store.is_paused():
                 break
             if (
@@ -2868,8 +3375,8 @@ class Controller:
 
     def process_event(
         self,
-        event: SyntheticEvent,
-        events: list[SyntheticEvent],
+        event: MessageEvent,
+        events: list[MessageEvent],
         contract: dict[str, Any],
         contract_hash: str,
     ) -> None:
@@ -2962,8 +3469,8 @@ class Controller:
 
     def classify_event(
         self,
-        event: SyntheticEvent,
-        events: list[SyntheticEvent],
+        event: MessageEvent,
+        events: list[MessageEvent],
         contract: dict[str, Any],
         *,
         now: float,
@@ -3024,6 +3531,18 @@ class Controller:
             and item.source_seq <= event.source_seq
         ]
 
+        expected_kind = str(scope["kind"])
+        if any(
+            item.conversation_kind
+            and item.conversation_kind != expected_kind
+            for item in burst
+        ):
+            self.store.pause_chat(event.chat_id, "conversation_kind_mismatch")
+            self.store.record_terminal(
+                event, "escalated", "conversation_kind_mismatch"
+            )
+            return None
+
         if scope["kind"] == "group":
             if not contract["allow_groups"]:
                 self.store.record_terminal(event, "escalated", "group_not_allowed")
@@ -3049,7 +3568,7 @@ class Controller:
             activation_id=str(scope["activation_id"]),
         )
 
-    def handle_retryable(self, event: SyntheticEvent, reason: str) -> None:
+    def handle_retryable(self, event: MessageEvent, reason: str) -> None:
         attempts, _ = self.store.schedule_retry(
             event,
             reason,
@@ -3065,7 +3584,7 @@ class Controller:
             )
 
     def pre_send_check(
-        self, event: SyntheticEvent, contract_hash: str, activation_id: str
+        self, event: MessageEvent, contract_hash: str, activation_id: str
     ) -> str:
         if self.stop_requested or self.store.get_meta("stop_requested", "0") == "1":
             return "stopping"
@@ -3083,19 +3602,21 @@ class Controller:
         ):
             return "scope_changed"
         try:
-            current_source_id, current = self.source.load()
-        except FixtureError:
-            self.store.set_meta_many(
-                {"health": "blocked", "last_error": "fixture_invalid_during_decision"}
+            current_source_id, current = self.source.load(
+                {event.chat_id: event.source_seq - 1}
             )
-            return "fixture_invalid"
+        except SourceError as exc:
+            self.store.set_meta_many(
+                {"health": "blocked", "last_error": exc.code}
+            )
+            return "source_invalid"
         if current_source_id != event.source_id:
-            return "fixture_changed"
+            return "source_changed"
         exact = next(
             (item for item in current if item.event_id == event.event_id), None
         )
         if exact is None or exact.payload_hash != event.payload_hash:
-            return "fixture_changed"
+            return "source_changed"
         if any(
             item.chat_id == event.chat_id and item.source_seq > event.source_seq
             for item in current
@@ -3161,8 +3682,8 @@ def command_doctor(args: argparse.Namespace, paths: StatePaths) -> int:
         {
             "ok": ready,
             "version": VERSION,
-            "mode": "synthetic_only",
-            "source_adapter": SOURCE_ADAPTER_NAME,
+            "mode": "replica_validation_only",
+            "source_adapter": args.source_adapter,
             "decision_adapter": args.decision_adapter,
             "dispatch_adapter": DISPATCH_ADAPTER_NAME,
             "python": sys.version.split()[0],
@@ -3211,7 +3732,7 @@ def command_configure(args: argparse.Namespace, paths: StatePaths) -> int:
     emit(
         {
             "ok": True,
-            "source_adapter": SOURCE_ADAPTER_NAME,
+            "source_adapter": snapshot["source_adapter"],
             "decision_adapter": snapshot["decision_adapter"],
             "dispatch_adapter": DISPATCH_ADAPTER_NAME,
             "contract_hash": digest,
@@ -3233,7 +3754,7 @@ def command_status(args: argparse.Namespace, paths: StatePaths) -> int:
         emit(
             {
                 "ok": True,
-                "source_adapter": SOURCE_ADAPTER_NAME,
+                "source_adapter": SYNTHETIC_SOURCE_ADAPTER_NAME,
                 "decision_adapter": MOCK_DECISION_ADAPTER_NAME,
                 "dispatch_adapter": DISPATCH_ADAPTER_NAME,
                 "configured": False,
@@ -3344,11 +3865,22 @@ def command_stop(args: argparse.Namespace, paths: StatePaths) -> int:
 
 
 def validate_runtime_arguments(args: argparse.Namespace) -> RuntimeOptions:
-    fixture = Path(args.fixture).expanduser().resolve()
-    if not fixture.is_file():
-        raise AutopilotError(
-            "fixture_unavailable", "synthetic fixture file does not exist"
-        )
+    if args.source_adapter == SYNTHETIC_SOURCE_ADAPTER_NAME:
+        if not args.fixture or args.messages_db:
+            raise AutopilotError(
+                "invalid_source_arguments",
+                "synthetic_fixture requires --fixture and forbids --messages-db",
+            )
+        source_path = Path(args.fixture).expanduser().resolve()
+    elif args.source_adapter == MESSAGES_SQLITE_SOURCE_ADAPTER_NAME:
+        if not args.messages_db or args.fixture:
+            raise AutopilotError(
+                "invalid_source_arguments",
+                "messages_sqlite requires --messages-db and forbids --fixture",
+            )
+        source_path = Path(args.messages_db).expanduser().absolute()
+    else:
+        raise AutopilotError("unsupported_adapter", "unsupported source adapter")
     poll_interval = require_number(
         args.poll_interval,
         "poll_interval",
@@ -3374,7 +3906,8 @@ def validate_runtime_arguments(args: argparse.Namespace) -> RuntimeOptions:
         maximum=300,
     )
     return RuntimeOptions(
-        fixture=fixture,
+        source_adapter=args.source_adapter,
+        source_path=source_path,
         poll_interval=poll_interval,
         claim_lease=claim_lease,
         retry_base=retry_base,
@@ -3401,10 +3934,18 @@ def build_decision_adapter(
     raise AutopilotError("unsupported_adapter", "unsupported decision adapter")
 
 
+def build_source(options: RuntimeOptions) -> EventSource:
+    if options.source_adapter == SYNTHETIC_SOURCE_ADAPTER_NAME:
+        return SyntheticFixtureSource(options.source_path)
+    if options.source_adapter == MESSAGES_SQLITE_SOURCE_ADAPTER_NAME:
+        return MessagesSQLiteSource(options.source_path)
+    raise AutopilotError("unsupported_adapter", "unsupported source adapter")
+
+
 def command_run(args: argparse.Namespace, paths: StatePaths) -> int:
     options = validate_runtime_arguments(args)
     store = StateStore(paths)
-    source = SyntheticFixtureSource(options.fixture)
+    source = build_source(options)
     try:
         controller = Controller(
             paths,
@@ -3435,6 +3976,7 @@ def prepare_background_log(path: Path) -> Any:
 
 def command_start(args: argparse.Namespace, paths: StatePaths) -> int:
     options = validate_runtime_arguments(args)
+    build_source(options).validate()
     binary = find_codex_binary()
     if (
         options.decision_adapter == CODEX_APP_SERVER_DECISION_ADAPTER_NAME
@@ -3476,8 +4018,8 @@ def command_start(args: argparse.Namespace, paths: StatePaths) -> int:
         "--state-dir",
         str(paths.root),
         "run",
-        "--fixture",
-        str(options.fixture),
+        "--source-adapter",
+        options.source_adapter,
         "--poll-interval",
         str(options.poll_interval),
         "--claim-lease",
@@ -3490,6 +4032,14 @@ def command_start(args: argparse.Namespace, paths: StatePaths) -> int:
         str(options.codex_timeout),
         "--background-child",
     ]
+    command.extend(
+        [
+            "--fixture"
+            if options.source_adapter == SYNTHETIC_SOURCE_ADAPTER_NAME
+            else "--messages-db",
+            str(options.source_path),
+        ]
+    )
     if args.disable_watch:
         command.append("--disable-watch")
     process = subprocess.Popen(
@@ -3525,7 +4075,7 @@ def command_start(args: argparse.Namespace, paths: StatePaths) -> int:
                     "already_running": False,
                     "pid": process.pid,
                     "mode": "background",
-                    "source_adapter": SOURCE_ADAPTER_NAME,
+                    "source_adapter": options.source_adapter,
                     "decision_adapter": options.decision_adapter,
                     "dispatch_adapter": DISPATCH_ADAPTER_NAME,
                 }
@@ -3554,26 +4104,31 @@ def command_start(args: argparse.Namespace, paths: StatePaths) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="autopilot",
-        description="Synthetic resident controller for the iMessage Autopilot skill.",
+        description="Resident controller prototype for the iMessage Autopilot skill.",
     )
     parser.add_argument(
         "--state-dir",
         default=str(default_state_root()),
-        help="private synthetic state directory",
+        help="private controller state directory",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    doctor = subparsers.add_parser("doctor", help="check synthetic readiness")
+    doctor = subparsers.add_parser("doctor", help="check prototype readiness")
     doctor.add_argument("--json", action="store_true", help=argparse.SUPPRESS)
     doctor.add_argument(
         "--decision-adapter",
         choices=sorted(DECISION_ADAPTER_NAMES),
         default=MOCK_DECISION_ADAPTER_NAME,
     )
+    doctor.add_argument(
+        "--source-adapter",
+        choices=sorted(SOURCE_ADAPTER_NAMES),
+        default=SYNTHETIC_SOURCE_ADAPTER_NAME,
+    )
     doctor.set_defaults(handler=command_doctor)
 
     configure = subparsers.add_parser(
-        "configure", help="validate and store a reviewed synthetic contract"
+        "configure", help="validate and store a reviewed delegation contract"
     )
     configure.add_argument("--stdin-json", action="store_true")
     configure.set_defaults(handler=command_configure)
@@ -3583,7 +4138,16 @@ def build_parser() -> argparse.ArgumentParser:
         ("start", command_start, "start the controller in the background"),
     ):
         runtime = subparsers.add_parser(name, help=help_text)
-        runtime.add_argument("--fixture", required=True)
+        runtime.add_argument(
+            "--source-adapter",
+            choices=sorted(SOURCE_ADAPTER_NAMES),
+            default=SYNTHETIC_SOURCE_ADAPTER_NAME,
+        )
+        runtime.add_argument("--fixture")
+        runtime.add_argument(
+            "--messages-db",
+            help="explicit Messages-shaped SQLite path; replica testing only",
+        )
         runtime.add_argument(
             "--poll-interval",
             type=float,
@@ -3606,7 +4170,7 @@ def build_parser() -> argparse.ArgumentParser:
             "--decision-adapter",
             choices=sorted(DECISION_ADAPTER_NAMES),
             default=MOCK_DECISION_ADAPTER_NAME,
-            help="synthetic decision adapter",
+            help="decision adapter",
         )
         runtime.add_argument(
             "--codex-timeout",
@@ -3674,7 +4238,7 @@ def main(argv: list[str] | None = None) -> int:
             {
                 "ok": False,
                 "error": "state_database_error",
-                "message": "synthetic state database operation failed",
+                "message": "controller state database operation failed",
             },
             stream=sys.stderr,
         )
@@ -3684,7 +4248,7 @@ def main(argv: list[str] | None = None) -> int:
             {
                 "ok": False,
                 "error": "internal_error",
-                "message": "synthetic controller encountered an internal error",
+                "message": "controller encountered an internal error",
             },
             stream=sys.stderr,
         )
