@@ -1,103 +1,135 @@
 # Agent Skills
 
-A personal collection of reusable agent workflows for engineering, research, decision-making, and a few specialised jobs.
+A collection of reusable agent workflows for engineering, research, decision-making, and specialised tasks. Each public skill is an independently installable directory under [`skills/`](skills/) with a `SKILL.md` and any resources it needs at runtime.
 
-Every skill is a directory containing a `SKILL.md`. Some follow the portable Agent Skills format, while others deliberately depend on Codex or Claude Code features. Check the compatibility column before installing one.
+## Install with `npx skills`
 
-## Install a skill
-
-Automated collection-wide installation is not packaged yet. For now, clone or download the repository and copy the directory for the skill you want into your agent's user-level skills directory.
+List the available skills without installing anything:
 
 ```bash
-git clone https://github.com/filip-pilar/skills.git forma-skills
-
-# Codex
-mkdir -p ~/.codex/skills
-cp -R forma-skills/gitprep ~/.codex/skills/
-
-# Claude Code
-mkdir -p ~/.claude/skills
-cp -R forma-skills/devils-advocate ~/.claude/skills/
+npx skills add filip-pilar/skills --list
 ```
 
-For a GTV skill, copy its directory from `forma-skills/gtv/`. Review a skill and its bundled scripts before installing it, especially when it can access accounts, browsers, messages, authentication, or global configuration.
+Install one skill globally for Codex:
 
-After installing, start a new agent session and invoke the skill explicitly:
-
-```text
-Use $gitprep to inspect my current diff and propose a clean commit plan.
+```bash
+npx skills add filip-pilar/skills \
+  --skill gitprep \
+  --agent codex \
+  --global
 ```
+
+Install several skills globally:
+
+```bash
+npx skills add filip-pilar/skills \
+  --skill gitprep \
+  --skill lockin \
+  --skill devils-advocate \
+  --global
+```
+
+Install one for Claude Code instead:
+
+```bash
+npx skills add filip-pilar/skills \
+  --skill devils-advocate \
+  --agent claude-code \
+  --global
+```
+
+Omit `--global` for a project-scoped installation. The CLI normally offers a symlinked installation so updates have one canonical source; pass `--copy` when you want an independent copy. It may create or update a `skills-lock.json` in the target scope—review that file before committing it to another project.
+
+Review a skill and its bundled scripts before installing it, especially when it can access repositories, accounts, browsers, messages, authentication, external services, or global configuration. Agent support and permissions vary even when installation succeeds.
 
 ## Compatibility
 
-- **Universal** — written to the shared Agent Skills conventions and not intentionally tied to one host. It may still need common capabilities such as shell access, Git, or a browser.
+- **Universal** — written to shared Agent Skills conventions and not intentionally tied to one host.
 - **Codex-enhanced** — the core workflow is portable, but some behavior or metadata is designed for Codex.
-- **Codex-only** — depends on Codex-specific concepts or integrations.
-- **Codex + Claude** — contains deliberate support for both hosts; follow any host-specific setup noted by the skill.
+- **Codex-only** — depends on Codex-specific concepts, tools, or integrations.
+- **Codex + Claude** — contains deliberate support for both hosts.
 
-Compatibility describes the workflow, not just whether an agent can read the Markdown. Tools, permissions, and safety behavior still vary between hosts.
+Compatibility describes the workflow, not merely whether an agent can read the Markdown. Check each skill's requirements and safety notes before use.
 
 ## Skill catalogue
 
-| Skill | What it does | Compatibility | Main requirements |
+### Reasoning and workflow
+
+| Skill | What it does | Compatibility | Maturity and requirements |
 |---|---|---|---|
-| [`devils-advocate`](devils-advocate/) | Pressure-tests a plan, decision, argument, or piece of research without manufacturing objections. | Universal | None |
-| [`dr-react`](dr-react/) | Improves a React Doctor score through small fixes and regression checks. | Codex-enhanced | Node.js, package-manager and target-repository access; `/goal` persistence is Codex-specific |
-| [`gitprep`](gitprep/) | Inspects a diff, proposes coherent commits, runs approved checks, and commits only approved changes. | Universal | Git |
-| [`improve`](improve/) | Audits a codebase and produces self-contained implementation plans, with an optional isolated execution workflow. | Codex + Claude | Shell and Git; use its host-switching script for Claude Code |
-| [`lockin`](lockin/) | Recovers the active objective, narrows the working set, and advances the task to progress, completion, or one genuine blocker. | Codex-enhanced | Current task context and the tools required by that task |
-| [`skill-builder`](skill-builder/) | Creates, diagnoses, improves, compresses, evaluates, and releases skills with evidence and authority boundaries. | Codex-enhanced | Python for bundled validation scripts |
-| [`socket-audit`](socket-audit/) | Audits repositories for supply-chain indicators and can configure npm, pnpm, or Bun install protection. | Universal | Shell; network and Socket.dev access for online workflows |
-| [`setup-cli-proxy-gateway`](setup-cli-proxy-gateway/) | Configures and validates CLIProxyAPI routes for Codex CLI or Claude Code. | Codex + Claude | macOS/Linux shell, provider authentication, and approval for configuration changes or paid calls |
-| [`web-traffic-inspector`](web-traffic-inspector/) | Inspects browser traffic and builds disposable HTML proof-prototypes for observed website actions. | Codex-enhanced | Browser or Chrome control, or `agent-browser`; Python 3 and Node.js for prototype tooling |
+| [`devils-advocate`](skills/devils-advocate/) | Pressure-tests a plan, decision, argument, or piece of research without manufacturing objections. | Universal | Stable; no special runtime requirements |
+| [`gitprep`](skills/gitprep/) | Inspects repository and publication state, proposes coherent commits, and creates only approved commits. | Universal | Stable; Git; never pushes as part of its own workflow |
+| [`lockin`](skills/lockin/) | Recovers the active objective, narrows the working set, and advances the task to progress, completion, or one genuine blocker. | Codex-enhanced | Stable; current task context and whatever tools that task requires |
+| [`skill-builder`](skills/skill-builder/) | Creates, diagnoses, improves, compresses, evaluates, and releases skills with evidence and authority boundaries. | Codex-enhanced | Stable; Python and PyYAML for bundled validation scripts |
+
+### Engineering and integration
+
+| Skill | What it does | Compatibility | Maturity and requirements |
+|---|---|---|---|
+| [`dr-react`](skills/dr-react/) | Improves a React Doctor score through small fixes and regression checks. | Codex-enhanced | Stable; Node.js, a package manager, target-repository access, and potentially networked `npx` execution |
+| [`setup-cli-proxy-gateway`](skills/setup-cli-proxy-gateway/) | Configures and validates CLIProxyAPI routes for Codex CLI or Claude Code. | Codex + Claude | Advanced; macOS/Linux shell and provider authentication; can change listeners, services, credentials, and agent configuration |
+| [`socket-audit`](skills/socket-audit/) | Audits repositories for supply-chain indicators and configures or removes supported install-time protections. | Universal | Stable; shell and relevant package managers; online workflows may need network and Socket.dev access |
+| [`web-traffic-inspector`](skills/web-traffic-inspector/) | Inspects browser traffic and builds disposable HTML proof-prototypes for observed website actions. | Codex-enhanced | Stable proof workflow; Browser/Chrome control or `agent-browser`, Python 3, and Node.js; undocumented mechanisms may change without notice |
 
 ### Codex Side companions
 
-These skills depend on Codex Side tasks and their linked-parent workflow.
+These skills require Codex Side tasks and their linked-parent workflow. Installing them on another host does not provide the missing task relationship.
 
-| Skill | What it does |
-|---|---|
-| [`co-prompt`](co-prompt/) | Helps reason through a linked parent task without drafting or sending its final reply. |
-| [`reply`](reply/) | Turns a settled Side discussion into the smallest sufficient reply and sends only an explicitly approved draft. |
-| [`sidekick`](sidekick/) | Explains a parent's latest response, helps resolve decisions, and prepares an approved reply. |
-| [`tldr`](tldr/) | Produces an ultra-concise state digest of the complete available parent task. |
+| Skill | What it does | Compatibility | Maturity |
+|---|---|---|---|
+| [`co-prompt`](skills/co-prompt/) | Reasons through a linked parent task without drafting or sending its final reply. | Codex-only | Stable |
+| [`reply`](skills/reply/) | Turns a settled Side discussion into the smallest sufficient reply and sends only an explicitly approved draft. | Codex-only | Stable; can send a reply to the linked parent task |
+| [`sidekick`](skills/sidekick/) | Explains a parent's latest response, helps resolve decisions, and prepares an approved reply. | Codex-only | Stable |
+| [`tldr`](skills/tldr/) | Produces an ultra-concise digest of the complete available parent-task state. | Codex-only | Stable |
 
 ### macOS automation
 
-| Skill | What it does | Compatibility | Main requirements |
+| Skill | What it does | Compatibility | Maturity and requirements |
 |---|---|---|---|
-| [`imessage-autopilot`](imessage-autopilot/) | Configures and operates a narrowly scoped iMessage reply controller. | Codex-only | macOS, Messages database access, Automation permission, and Codex CLI |
+| [`imessage-autopilot`](skills/imessage-autopilot/) | Configures and operates a narrowly scoped iMessage reply controller. | Codex-only | Experimental; macOS, Messages database access, Automation permission, and Codex CLI; can send messages automatically within an approved scope |
 
-Live operation is implemented, but its first bounded real-Messages smoke test is still outstanding. Do not treat it as production-ready until that test succeeds.
+`imessage-autopilot` has not completed its first bounded real-Messages smoke test. Review its scope, data boundary, failure behavior, and approval contract before any live use; do not treat it as production-ready.
 
 ### UK Global Talent Visa
 
-These skills provide structured guidance for the Digital Technology route. They do not provide legal advice and intentionally do not generate paste-ready application prose.
+These skills provide structured guidance for the Digital Technology route. They do not provide legal advice, do not replace current official guidance, and intentionally do not generate paste-ready application prose.
 
-| Skill | What it does | Compatibility |
-|---|---|---|
-| [`gtv-tech-eligibility`](gtv/gtv-tech-eligibility/) | Assesses potential eligibility and produces a reusable GTV Profile. | Universal |
-| [`gtv-tech-prepare`](gtv/gtv-tech-prepare/) | Turns a GTV Profile into factual document-planning material. | Universal |
-| [`gtv-tech-review`](gtv/gtv-tech-review/) | Reviews self-written application documents from constructive and skeptical perspectives. | Universal |
+| Skill | What it does | Compatibility | Maturity |
+|---|---|---|---|
+| [`gtv-tech-eligibility`](skills/gtv-tech-eligibility/) | Assesses potential eligibility and produces a reusable GTV Profile. | Universal | Stable guidance workflow |
+| [`gtv-tech-prepare`](skills/gtv-tech-prepare/) | Turns a GTV Profile into factual document-planning material. | Universal | Stable guidance workflow |
+| [`gtv-tech-review`](skills/gtv-tech-review/) | Reviews self-written application documents from constructive and skeptical perspectives. | Universal | Stable guidance workflow |
 
-Always verify current official eligibility, evidence, and authorship requirements before relying on these workflows.
+Always verify current official eligibility, evidence, fees, timing, and authorship requirements before relying on these workflows.
 
-## Important operating notes
+## Development
 
-- `dr-react` runs `npx react-doctor@latest`, which may require network access and permission to execute downloaded packages.
-- `improve` commits its Codex representation by default. Its bundled `switch-host.sh` can materialise a separate Claude Code version without changing the canonical copy.
-- `setup-cli-proxy-gateway` can change authentication, listeners, services, and agent configuration. It requires explicit approval for mutations and paid provider calls.
-- `socket-audit` may require network access, Socket.dev authentication, package-manager changes, and approval before modifying global configuration.
-- A skill being marked Universal does not guarantee identical behavior on every agent. Read its `SKILL.md` for exact tools, permissions, approval gates, and fallback behavior.
+The public source layout is deliberately the same unit that `npx skills` installs:
 
-## Repository layout
+```text
+skills/<skill-name>/
+├── SKILL.md
+├── agents/       # optional host-specific interface metadata
+├── assets/       # optional templates and runtime assets
+├── references/   # optional instructions loaded only when relevant
+├── scripts/      # optional deterministic helpers
+└── tests/        # optional regression tests
+```
 
-Most top-level directories are standalone skills. The `gtv/` directory groups the three related Global Talent Visa skills. A skill may also contain:
+Run the network-free repository check before preparing a change:
 
-- `agents/` — host-specific interface metadata;
-- `assets/` — templates or runtime assets;
-- `references/` — instructions loaded only when relevant;
-- `scripts/` — helper and validation programs;
-- `tests/` — regression tests for bundled scripts.
+```bash
+./scripts/check-repo
+```
 
-Installer-friendly reorganisation and collection-wide installation are intentionally deferred for now.
+It requires Python 3 with PyYAML, Node.js, `jq`, and `zsh`. It validates all 16 public skills, checks names and bundled references, and runs the fast deterministic test suites. Browser-enabled tests, live provider tests, real Messages checks, and public GitHub discovery remain explicit manual checks because they require additional tools, permissions, network access, or external state.
+
+For a release, also confirm that the current CLI discovers all 16 skills without `--full-depth`:
+
+```bash
+npx skills add filip-pilar/skills --list
+```
+
+## Licence
+
+Licensed under the [MIT License](LICENSE) unless otherwise noted.

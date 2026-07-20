@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+skills_dir="$repo_root/skills"
+validator="$skills_dir/skill-builder/scripts/validate_skill.py"
+expected_count=${EXPECTED_SKILL_COUNT:-16}
+
+for dependency in python3 node jq zsh; do
+  command -v "$dependency" >/dev/null 2>&1 || {
+    printf 'missing required dependency: %s\n' "$dependency" >&2
+    exit 1
+  }
+done
+
+[[ -d "$skills_dir" ]] || {
+  printf 'missing skills directory: %s\n' "$skills_dir" >&2
+  exit 1
+}
+[[ -f "$validator" ]] || {
+  printf 'missing skill validator: %s\n' "$validator" >&2
+  exit 1
+}
+
+skill_files=("$skills_dir"/*/SKILL.md)
+[[ -e "${skill_files[0]}" ]] || {
+  printf 'no public skills found under %s\n' "$skills_dir" >&2
+  exit 1
+}
+
+if [[ ${#skill_files[@]} -ne $expected_count ]]; then
+  printf 'expected %s public skills, found %s\n' "$expected_count" "${#skill_files[@]}" >&2
+  exit 1
+fi
+
+names_file=$(mktemp "${TMPDIR:-/tmp}/skills-repo-names.XXXXXX")
+cleanup() {
+  /bin/rm -f -- "$names_file"
+}
+trap cleanup EXIT HUP INT TERM
+
+for skill_md in "${skill_files[@]}"; do
+  skill_dir=${skill_md%/SKILL.md}
+  folder=${skill_dir##*/}
+  name=$(sed -n 's/^name:[[:space:]]*//p' "$skill_md" | head -n 1)
+  if [[ -z "$name" || "$name" != "$folder" ]]; then
+    printf 'skill folder/frontmatter mismatch: folder=%s name=%s\n' "$folder" "${name:-<missing>}" >&2
+    exit 1
+  fi
+  printf '%s\n' "$name" >> "$names_file"
+  python3 "$validator" "$skill_dir"
+done
+
+duplicates=$(sort "$names_file" | uniq -d)
+if [[ -n "$duplicates" ]]; then
+  printf 'duplicate public skill names:\n%s\n' "$duplicates" >&2
+  exit 1
+fi
+
+python3 "$repo_root/scripts/check-readme-links.py"
+node --test "$skills_dir/dr-react/tests/test_parse_react_doctor_report.mjs"
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$skills_dir/skill-builder/tests" -p 'test_*.py'
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$skills_dir/socket-audit/tests" -p 'test_*.py'
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$skills_dir/web-traffic-inspector/tests" -p 'test_scaffold_prototype.py'
+
+for test_script in \
+  "$skills_dir/setup-cli-proxy-gateway/scripts/test_token_helper.sh" \
+  "$skills_dir/setup-cli-proxy-gateway/scripts/test_route_transaction.sh" \
+  "$skills_dir/setup-cli-proxy-gateway/scripts/test_isolated_home.sh" \
+  "$skills_dir/setup-cli-proxy-gateway/scripts/test_claudex_launcher.sh"
+do
+  "$test_script"
+done
+
+printf 'repository_check=passed skills=%s\n' "${#skill_files[@]}"
