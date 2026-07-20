@@ -3,7 +3,7 @@
 Reusable workflows for coding agents: cleaner commits, sharper decisions, React diagnostics, browser-traffic inspection, macOS automation, and structured UK Global Talent guidance.
 
 ```bash
-npx skills add filip-pilar/skills
+npx skills add filip-pilar/skills --list
 ```
 
 [Browse the skills](#skills) · [Choose how to install](#install) · [Develop locally](#development)
@@ -66,10 +66,10 @@ These workflows are not legal advice and intentionally do not generate paste-rea
 
 ## Install
 
-Open the interactive installer for the full collection:
+List the collection without installing anything:
 
 ```bash
-npx skills add filip-pilar/skills
+npx skills add filip-pilar/skills --list
 ```
 
 Or install one skill directly—for example, `gitprep` globally in Codex:
@@ -81,10 +81,10 @@ npx skills add filip-pilar/skills --skill gitprep --agent codex --global
 <details>
 <summary>More installation options</summary>
 
-List the collection without installing it:
+Install the entire collection for Codex in the current project:
 
 ```bash
-npx skills add filip-pilar/skills --list
+npx skills add filip-pilar/skills --skill '*' --agent codex
 ```
 
 Install several selected skills:
@@ -93,7 +93,8 @@ Install several selected skills:
 npx skills add filip-pilar/skills \
   --skill gitprep \
   --skill lockin \
-  --skill devils-advocate
+  --skill devils-advocate \
+  --agent codex
 ```
 
 Target Claude Code instead:
@@ -106,6 +107,8 @@ npx skills add filip-pilar/skills \
 ```
 
 Omit `--global` for a project-scoped install. The CLI may share one installed copy between agent destinations with symlinks; add `--copy` when you explicitly want independent copies. A local-path install targeting only one agent is currently copied, so use the development symlink below when you need edits to appear live.
+
+Be explicit about the selection: the current CLI may install every discovered skill when `--skill` is omitted.
 
 </details>
 
