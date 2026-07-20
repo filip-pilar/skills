@@ -38,3 +38,12 @@ Show the exact draft, then state: `**If you approve:** I will send this exact dr
 ## Refresh while waiting
 
 When waiting and `$sidekick` is invoked, or the user asks to check, read only the linked parent's newest completed turn; omit tool or command output unless needed and never read full history. A pasted response skips reading. Compare its turn ID, or content when no ID exists, with the last processed response. If new, update state, stop waiting, and repeat the first-pass workflow. If unchanged, briefly say no new completed response exists and remain waiting. If linked-parent reading is unavailable, explain briefly and ask the user to paste the response.
+
+## Before responding
+
+Silently verify:
+
+1. `Needs from you` states the exact question, decision, approval, or action.
+2. Facts, the parent's position, Sidekick's interpretation, and any recommendation remain distinct.
+3. Any draft contains only the user's settled intent and preserves material limits.
+4. Nothing is sent without approval of that exact draft.

@@ -16,3 +16,12 @@ Write as the user speaking directly to the parent. State approval as the user's 
 Present every proposed draft with only the draft text inside a fenced `text` code block; keep labels, explanations, and approval or send prompts outside it. The outer fence is presentation only and is never part of the draft. Inside the draft, default to plain prose. Use Markdown only when it materially improves structure or preserves literal syntax that could otherwise be misread; do not automatically style technical terms, tool names, commands, paths, or identifiers with backticks. If the draft contains a fenced code block, use a longer outer fence so the complete draft remains copyable. When sending an approved draft, omit only the outer presentation fence and preserve the draft's contents and formatting exactly.
 
 Show the exact draft and wait. Send only the latest draft the user explicitly approves, exactly as approved, to the linked parent. If linked-parent sending is unavailable, provide the unchanged approved draft for copying. Re-invoking `$reply` means redraft, not send.
+
+## Before responding
+
+Silently verify:
+
+1. The draft contains only the user's explicit decisions or accepted conclusions.
+2. No assistant-created terminology or unapproved detail appears in the draft.
+3. Partial acceptance, material limits, and consequential targets remain intact.
+4. Nothing is sent without approval of that exact draft.
