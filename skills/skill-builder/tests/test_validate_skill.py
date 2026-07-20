@@ -21,15 +21,18 @@ class MetadataValidationTests(unittest.TestCase):
         default_prompt: str,
         short_description: str = "Validate sample metadata behavior",
         reference: str | None = None,
+        reference_linked: bool = True,
+        chained_reference: bool = False,
+        binary_asset: bool = False,
+        escaped_symlink: bool = False,
         bundled_evals: bool = False,
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temp_dir:
             skill_dir = Path(temp_dir) / "sample"
             agents_dir = skill_dir / "agents"
             agents_dir.mkdir(parents=True)
-            (skill_dir / "SKILL.md").write_text(
-                textwrap.dedent(
-                    f"""\
+            skill_text = textwrap.dedent(
+                f"""\
                     ---
                     name: sample
                     description: {description}
@@ -39,9 +42,12 @@ class MetadataValidationTests(unittest.TestCase):
 
                     Follow the runtime workflow.
                     """
-                ),
-                encoding="utf-8",
             )
+            if reference is not None and reference_linked:
+                skill_text += "\nRead [status](references/status.md).\n"
+            if binary_asset and reference_linked:
+                skill_text += "\nLoad `assets/payload.bin`.\n"
+            (skill_dir / "SKILL.md").write_text(skill_text, encoding="utf-8")
             metadata = (
                 "interface:\n"
                 '  display_name: "Sample"\n'
@@ -55,10 +61,25 @@ class MetadataValidationTests(unittest.TestCase):
                 references = skill_dir / "references"
                 references.mkdir()
                 (references / "status.md").write_text(reference, encoding="utf-8")
+                if chained_reference:
+                    (references / "details.md").write_text(
+                        "Return to [status](status.md).\n",
+                        encoding="utf-8",
+                    )
             if bundled_evals:
                 evals = skill_dir / "evals"
                 evals.mkdir()
                 (evals / "answer-key.md").write_text("Expected output.\n", encoding="utf-8")
+            if binary_asset:
+                assets = skill_dir / "assets"
+                assets.mkdir()
+                (assets / "payload.bin").write_bytes(b"\x00\xff\x00\xff")
+            if escaped_symlink:
+                outside = Path(temp_dir) / "outside.txt"
+                outside.write_text("outside\n", encoding="utf-8")
+                references = skill_dir / "references"
+                references.mkdir(exist_ok=True)
+                (references / "outside.txt").symlink_to(outside)
             return subprocess.run(
                 [sys.executable, str(VALIDATOR), str(skill_dir)],
                 check=False,
@@ -173,6 +194,66 @@ class MetadataValidationTests(unittest.TestCase):
             reference="[TODO: replace this reference]\n",
         )
         self.assertIn("unresolved TODO placeholder", result.stdout)
+
+    def test_unreferenced_bundled_resource_is_rejected(self) -> None:
+        result = self.validate(
+            description="Format supplied notes when the user requests a compact summary.",
+            implicit=True,
+            default_prompt="Format these supplied notes.",
+            reference="Supporting instructions.\n",
+            reference_linked=False,
+        )
+        self.assertIn("bundled resource is not reachable from SKILL.md", result.stdout)
+
+    def test_transitively_referenced_resource_passes(self) -> None:
+        result = self.validate(
+            description="Format supplied notes when the user requests a compact summary.",
+            implicit=True,
+            default_prompt="Format these supplied notes.",
+            reference="Read [details](details.md).\n",
+            chained_reference=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_orphan_reference_cycle_is_rejected(self) -> None:
+        result = self.validate(
+            description="Format supplied notes when the user requests a compact summary.",
+            implicit=True,
+            default_prompt="Format these supplied notes.",
+            reference="Read [details](details.md).\n",
+            reference_linked=False,
+            chained_reference=True,
+        )
+        self.assertIn("references/status.md: bundled resource is not reachable", result.stdout)
+        self.assertIn("references/details.md: bundled resource is not reachable", result.stdout)
+
+    def test_referenced_binary_resource_passes(self) -> None:
+        result = self.validate(
+            description="Format supplied notes when the user requests a compact summary.",
+            implicit=True,
+            default_prompt="Format these supplied notes.",
+            binary_asset=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_unreferenced_binary_resource_is_rejected(self) -> None:
+        result = self.validate(
+            description="Format supplied notes when the user requests a compact summary.",
+            implicit=True,
+            default_prompt="Format these supplied notes.",
+            binary_asset=True,
+            reference_linked=False,
+        )
+        self.assertIn("assets/payload.bin: bundled resource is not reachable", result.stdout)
+
+    def test_symlink_cannot_escape_skill_directory(self) -> None:
+        result = self.validate(
+            description="Format supplied notes when the user requests a compact summary.",
+            implicit=True,
+            default_prompt="Format these supplied notes.",
+            escaped_symlink=True,
+        )
+        self.assertIn("symlink escapes the skill directory", result.stdout)
 
     def test_bundled_evaluation_directory_is_rejected(self) -> None:
         result = self.validate(

@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'USAGE'
+Usage: ./scripts/check-release [options]
+
+Run maintainer checks and verify that the current skills CLI discovers exactly
+the skills present in this repository.
+
+Options:
+  --remote OWNER/REPO  Verify discovery and the already-pushed default branch.
+  --skip-full          Run check-repo instead of check-full.
+  --strict             Require optional check-full integrations.
+  --allow-dirty        Permit tracked or untracked repository changes.
+  -h, --help           Show this help.
+
+Environment overrides used by the test harness:
+  SKILLS_NPX_BIN       npx executable (default: npx)
+  SKILLS_CLI_PACKAGE   CLI package specifier (default: skills@latest)
+  SKILLS_GIT_BIN       git executable (default: git)
+USAGE
+}
+
+remote_source=''
+skip_full=0
+strict=0
+allow_dirty=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --remote) [[ $# -ge 2 ]] || { usage >&2; exit 2; }; remote_source=$2; shift 2 ;;
+    --skip-full) skip_full=1; shift ;;
+    --strict) strict=1; shift ;;
+    --allow-dirty) allow_dirty=1; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) usage >&2; exit 2 ;;
+  esac
+done
+
+[[ -z "$remote_source" || "$remote_source" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || {
+  printf 'ERROR: --remote must use OWNER/REPO syntax.\n' >&2
+  exit 2
+}
+if [[ $skip_full -eq 1 && $strict -eq 1 ]]; then
+  printf 'ERROR: --strict cannot be combined with --skip-full.\n' >&2
+  exit 2
+fi
+
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+repo_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
+skills_dir="$repo_root/skills"
+npx_bin=${SKILLS_NPX_BIN:-npx}
+cli_package=${SKILLS_CLI_PACKAGE:-skills@latest}
+git_bin=${SKILLS_GIT_BIN:-git}
+
+for dependency in "$git_bin" python3 "$npx_bin"; do
+  command -v "$dependency" >/dev/null 2>&1 || {
+    printf 'ERROR: missing required dependency: %s\n' "$dependency" >&2
+    exit 1
+  }
+done
+
+[[ -f "$repo_root/LICENSE" ]] || { printf 'ERROR: missing root LICENSE.\n' >&2; exit 1; }
+grep -q 'MIT License' "$repo_root/LICENSE" || {
+  printf 'ERROR: root LICENSE is not recognizably MIT.\n' >&2
+  exit 1
+}
+
+branch=$("$git_bin" -C "$repo_root" symbolic-ref --quiet --short HEAD) || {
+  printf 'ERROR: release checks require a named branch, not detached HEAD.\n' >&2
+  exit 1
+}
+
+worktree_status=$("$git_bin" -C "$repo_root" status --porcelain=v1)
+worktree_dirty=no
+if [[ -n "$worktree_status" ]]; then
+  worktree_dirty=yes
+  if [[ $allow_dirty -eq 0 ]]; then
+    printf 'ERROR: release checks require a clean worktree; use --allow-dirty only for local rehearsal.\n' >&2
+    exit 1
+  fi
+  printf 'WARNING: dirty-worktree rehearsal; uncommitted changes are excluded from remote commit verification.\n' >&2
+fi
+
+if [[ $skip_full -eq 1 ]]; then
+  "$script_dir/check-repo"
+elif [[ $strict -eq 1 ]]; then
+  "$script_dir/check-full" --strict
+else
+  "$script_dir/check-full"
+fi
+
+expected_names=$(find "$skills_dir" -mindepth 2 -maxdepth 2 -name SKILL.md -print \
+  | sed 's#/SKILL.md$##; s#^.*/##' | LC_ALL=C sort)
+expected_count=$(printf '%s\n' "$expected_names" | sed '/^$/d' | wc -l | tr -d ' ')
+
+check_discovery() {
+  local source=$1 label=$2 output actual_names duplicates
+  printf '\n== skills CLI discovery: %s ==\n' "$label"
+  if ! output=$("$npx_bin" --yes "$cli_package" add "$source" --list 2>&1); then
+    printf '%s\n' "$output" >&2
+    printf 'ERROR: skills CLI discovery failed for %s.\n' "$label" >&2
+    return 1
+  fi
+  actual_names=$(printf '%s\n' "$output" | tr -d '\r' \
+    | sed -n 's/^│    \([a-z0-9][a-z0-9-]*\)$/\1/p' | LC_ALL=C sort)
+  duplicates=$(printf '%s\n' "$actual_names" | uniq -d)
+  if [[ -n "$duplicates" ]]; then
+    printf '%s\n' "$output" >&2
+    printf 'ERROR: CLI discovery contains duplicate skill names:\n%s\n' "$duplicates" >&2
+    return 1
+  fi
+  if [[ "$actual_names" != "$expected_names" ]]; then
+    printf '%s\n' "$output" >&2
+    printf 'ERROR: CLI discovery does not match skills/.\n' >&2
+    printf 'Expected:\n%s\nActual:\n%s\n' "$expected_names" "${actual_names:-<none>}" >&2
+    return 1
+  fi
+  printf 'discovery=passed source=%s skills=%s\n' "$label" "$expected_count"
+}
+
+check_discovery "$repo_root" local
+if [[ -n "$remote_source" ]]; then
+  check_discovery "$remote_source" "$remote_source"
+
+  remote_git_url="https://github.com/$remote_source.git"
+  if ! remote_head=$("$git_bin" ls-remote --symref "$remote_git_url" HEAD 2>&1); then
+    printf '%s\n' "$remote_head" >&2
+    printf 'ERROR: could not resolve the public default branch for %s.\n' "$remote_source" >&2
+    exit 1
+  fi
+  default_ref=$(printf '%s\n' "$remote_head" | sed -n 's/^ref: \(refs\/heads\/[^[:space:]]*\)[[:space:]]*HEAD$/\1/p' | head -n 1)
+  remote_commit=$(printf '%s\n' "$remote_head" | sed -n 's/^\([0-9a-fA-F][0-9a-fA-F]*\)[[:space:]]*HEAD$/\1/p' | head -n 1)
+  [[ -n "$default_ref" && -n "$remote_commit" ]] || {
+    printf 'ERROR: could not parse the public default branch for %s.\n' "$remote_source" >&2
+    exit 1
+  }
+  default_branch=${default_ref#refs/heads/}
+  [[ "$branch" == "$default_branch" ]] || {
+    printf 'ERROR: current branch %s is not the public default branch %s.\n' "$branch" "$default_branch" >&2
+    exit 1
+  }
+  local_commit=$("$git_bin" -C "$repo_root" rev-parse HEAD)
+  [[ "$local_commit" == "$remote_commit" ]] || {
+    printf 'ERROR: public %s is not at local HEAD.\n' "$default_ref" >&2
+    printf 'Local:  %s\nRemote: %s\n' "$local_commit" "$remote_commit" >&2
+    exit 1
+  }
+  printf 'remote_head=passed branch=%s commit=%s\n' "$default_branch" "$remote_commit"
+fi
+
+printf '\nrelease_check=passed branch=%s skills=%s remote_checked=%s worktree_dirty=%s\n' \
+  "$branch" "$expected_count" "$([[ -n "$remote_source" ]] && printf yes || printf no)" "$worktree_dirty"

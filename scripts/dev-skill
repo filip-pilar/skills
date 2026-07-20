@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  ./scripts/dev-skill <skill-name>
+  ./scripts/dev-skill --status
+  ./scripts/dev-skill --remove
+
+Link exactly one source skill into local/sandbox for live agent testing.
+The sandbox is ignored by Git. Existing unmanaged entries are never removed.
+USAGE
+}
+
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+repo_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
+skills_dir="$repo_root/skills"
+sandbox="$repo_root/local/sandbox"
+agent_skills="$sandbox/.agents/skills"
+relative_prefix='../../../../skills/'
+
+die() {
+  printf 'ERROR: %s\n' "$*" >&2
+  exit 1
+}
+
+check_safe_parents() {
+  local path
+  for path in "$repo_root/local" "$sandbox" "$sandbox/.agents" "$agent_skills"; do
+    [[ ! -L "$path" ]] || die "refusing to use symlinked sandbox directory: $path"
+    [[ ! -e "$path" || -d "$path" ]] || die "sandbox path is not a directory: $path"
+  done
+}
+
+ensure_safe_parent() {
+  check_safe_parents
+  mkdir -p "$agent_skills"
+}
+
+managed_target() {
+  local entry=$1 target
+  [[ -L "$entry" ]] || return 1
+  target=$(readlink "$entry")
+  [[ "$target" == "$relative_prefix"* ]]
+}
+
+show_status() {
+  local entry found=0 target
+  if [[ ! -d "$agent_skills" ]]; then
+    printf 'dev_skill=inactive sandbox=%s\n' "$sandbox"
+    return
+  fi
+  shopt -s nullglob dotglob
+  for entry in "$agent_skills"/*; do
+    if managed_target "$entry"; then
+      target=$(readlink "$entry")
+      if [[ -e "$entry/SKILL.md" ]]; then
+        printf 'dev_skill=linked skill=%s target=%s\n' "${entry##*/}" "$target"
+      else
+        printf 'dev_skill=broken skill=%s target=%s\n' "${entry##*/}" "$target"
+        return 1
+      fi
+      found=1
+    else
+      printf 'dev_skill=unmanaged path=%s\n' "$entry"
+      found=1
+    fi
+  done
+  shopt -u nullglob dotglob
+  if [[ $found -eq 0 ]]; then
+    printf 'dev_skill=inactive sandbox=%s\n' "$sandbox"
+  fi
+}
+
+remove_managed() {
+  local entry removed=0 unmanaged=0
+  [[ -d "$agent_skills" ]] || {
+    printf 'dev_skill=inactive sandbox=%s\n' "$sandbox"
+    return
+  }
+  shopt -s nullglob dotglob
+  for entry in "$agent_skills"/*; do
+    if managed_target "$entry"; then
+      /bin/rm -f -- "$entry"
+      removed=1
+    else
+      printf 'dev_skill=unmanaged path=%s\n' "$entry"
+      unmanaged=1
+    fi
+  done
+  shopt -u nullglob dotglob
+  if [[ $removed -eq 1 ]]; then
+    printf 'dev_skill=removed sandbox=%s\n' "$sandbox"
+  elif [[ $unmanaged -eq 0 ]]; then
+    printf 'dev_skill=inactive sandbox=%s\n' "$sandbox"
+  fi
+  if [[ $unmanaged -eq 1 ]]; then
+    printf 'ERROR: unmanaged sandbox entries remain active; remove them manually if they are no longer wanted.\n' >&2
+    return 1
+  fi
+}
+
+[[ $# -eq 1 ]] || { usage >&2; exit 2; }
+case "$1" in
+  -h|--help)
+    usage
+    exit 0
+    ;;
+  --status)
+    check_safe_parents
+    show_status
+    exit $?
+    ;;
+  --remove)
+    check_safe_parents
+    remove_managed
+    exit 0
+    ;;
+esac
+
+skill=$1
+[[ "$skill" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] || die "invalid skill name: $skill"
+source_dir="$skills_dir/$skill"
+[[ -f "$source_dir/SKILL.md" ]] || die "unknown skill: $skill"
+[[ ! -L "$source_dir" ]] || die "refusing symlinked source skill directory: $source_dir"
+
+frontmatter_name=$(sed -n 's/^name:[[:space:]]*//p' "$source_dir/SKILL.md" | head -n 1)
+[[ "$frontmatter_name" == "$skill" ]] || die "source folder/frontmatter mismatch for $skill"
+
+ensure_safe_parent
+
+shopt -s nullglob dotglob
+for entry in "$agent_skills"/*; do
+  managed_target "$entry" || die "unmanaged sandbox entry would remain active: $entry"
+done
+for entry in "$agent_skills"/*; do
+  managed_target "$entry" || die "sandbox entry changed during activation: $entry"
+  /bin/rm -f -- "$entry"
+done
+shopt -u nullglob dotglob
+
+ln -s "$relative_prefix$skill" "$agent_skills/$skill"
+[[ -f "$agent_skills/$skill/SKILL.md" ]] || die "created link does not resolve to SKILL.md"
+
+printf 'dev_skill=linked skill=%s sandbox=%s\n' "$skill" "$sandbox"
+printf 'Start the agent from: %s\n' "$sandbox"

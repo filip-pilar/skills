@@ -4,14 +4,39 @@ set -euo pipefail
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 skills_dir="$repo_root/skills"
 validator="$skills_dir/skill-builder/scripts/validate_skill.py"
-expected_count=${EXPECTED_SKILL_COUNT:-16}
+max_tracked_file_bytes=${MAX_TRACKED_FILE_BYTES:-1048576}
 
-for dependency in python3 node jq zsh; do
+if [[ $# -gt 0 ]]; then
+  if [[ $# -eq 1 && ( "$1" == '-h' || "$1" == '--help' ) ]]; then
+    cat <<'USAGE'
+Usage: ./scripts/check-repo
+
+Run deterministic, network-free repository validation and fast tests.
+
+Environment:
+  MAX_TRACKED_FILE_BYTES  Maximum tracked file size (default: 1048576).
+USAGE
+    exit 0
+  fi
+  printf 'usage: %s\n' "$0" >&2
+  exit 2
+fi
+
+for dependency in git python3 node jq zsh; do
   command -v "$dependency" >/dev/null 2>&1 || {
     printf 'missing required dependency: %s\n' "$dependency" >&2
     exit 1
   }
 done
+
+python3 -c 'import yaml' >/dev/null 2>&1 || {
+  printf 'missing required Python package: PyYAML\n' >&2
+  exit 1
+}
+[[ "$max_tracked_file_bytes" =~ ^[1-9][0-9]*$ ]] || {
+  printf 'MAX_TRACKED_FILE_BYTES must be a positive integer\n' >&2
+  exit 1
+}
 
 [[ -d "$skills_dir" ]] || {
   printf 'missing skills directory: %s\n' "$skills_dir" >&2
@@ -28,11 +53,6 @@ skill_files=("$skills_dir"/*/SKILL.md)
   exit 1
 }
 
-if [[ ${#skill_files[@]} -ne $expected_count ]]; then
-  printf 'expected %s public skills, found %s\n' "$expected_count" "${#skill_files[@]}" >&2
-  exit 1
-fi
-
 names_file=$(mktemp "${TMPDIR:-/tmp}/skills-repo-names.XXXXXX")
 cleanup() {
   /bin/rm -f -- "$names_file"
@@ -42,6 +62,10 @@ trap cleanup EXIT HUP INT TERM
 for skill_md in "${skill_files[@]}"; do
   skill_dir=${skill_md%/SKILL.md}
   folder=${skill_dir##*/}
+  [[ ! -L "$skill_dir" ]] || {
+    printf 'public skill directory must not be a symlink: %s\n' "${skill_dir#"$repo_root/"}" >&2
+    exit 1
+  }
   name=$(sed -n 's/^name:[[:space:]]*//p' "$skill_md" | head -n 1)
   if [[ -z "$name" || "$name" != "$folder" ]]; then
     printf 'skill folder/frontmatter mismatch: folder=%s name=%s\n' "$folder" "${name:-<missing>}" >&2
@@ -57,7 +81,48 @@ if [[ -n "$duplicates" ]]; then
   exit 1
 fi
 
+while IFS= read -r -d '' tracked; do
+  case "$tracked" in
+    .DS_Store|*/.DS_Store|*.pyc|*.pyo|*.log|*.zip|*.tar|*.tar.*|*.tgz|__pycache__/*|*/__pycache__/*|.pytest_cache/*|*/.pytest_cache/*|.mypy_cache/*|*/.mypy_cache/*|.ruff_cache/*|*/.ruff_cache/*|outputs/*|*/outputs/*|work/*|*/work/*|local/*|.evals/*|*/.evals/*|improve/*)
+      printf 'tracked development artifact is not allowed: %s\n' "$tracked" >&2
+      exit 1
+      ;;
+  esac
+
+  path="$repo_root/$tracked"
+  if [[ -L "$path" && ! -e "$path" ]]; then
+    printf 'tracked symlink is broken: %s\n' "$tracked" >&2
+    exit 1
+  fi
+  if [[ -L "$path" ]]; then
+    resolved=$(python3 -c 'from pathlib import Path; import sys; print(Path(sys.argv[1]).resolve())' "$path")
+    case "$resolved" in
+      "$repo_root"|"$repo_root"/*) ;;
+      *)
+        printf 'tracked symlink escapes the repository: %s -> %s\n' "$tracked" "$resolved" >&2
+        exit 1
+        ;;
+    esac
+  fi
+  if [[ -f "$path" ]]; then
+    size=$(wc -c < "$path" | tr -d ' ')
+    if [[ "$size" -gt "$max_tracked_file_bytes" ]]; then
+      printf 'tracked file exceeds %s bytes: %s (%s bytes)\n' \
+        "$max_tracked_file_bytes" "$tracked" "$size" >&2
+      exit 1
+    fi
+  fi
+done < <(git -C "$repo_root" ls-files -z)
+
+while IFS= read -r -d '' executable; do
+  [[ -x "$executable" ]] || {
+    printf 'repository command is not executable: %s\n' "${executable#"$repo_root/"}" >&2
+    exit 1
+  }
+done < <(find "$repo_root/scripts" -maxdepth 1 -type f -print0)
+
 python3 "$repo_root/scripts/check-readme-links.py"
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$repo_root/scripts/tests" -p 'test_*.py'
 node --test "$skills_dir/dr-react/tests/test_parse_react_doctor_report.mjs"
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$skills_dir/skill-builder/tests" -p 'test_*.py'
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$skills_dir/socket-audit/tests" -p 'test_*.py'

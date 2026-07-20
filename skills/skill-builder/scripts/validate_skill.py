@@ -36,6 +36,7 @@ DEVELOPMENT_DEBRIS_DIRS = {"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff
 DEVELOPMENT_ONLY_DIRS = {"evals"}
 DEVELOPMENT_DEBRIS_FILES = {".DS_Store"}
 DEVELOPMENT_DEBRIS_SUFFIXES = {".pyc", ".pyo"}
+RESOURCE_DIRS = {"assets", "references", "scripts"}
 
 
 def load_yaml(path: Path, text: str, errors: list[str]) -> object:
@@ -214,8 +215,50 @@ def main() -> int:
         ):
             if not any(part in DEVELOPMENT_DEBRIS_DIRS for part in relative.parts[:-1]):
                 errors.append(f"{relative}: generated development artifact must not ship")
-        if path.is_symlink() and not path.exists():
-            errors.append(f"{path}: broken symlink")
+        if path.is_symlink():
+            if not path.exists():
+                errors.append(f"{path}: broken symlink")
+            else:
+                try:
+                    path.resolve().relative_to(skill_dir)
+                except ValueError:
+                    errors.append(f"{path}: symlink escapes the skill directory")
+
+    text_sources: dict[Path, str] = {}
+    for path in skill_dir.rglob("*"):
+        if not path.is_file() or path.is_symlink():
+            continue
+        try:
+            text_sources[path] = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+
+    resources: list[Path] = []
+    for path in sorted(skill_dir.rglob("*")):
+        if not path.is_file() or path.is_symlink():
+            continue
+        relative = path.relative_to(skill_dir)
+        if not relative.parts or relative.parts[0] not in RESOURCE_DIRS:
+            continue
+        if relative.parts[0] == "scripts" and path.name.startswith(("test_", "mock_")):
+            continue
+        resources.append(path)
+
+    reachable = {skill_md}
+    changed = True
+    while changed:
+        changed = False
+        reachable_text = "\n".join(text_sources.get(path, "") for path in reachable)
+        for path in resources:
+            relative = path.relative_to(skill_dir)
+            if path not in reachable and (relative.as_posix() in reachable_text or path.name in reachable_text):
+                reachable.add(path)
+                changed = True
+
+    for path in resources:
+        if path not in reachable:
+            relative = path.relative_to(skill_dir)
+            errors.append(f"{relative}: bundled resource is not reachable from SKILL.md")
 
     for repeated in repeated_paragraphs(body):
         warnings.append(f"{skill_md}: repeated paragraph beginning: {repeated}")
