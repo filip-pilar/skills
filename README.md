@@ -49,6 +49,7 @@ Compatibility describes the workflow, not just whether an agent can read the Mar
 | [`skill-builder`](skill-builder/) | Creates, diagnoses, improves, compresses, evaluates, and releases skills with evidence and authority boundaries. | Codex-enhanced | Python for bundled validation scripts |
 | [`socket-audit`](socket-audit/) | Audits repositories for supply-chain indicators and can configure npm, pnpm, or Bun install protection. | Universal | Shell; network and Socket.dev access for online workflows |
 | [`setup-cli-proxy-gateway`](setup-cli-proxy-gateway/) | Configures and validates CLIProxyAPI routes for Codex CLI or Claude Code. | Codex + Claude | macOS/Linux shell, provider authentication, and approval for configuration changes or paid calls |
+| [`web-traffic-inspector`](web-traffic-inspector/) | Inspects browser traffic and builds disposable HTML proof-prototypes for observed website actions. | Codex-enhanced | Browser or Chrome control, or `agent-browser`; Python 3 and Node.js for prototype tooling |
 
 ### Codex Side companions
 

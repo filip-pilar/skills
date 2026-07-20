@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Traffic Inspector"
+  short_description: "Turn website actions into proof-prototypes"
+  default_prompt: "Use $web-traffic-inspector to inspect the traffic behind this website action and build a disposable HTML proof-prototype."

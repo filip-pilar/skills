@@ -1,0 +1,1104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>__WTI_DOCUMENT_TITLE__</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --text: #16202a;
+      --muted: #607080;
+      --border: #d8e0e7;
+      --accent: #1264a3;
+      --accent-text: #ffffff;
+      --danger: #a32727;
+      --success: #176b3a;
+      --code: #101820;
+      --code-text: #dce8f2;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1419;
+        --panel: #171e25;
+        --text: #e8eef3;
+        --muted: #a9b7c4;
+        --border: #34414d;
+        --accent: #57a9e8;
+        --accent-text: #08131c;
+        --danger: #ff9292;
+        --success: #74d69d;
+        --code: #090d11;
+        --code-text: #dce8f2;
+      }
+    }
+    * { box-sizing: border-box; }
+    html { scroll-padding-top: 24px; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+    .skip-link {
+      position: fixed;
+      z-index: 10;
+      top: 10px;
+      left: 10px;
+      padding: 9px 12px;
+      border-radius: 8px;
+      background: var(--accent);
+      color: var(--accent-text);
+      transform: translateY(-160%);
+    }
+    .skip-link:focus-visible { transform: translateY(0); }
+    main { width: min(1040px, calc(100% - 32px)); margin: 40px auto 64px; }
+    h1, h2, p { margin-top: 0; }
+    h1 { margin-bottom: 8px; font-size: clamp(1.8rem, 5vw, 2.7rem); letter-spacing: -0.025em; }
+    h2 { font-size: 1.05rem; }
+    .lede, .muted { color: var(--muted); }
+    .provenance {
+      display: grid;
+      gap: 6px;
+      margin-top: 18px;
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--accent);
+      border-radius: 10px;
+      background: var(--panel);
+    }
+    .provenance-line { display: flex; flex-wrap: wrap; gap: 7px; align-items: baseline; }
+    .provenance-separator { color: var(--muted); }
+    .panel {
+      margin-top: 20px;
+      padding: 22px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--panel);
+      box-shadow: 0 8px 30px rgb(0 0 0 / 0.05);
+    }
+    .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+    .field { display: grid; align-content: start; gap: 7px; }
+    label { font-weight: 650; }
+    input, textarea, select, button { font: inherit; }
+    input, textarea, select {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      background: var(--panel);
+      color: var(--text);
+    }
+    textarea { min-height: 112px; resize: vertical; }
+    input[type="checkbox"] { width: auto; }
+    .acknowledgement { display: flex; gap: 10px; align-items: flex-start; margin: 18px 0 0; }
+    .actions, .raw-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 15px;
+      cursor: pointer;
+      background: var(--accent);
+      color: var(--accent-text);
+      font-weight: 700;
+      touch-action: manipulation;
+    }
+    button.secondary { border: 1px solid var(--border); background: transparent; color: var(--text); }
+    button:not(:disabled):hover { filter: brightness(1.08); }
+    button:not(:disabled):active { transform: translateY(1px); }
+    button:disabled { cursor: not-allowed; opacity: 0.5; }
+    :is(a, button, input, textarea, select, summary):focus-visible {
+      outline: 3px solid var(--accent);
+      outline-offset: 3px;
+    }
+    #status { min-height: 24px; margin: 15px 0 0; color: var(--muted); }
+    #status[data-kind="error"] { color: var(--danger); }
+    #status[data-kind="success"] { color: var(--success); }
+    #results { display: grid; gap: 14px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+    .card { overflow: hidden; border: 1px solid var(--border); border-radius: 11px; background: var(--panel); }
+    .card.selected { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .card img { width: 100%; aspect-ratio: 16 / 10; display: block; object-fit: cover; background: var(--bg); }
+    .card-body { padding: 14px; }
+    .card-body, td, .mechanism-value { overflow-wrap: anywhere; }
+    .card-body > :last-child { margin-bottom: 0; }
+    .card-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px; }
+    .workflow-detail { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border); }
+    .image-result { width: 100%; max-height: 520px; object-fit: contain; border-radius: 10px; background: var(--bg); }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 9px 11px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+    pre {
+      max-height: 520px;
+      overflow: auto;
+      margin: 0;
+      padding: 16px;
+      border-radius: 10px;
+      background: var(--code);
+      color: var(--code-text);
+      white-space: pre-wrap;
+      word-break: break-word;
+      font: 0.84rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    details > summary { cursor: pointer; font-weight: 750; }
+    details[open] > summary { margin-bottom: 18px; }
+    .mechanism-stages { display: grid; gap: 14px; }
+    .mechanism-stage { padding-top: 14px; border-top: 1px solid var(--border); }
+    .mechanism-stage:first-child { padding-top: 0; border-top: 0; }
+    .mechanism-grid { display: grid; grid-template-columns: minmax(110px, auto) 1fr; gap: 6px 16px; margin: 0; }
+    .mechanism-grid dt { color: var(--muted); }
+    .mechanism-grid dd { margin: 0; }
+    .limit-note, .raw-summary, .utility-status { margin: 10px 0 0; color: var(--muted); }
+    .utility-status { min-height: 24px; }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    .notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+    .note { border-left: 3px solid var(--border); padding-left: 14px; }
+    a { color: var(--accent); }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <main id="main-content">
+    <header>
+      <p class="muted">Disposable proof-prototype</p>
+      <h1 id="title"></h1>
+      <p id="description" class="lede"></p>
+      <section class="provenance" aria-label="Verification and provenance">
+        <div class="provenance-line">
+          <strong id="verification-status"></strong>
+          <span class="provenance-separator" aria-hidden="true">&middot;</span>
+          <span id="verification-relationship"></span>
+          <span class="provenance-separator" aria-hidden="true">&middot;</span>
+          <span id="mechanism-kind"></span>
+          <span class="provenance-separator" aria-hidden="true">&middot;</span>
+          <span id="execution-mode"></span>
+        </div>
+        <p id="verification-summary" class="muted"></p>
+      </section>
+    </header>
+
+    <details class="panel">
+      <summary>How This Works</summary>
+      <p id="mechanism-summary" class="muted"></p>
+      <div id="mechanism-stages" class="mechanism-stages"></div>
+    </details>
+
+    <section class="panel" aria-labelledby="controls-title">
+      <h2 id="controls-title">Try the action</h2>
+      <form id="action-form">
+        <div id="fields" class="fields"></div>
+        <label id="ack-row" class="acknowledgement" hidden>
+          <input id="ack" type="checkbox">
+          <span>I understand that this action can change website state or consume a limited/paid resource.</span>
+        </label>
+        <div class="actions">
+          <button id="run" type="submit"></button>
+        </div>
+      </form>
+      <p id="status" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="panel" aria-labelledby="results-title">
+      <h2 id="results-title">Result</h2>
+      <div id="results" aria-busy="false"><p class="muted">Run the action to see its result.</p></div>
+    </section>
+
+    <section class="panel" aria-labelledby="raw-title">
+      <h2 id="raw-title">Sanitized Response</h2>
+      <pre id="raw" aria-busy="false">No response yet.</pre>
+      <p id="raw-summary" class="raw-summary">No sanitized response is available yet.</p>
+      <div class="raw-actions">
+        <button id="copy" class="secondary" type="button" disabled>Copy JSON</button>
+        <button id="download" class="secondary" type="button" disabled>Download JSON</button>
+      </div>
+      <p id="utility-status" class="utility-status" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="panel notes" aria-label="Prototype notes">
+      <div class="note">
+        <h2>What this demonstrates</h2>
+        <p id="demonstrates"></p>
+      </div>
+      <div class="note">
+        <h2>Constraints</h2>
+        <p id="constraints"></p>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const SPEC = __WTI_DEMO_CONFIG__;
+    const MAX_RAW_CHARS = 2_000_000;
+    const MAX_COLLECTION_ITEMS = 5_000;
+    const MAX_RENDERED_ITEMS = 50;
+    const SECRET_KEY = /(?:authorization|cookie|password|passwd|secret|credential|session|private.?key|access.?token|refresh.?token|api.?key|csrf|xsrf|signature|signed.?token)/i;
+    const SENSITIVE_EXACT_KEY = /^(?:nonce|ticket)$/i;
+    const SENSITIVE_QUERY_KEY = /(?:^|[-_])(?:authorization|credential|secret|session|token|signature|sig|signed|private[-_]?key|api[-_]?key|access[-_]?key|key[-_]?pair[-_]?id|x[-_]?amz[-_](?:credential|signature|security[-_]?token)|code|nonce|ticket)(?:$|[-_])/i;
+    const URL_VALUE_KEY = /(?:^|[-_])(?:url|uri|href|link|location)(?:$|[-_])/i;
+    const SAFE_HEADER_NAMES = new Set([
+      "cache-control", "content-language", "content-length", "content-type", "etag",
+      "last-modified", "retry-after", "x-ratelimit-limit", "x-ratelimit-remaining", "x-ratelimit-reset"
+    ]);
+    const form = document.querySelector("#action-form");
+    const fields = document.querySelector("#fields");
+    const runButton = document.querySelector("#run");
+    const status = document.querySelector("#status");
+    const results = document.querySelector("#results");
+    const raw = document.querySelector("#raw");
+    const rawSummary = document.querySelector("#raw-summary");
+    const copyButton = document.querySelector("#copy");
+    const downloadButton = document.querySelector("#download");
+    const utilityStatus = document.querySelector("#utility-status");
+    const acknowledgement = document.querySelector("#ack");
+    let rawText = "";
+    let attemptHasRaw = false;
+    let companionToken = null;
+    let lastInputValues = {};
+    let workflowState = { search: null, selected: null, detail: null };
+
+    document.querySelector("#title").textContent = SPEC.title;
+    document.querySelector("#description").textContent = SPEC.description;
+    document.querySelector("#demonstrates").textContent = SPEC.demonstrates;
+    document.querySelector("#constraints").textContent = SPEC.constraints;
+    function humanizeToken(value) {
+      const text = String(value).replace(/-/g, " ");
+      return text.charAt(0).toUpperCase() + text.slice(1);
+    }
+
+    document.querySelector("#verification-status").textContent = humanizeToken(SPEC.verification.status);
+    document.querySelector("#verification-relationship").textContent = humanizeToken(SPEC.verification.relationship);
+    document.querySelector("#verification-summary").textContent = SPEC.verification.summary;
+    document.querySelector("#mechanism-kind").textContent = humanizeToken(SPEC.mechanismKind);
+    document.querySelector("#execution-mode").textContent = `${humanizeToken(SPEC.mode)} mode`;
+    document.querySelector("#mechanism-summary").textContent = SPEC.demonstrates;
+    runButton.textContent = SPEC.actionLabel;
+    document.querySelector("#ack-row").hidden = !SPEC.sideEffect;
+    runButton.disabled = Boolean(SPEC.sideEffect);
+
+    function requestMechanismView(label, request) {
+      const url = new URL(request.url);
+      const queryFields = [...new Set([...url.searchParams.keys(), ...Object.keys(request.query || {})])];
+      const bodyFields = request.body && typeof request.body === "object" && !Array.isArray(request.body)
+        ? Object.keys(request.body)
+        : [];
+      return {
+        label,
+        method: request.method,
+        endpoint: `${url.origin}${url.pathname}`,
+        queryFields,
+        bodyFields
+      };
+    }
+
+    function appendMechanismRow(list, term, value) {
+      const dt = document.createElement("dt");
+      const dd = document.createElement("dd");
+      dd.className = "mechanism-value";
+      dt.textContent = term;
+      dd.textContent = value;
+      list.append(dt, dd);
+    }
+
+    function authenticationPosture() {
+      const mode = SPEC.companion?.runtime?.authMode || "none";
+      if (mode === "interactive-profile") return "Interactive login in a dedicated runtime profile; no browser secrets are copied or embedded";
+      if (mode === "existing-session") return "Existing named browser session; no browser secrets are copied or embedded";
+      if (mode === "cdp") return "Approved CDP browser connection; authentication stays in that browser";
+      if (mode === "runtime-headers") return "Runtime-only headers supplied to the companion over stdin; not stored in the deliverable";
+      return "None configured or embedded";
+    }
+
+    function renderMechanismSummary() {
+      const container = document.querySelector("#mechanism-stages");
+      if (SPEC.mechanismKind === "page-runtime-extraction") {
+        const target = new URL(SPEC.companion.targetUrl);
+        const section = document.createElement("section");
+        section.className = "mechanism-stage";
+        const heading = document.createElement("h2");
+        heading.textContent = "Page-runtime projection";
+        const list = document.createElement("dl");
+        list.className = "mechanism-grid";
+        appendMechanismRow(list, "Mechanism", "Fixed generated page recipe");
+        appendMechanismRow(list, "Target", `${target.origin}${target.pathname}`);
+        appendMechanismRow(list, "Page state", SPEC.companion.targetStatePolicy === "allow-consumed"
+          ? "Fixed query/fragment may be consumed during page load; the recipe checks its fixed ready state"
+          : SPEC.companion.targetStatePolicy === "allow-query-to-fragment"
+            ? "Fixed query may migrate parameter-for-parameter to the fragment; the recipe checks its fixed ready state"
+            : "Exact fixed query/fragment state");
+        appendMechanismRow(list, "Inputs", SPEC.inputs.map((input) => input.name).join(", ") || "None");
+        appendMechanismRow(list, "Output", "Narrowly projected, size-bounded JSON");
+        appendMechanismRow(list, "Execution", "Configured agent-browser page; no code, selectors, target URLs, or authentication are accepted from this demo");
+        appendMechanismRow(list, "Authentication", authenticationPosture());
+        appendMechanismRow(list, "Provenance", `${humanizeToken(SPEC.verification.status)}; ${humanizeToken(SPEC.verification.relationship)}`);
+        section.append(heading, list);
+        container.append(section);
+        return;
+      }
+      const stages = [requestMechanismView(SPEC.workflow?.type === "search-select-detail" ? "Search request" : "Primary request", SPEC.request)];
+      if (SPEC.workflow?.type === "search-select-detail") {
+        stages.push(requestMechanismView("Detail request", SPEC.workflow.detailRequest));
+      }
+      for (const stage of stages) {
+        const section = document.createElement("section");
+        section.className = "mechanism-stage";
+        const heading = document.createElement("h2");
+        heading.textContent = stage.label;
+        const list = document.createElement("dl");
+        list.className = "mechanism-grid";
+        appendMechanismRow(list, "Mechanism", "HTTP replay");
+        appendMechanismRow(list, "Request", `${stage.method} ${stage.endpoint}`);
+        appendMechanismRow(list, "Query fields", stage.queryFields.join(", ") || "None");
+        appendMechanismRow(list, "Body fields", stage.bodyFields.join(", ") || "None");
+        appendMechanismRow(list, "Execution", SPEC.mode === "browser"
+          ? "Runtime browser session; no authentication is embedded"
+          : SPEC.mode === "relay"
+            ? "Loopback relay; no authentication is embedded"
+            : "Direct browser request");
+        appendMechanismRow(list, "Authentication", authenticationPosture());
+        appendMechanismRow(list, "Provenance", `${humanizeToken(SPEC.verification.status)}; ${humanizeToken(SPEC.verification.relationship)}`);
+        section.append(heading, list);
+        container.append(section);
+      }
+    }
+
+    renderMechanismSummary();
+
+    function setStatus(message, kind = "idle") {
+      status.textContent = message;
+      status.dataset.kind = kind;
+    }
+
+    function makeInput(definition) {
+      const wrapper = document.createElement("div");
+      wrapper.className = "field";
+      const label = document.createElement("label");
+      label.htmlFor = `input-${definition.name}`;
+      label.textContent = definition.label;
+      let control;
+      if (definition.type === "textarea") {
+        control = document.createElement("textarea");
+      } else if (definition.type === "select") {
+        control = document.createElement("select");
+        for (const optionDefinition of definition.options || []) {
+          const option = document.createElement("option");
+          option.value = optionDefinition.value;
+          option.textContent = optionDefinition.label;
+          control.append(option);
+        }
+      } else {
+        control = document.createElement("input");
+        control.type = definition.type;
+      }
+      control.id = label.htmlFor;
+      control.name = definition.name;
+      control.autocomplete = "off";
+      control.required = Boolean(definition.required);
+      if (definition.type === "url") control.inputMode = "url";
+      if (definition.type === "number") control.inputMode = "decimal";
+      if (definition.placeholder) control.placeholder = definition.placeholder;
+      for (const attribute of ["min", "max", "step", "minLength", "maxLength", "pattern"]) {
+        if (definition[attribute] !== undefined) control[attribute] = definition[attribute];
+      }
+      if (definition.value !== undefined) {
+        if (definition.type === "checkbox") control.checked = Boolean(definition.value);
+        else control.value = String(definition.value);
+      }
+      wrapper.append(label, control);
+      return wrapper;
+    }
+
+    for (const inputDefinition of SPEC.inputs) fields.append(makeInput(inputDefinition));
+
+    function syncSideEffectControls() {
+      if (!SPEC.sideEffect) return;
+      const acknowledged = acknowledgement.checked;
+      runButton.disabled = !acknowledged || runButton.getAttribute("aria-busy") === "true";
+      results.querySelectorAll("button[data-side-effect-action]").forEach((button) => {
+        button.disabled = !acknowledged || results.getAttribute("aria-busy") === "true";
+      });
+    }
+
+    function consumeAcknowledgement() {
+      if (!SPEC.sideEffect) return;
+      acknowledgement.checked = false;
+      syncSideEffectControls();
+    }
+
+    acknowledgement.addEventListener("change", syncSideEffectControls);
+
+    function collectInputs() {
+      const values = {};
+      for (const definition of SPEC.inputs) {
+        const element = form.elements.namedItem(definition.name);
+        if (definition.type === "checkbox") values[definition.name] = element.checked;
+        else if (definition.type === "number" && element.value !== "") values[definition.name] = Number(element.value);
+        else values[definition.name] = element.value;
+      }
+      return values;
+    }
+
+    function interpolate(value, inputValues) {
+      if (Array.isArray(value)) return value.map((item) => interpolate(item, inputValues));
+      if (value && typeof value === "object") {
+        return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, interpolate(item, inputValues)]));
+      }
+      if (typeof value !== "string") return value;
+      const exact = value.match(/^\{\{([a-zA-Z][a-zA-Z0-9_-]*)\}\}$/);
+      if (exact) return inputValues[exact[1]];
+      return value.replace(/\{\{([a-zA-Z][a-zA-Z0-9_-]*)\}\}/g, (_, name) => String(inputValues[name] ?? ""));
+    }
+
+    function getPath(value, path) {
+      if (!path) return value;
+      return path.split(".").reduce((current, key) => current == null ? undefined : current[key], value);
+    }
+
+    function safeUrl(value) {
+      if (typeof value !== "string") return null;
+      try {
+        const parsed = new URL(value, location.href);
+        return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.href : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function sanitizeUrlValue(value) {
+      try {
+        const url = new URL(value, location.href);
+        if (!['http:', 'https:'].includes(url.protocol)) return "[REDACTED UNSAFE URL]";
+        url.username = "";
+        url.password = "";
+        for (const name of [...url.searchParams.keys()]) {
+          if (SENSITIVE_QUERY_KEY.test(name)) url.searchParams.set(name, "[REDACTED]");
+        }
+        url.hash = "";
+        return url.href;
+      } catch {
+        return value;
+      }
+    }
+
+    function sanitizeTextValue(value) {
+      return value
+        .replace(/\bBearer\s+[A-Za-z0-9._~+\/-]+=*/gi, "Bearer [REDACTED]")
+        .replace(/([?&](?:authorization|credential|secret|session|token|signature|sig|private[-_]?key|api[-_]?key|access[-_]?key|key[-_]?pair[-_]?id|x[-_]?amz[-_](?:credential|signature|security[-_]?token)|nonce|ticket)=)[^&#\s"']+/gi, "$1[REDACTED]");
+    }
+
+    function sanitizeHeaders(value, seen, depth) {
+      if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+      const output = {};
+      for (const [name, headerValue] of Object.entries(value)) {
+        if (!SAFE_HEADER_NAMES.has(name.toLowerCase())) continue;
+        output[name] = sanitize(headerValue, name, seen, depth + 1);
+      }
+      return output;
+    }
+
+    function sanitize(value, key = "", seen = new WeakSet(), depth = 0) {
+      if (SECRET_KEY.test(key) || SENSITIVE_EXACT_KEY.test(key)) return "[REDACTED]";
+      if (value === null || typeof value !== "object") {
+        if (typeof value === "string" && URL_VALUE_KEY.test(key)) return sanitizeUrlValue(value);
+        if (typeof value === "string") {
+          const safeText = sanitizeTextValue(value);
+          if (safeText.length > MAX_RAW_CHARS) return `${safeText.slice(0, MAX_RAW_CHARS)}\n[TRUNCATED]`;
+          return safeText;
+        }
+        return value;
+      }
+      if (seen.has(value)) return "[CIRCULAR]";
+      if (depth > 20) return "[MAX DEPTH]";
+      seen.add(value);
+      try {
+        if (/headers$/i.test(key)) return sanitizeHeaders(value, seen, depth);
+        if (Array.isArray(value)) {
+          const items = value.slice(0, MAX_COLLECTION_ITEMS).map((item) => sanitize(item, "", seen, depth + 1));
+          if (value.length > MAX_COLLECTION_ITEMS) items.push(`[TRUNCATED ${value.length - MAX_COLLECTION_ITEMS} ITEMS]`);
+          return items;
+        }
+        const output = {};
+        for (const [childKey, childValue] of Object.entries(value).slice(0, MAX_COLLECTION_ITEMS)) {
+          output[childKey] = sanitize(childValue, childKey, seen, depth + 1);
+        }
+        return output;
+      } finally {
+        seen.delete(value);
+      }
+    }
+
+    function serializeSanitized(value) {
+      const sanitized = sanitize(value);
+      const completeText = JSON.stringify(sanitized, null, 2);
+      if (completeText.length <= MAX_RAW_CHARS) {
+        return { text: completeText, truncated: false, originalCharacters: completeText.length };
+      }
+      let previewLength = Math.max(1, MAX_RAW_CHARS - 500);
+      let text = "";
+      do {
+        text = JSON.stringify({
+          wti: {
+            truncated: true,
+            originalCharacters: completeText.length,
+            note: "This is a sanitized preview. The complete response exceeded the prototype display limit."
+          },
+          preview: completeText.slice(0, previewLength)
+        }, null, 2);
+        previewLength = Math.floor(previewLength * 0.8);
+      } while (text.length > MAX_RAW_CHARS && previewLength > 1);
+      return { text, truncated: true, originalCharacters: completeText.length };
+    }
+
+    function setRaw(value) {
+      const serialized = serializeSanitized(value);
+      rawText = serialized.text;
+      raw.textContent = rawText;
+      rawSummary.textContent = serialized.truncated
+        ? `Sanitized preview shown; the complete JSON was ${serialized.originalCharacters.toLocaleString()} characters.`
+        : `Sanitized JSON · ${serialized.originalCharacters.toLocaleString()} characters.`;
+      raw.setAttribute("aria-busy", "false");
+      attemptHasRaw = true;
+      copyButton.disabled = false;
+      downloadButton.disabled = false;
+    }
+
+    function resetAttemptOutput() {
+      attemptHasRaw = false;
+      rawText = "";
+      raw.textContent = "Waiting for a response…";
+      raw.setAttribute("aria-busy", "true");
+      rawSummary.textContent = "No sanitized response is available for this attempt yet.";
+      copyButton.disabled = true;
+      downloadButton.disabled = true;
+      utilityStatus.textContent = "";
+      results.replaceChildren(Object.assign(document.createElement("p"), { className: "muted", textContent: "Running the action…" }));
+      results.setAttribute("aria-busy", "true");
+    }
+
+    function appendText(parent, tagName, value, className) {
+      if (value === undefined || value === null || value === "") return;
+      const element = document.createElement(tagName);
+      if (className) element.className = className;
+      element.textContent = typeof value === "string" ? value : JSON.stringify(value);
+      parent.append(element);
+    }
+
+    function appendLimitNote(container, shown, total) {
+      if (total <= shown) return;
+      const note = document.createElement("p");
+      note.className = "limit-note";
+      note.textContent = `Showing ${shown.toLocaleString()} of ${total.toLocaleString()} items. The sanitized response contains the complete returned collection unless marked as truncated.`;
+      container.append(note);
+    }
+
+    // WTI-CUSTOMIZE: request:start
+    function customizeRequest(request, context) {
+      return request;
+    }
+    // WTI-CUSTOMIZE: request:end
+
+    // WTI-CUSTOMIZE: response:start
+    function customizeResponse(payload, context) {
+      return payload;
+    }
+
+    function validateUsefulResponse(payload, context) {
+      const response = payload?.response;
+      if (!response?.ok) return { ok: false, message: `The endpoint returned HTTP ${response?.status ?? "unknown"}.` };
+      const body = payload?.normalizedBody ?? response.body;
+      const rendererType = context?.renderer?.type || "auto";
+      if (context?.stage === "search" && SPEC.workflow?.type === "search-select-detail") {
+        const candidates = getPath(body, SPEC.workflow.itemsPath);
+        if (!Array.isArray(candidates)) {
+          return {
+            ok: false,
+            message: `HTTP ${response.status} did not contain the expected selectable result collection. Inspect the raw response.`
+          };
+        }
+      }
+      if (["cards", "images", "table"].includes(rendererType) && (body === null || typeof body !== "object")) {
+        return {
+          ok: false,
+          message: `HTTP ${response.status} did not contain structured domain data. It may be an access, consent, or verification page; inspect the raw response.`
+        };
+      }
+      return { ok: true };
+    }
+    // WTI-CUSTOMIZE: response:end
+
+    // WTI-CUSTOMIZE: workflow:start
+    async function customWorkflow(context) {
+      return null;
+    }
+    // WTI-CUSTOMIZE: workflow:end
+
+    // WTI-CUSTOMIZE: selection:start
+    function customizeSelectionView(view, context) {
+      return view;
+    }
+    // WTI-CUSTOMIZE: selection:end
+
+    // WTI-CUSTOMIZE: renderer:start
+    function customRender(container, body, renderer, context) {
+      return false;
+    }
+    // WTI-CUSTOMIZE: renderer:end
+
+    function renderCards(container, body, renderer) {
+      const items = getPath(body, renderer.itemsPath);
+      if (!Array.isArray(items) || items.length === 0) return false;
+      const grid = document.createElement("div");
+      grid.className = "grid";
+      const visibleItems = items.slice(0, MAX_RENDERED_ITEMS);
+      for (const item of visibleItems) {
+        const card = document.createElement("article");
+        card.className = "card";
+        const imageUrl = safeUrl(getPath(item, renderer.imagePath));
+        if (imageUrl) {
+          const image = document.createElement("img");
+          image.src = imageUrl;
+          image.alt = String(getPath(item, renderer.titlePath) || "Result image");
+          image.loading = "lazy";
+          image.width = 640;
+          image.height = 400;
+          card.append(image);
+        }
+        const bodyElement = document.createElement("div");
+        bodyElement.className = "card-body";
+        appendText(bodyElement, "h3", getPath(item, renderer.titlePath));
+        appendText(bodyElement, "p", getPath(item, renderer.subtitlePath), "muted");
+        const href = safeUrl(getPath(item, renderer.hrefPath));
+        if (href) {
+          const link = document.createElement("a");
+          link.href = href;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.textContent = "Open result";
+          bodyElement.append(link);
+        }
+        card.append(bodyElement);
+        grid.append(card);
+      }
+      container.append(grid);
+      appendLimitNote(container, visibleItems.length, items.length);
+      return true;
+    }
+
+    function renderImages(container, body, renderer) {
+      const candidate = getPath(body, renderer.itemsPath);
+      const items = Array.isArray(candidate) ? candidate : candidate == null ? [] : [candidate];
+      const urls = items.map((item) => safeUrl(typeof item === "string" ? item : getPath(item, renderer.imagePath))).filter(Boolean);
+      if (urls.length === 0) return false;
+      const grid = document.createElement("div");
+      grid.className = "grid";
+      const visibleUrls = urls.slice(0, MAX_RENDERED_ITEMS);
+      for (const url of visibleUrls) {
+        const image = document.createElement("img");
+        image.className = "image-result";
+        image.src = url;
+        image.alt = "Result image";
+        image.loading = "lazy";
+        image.width = 800;
+        image.height = 600;
+        grid.append(image);
+      }
+      container.append(grid);
+      appendLimitNote(container, visibleUrls.length, urls.length);
+      return true;
+    }
+
+    function renderTable(container, body, renderer) {
+      const candidate = getPath(body, renderer.itemsPath);
+      const items = Array.isArray(candidate) ? candidate : [];
+      const allRecords = items.filter((item) => item && typeof item === "object" && !Array.isArray(item));
+      const records = allRecords.slice(0, MAX_RENDERED_ITEMS);
+      if (records.length === 0) return false;
+      const columns = [...new Set(records.flatMap((item) => Object.keys(item)))].slice(0, 20);
+      const wrapper = document.createElement("div");
+      wrapper.className = "table-wrap";
+      const table = document.createElement("table");
+      const caption = document.createElement("caption");
+      caption.className = "sr-only";
+      caption.textContent = "Returned response records";
+      const head = document.createElement("thead");
+      const headRow = document.createElement("tr");
+      for (const column of columns) {
+        const heading = document.createElement("th");
+        heading.scope = "col";
+        heading.textContent = column;
+        headRow.append(heading);
+      }
+      head.append(headRow);
+      const tableBody = document.createElement("tbody");
+      for (const record of records) {
+        const row = document.createElement("tr");
+        for (const column of columns) {
+          const cell = document.createElement("td");
+          const value = record[column];
+          cell.textContent = value === undefined || value === null ? "" : typeof value === "string" ? value : JSON.stringify(value);
+          row.append(cell);
+        }
+        tableBody.append(row);
+      }
+      table.append(caption, head, tableBody);
+      wrapper.append(table);
+      container.append(wrapper);
+      appendLimitNote(container, records.length, allRecords.length);
+      return true;
+    }
+
+    function renderText(container, body, renderer) {
+      const value = getPath(body, renderer.itemsPath);
+      if (value === undefined || value === null || value === "") return false;
+      const paragraph = document.createElement("p");
+      paragraph.textContent = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+      container.append(paragraph);
+      return true;
+    }
+
+    function renderAuto(container, body) {
+      if (typeof body === "string" || typeof body === "number" || typeof body === "boolean") {
+        return renderText(container, body, {});
+      }
+      const array = Array.isArray(body) ? body : Object.values(body || {}).find(Array.isArray);
+      if (Array.isArray(array) && array.length && array.every((item) => item && typeof item === "object" && !Array.isArray(item))) {
+        return renderTable(container, array, {});
+      }
+      const summary = document.createElement("p");
+      summary.textContent = body && typeof body === "object"
+        ? `Received an object with ${Object.keys(body).length} top-level field(s). Inspect the raw response below.`
+        : "The request completed. Inspect the raw response below.";
+      container.append(summary);
+      return true;
+    }
+
+    function renderResult(body, renderer = SPEC.renderer || { type: "auto" }, container = results, context = {}) {
+      container.replaceChildren();
+      let rendered = false;
+      try {
+        rendered = customRender(container, body, renderer, context);
+        if (!rendered && renderer.type === "cards") rendered = renderCards(container, body, renderer);
+        else if (!rendered && renderer.type === "images") rendered = renderImages(container, body, renderer);
+        else if (!rendered && renderer.type === "table") rendered = renderTable(container, body, renderer);
+        else if (!rendered && renderer.type === "text") rendered = renderText(container, body, renderer);
+        else if (!rendered) rendered = renderAuto(container, body);
+      } catch (error) {
+        console.error("Renderer failed", error);
+      }
+      if (!rendered) {
+        const empty = document.createElement("p");
+        empty.className = "muted";
+        empty.textContent = "The request succeeded but returned no renderable items. Inspect the raw response below.";
+        container.append(empty);
+      }
+    }
+
+    function selectionView(item) {
+      const workflow = SPEC.workflow;
+      const base = {
+        item,
+        value: getPath(item, workflow.valuePath),
+        title: getPath(item, workflow.titlePath),
+        subtitle: getPath(item, workflow.subtitlePath),
+        imageUrl: safeUrl(getPath(item, workflow.imagePath)),
+        href: safeUrl(getPath(item, workflow.hrefPath))
+      };
+      return customizeSelectionView(base, { item, workflow }) || base;
+    }
+
+    function renderSelectionResults(body) {
+      results.replaceChildren();
+      const workflow = SPEC.workflow;
+      const items = getPath(body, workflow.itemsPath);
+      if (!Array.isArray(items) || items.length === 0) {
+        const empty = document.createElement("p");
+        empty.className = "muted";
+        empty.textContent = "Search completed with no selectable results. Try another input and inspect the raw response below.";
+        results.append(empty);
+        return { renderedCount: 0, totalCount: 0 };
+      }
+      const grid = document.createElement("div");
+      grid.className = "grid";
+      const visibleItems = items.slice(0, MAX_RENDERED_ITEMS);
+      for (const item of visibleItems) {
+        const view = selectionView(item);
+        if (view.value === undefined || view.value === null || view.value === "") continue;
+        const card = document.createElement("article");
+        card.className = "card";
+        card.dataset.selectionValue = String(view.value);
+        if (view.imageUrl) {
+          const image = document.createElement("img");
+          image.src = view.imageUrl;
+          image.alt = String(view.title || "Result image");
+          image.loading = "lazy";
+          image.width = 640;
+          image.height = 400;
+          card.append(image);
+        }
+        const bodyElement = document.createElement("div");
+        bodyElement.className = "card-body";
+        appendText(bodyElement, "h3", view.title || view.value);
+        appendText(bodyElement, "p", view.subtitle, "muted");
+        const actions = document.createElement("div");
+        actions.className = "card-actions";
+        const choose = document.createElement("button");
+        choose.type = "button";
+        choose.textContent = workflow.selectionActionLabel;
+        choose.dataset.sideEffectAction = "true";
+        choose.disabled = Boolean(SPEC.sideEffect && !acknowledgement.checked);
+        choose.addEventListener("click", () => loadSelection(view, card, choose));
+        actions.append(choose);
+        if (view.href) {
+          const link = document.createElement("a");
+          link.href = view.href;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.textContent = "Open result";
+          actions.append(link);
+        }
+        bodyElement.append(actions);
+        card.append(bodyElement);
+        grid.append(card);
+      }
+      if (grid.childElementCount === 0) {
+        const empty = document.createElement("p");
+        empty.className = "muted";
+        empty.textContent = "Results were returned, but none contained a usable selection identifier. Inspect the raw response below.";
+        results.append(empty);
+        return { renderedCount: 0, totalCount: items.length };
+      }
+      results.append(grid);
+      appendLimitNote(results, grid.childElementCount, items.length);
+      const detailSection = document.createElement("section");
+      detailSection.className = "workflow-detail";
+      const heading = document.createElement("h3");
+      heading.textContent = "Selected result";
+      const detail = document.createElement("div");
+      detail.id = "workflow-detail";
+      detail.append(Object.assign(document.createElement("p"), { className: "muted", textContent: "Choose a result to load its details." }));
+      detailSection.append(heading, detail);
+      results.append(detailSection);
+      return { renderedCount: grid.childElementCount, totalCount: items.length };
+    }
+
+    function requestDefinition(requestKey) {
+      if (requestKey === "detail") return SPEC.workflow?.detailRequest;
+      return SPEC.request;
+    }
+
+    function usefulBody(payload) {
+      return payload?.normalizedBody ?? payload?.response?.body;
+    }
+
+    function buildRequest(inputValues, requestKey = "main") {
+      const request = customizeRequest(interpolate(requestDefinition(requestKey), inputValues), { requestKey, inputValues });
+      const url = new URL(request.url);
+      for (const [key, value] of Object.entries(request.query || {})) {
+        if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, String(value));
+      }
+      const init = {
+        method: request.method,
+        headers: request.headers || {},
+        credentials: request.credentials || "omit"
+      };
+      if (request.body !== undefined) {
+        init.body = typeof request.body === "string" ? request.body : JSON.stringify(request.body);
+        if (!Object.keys(init.headers).some((name) => name.toLowerCase() === "content-type")) {
+          init.headers["Content-Type"] = "application/json";
+        }
+      }
+      return { url: url.href, init };
+    }
+
+    async function responseObject(response, requestSummary) {
+      const text = await response.text();
+      let body = text;
+      try { body = text === "" ? null : JSON.parse(text); } catch {}
+      return {
+        request: requestSummary,
+        response: {
+          ok: response.ok,
+          status: response.status,
+          statusText: response.statusText,
+          url: response.url,
+          headers: Object.fromEntries(response.headers.entries()),
+          body
+        }
+      };
+    }
+
+    async function executeDirect(inputValues, requestKey = "main") {
+      const { url, init } = buildRequest(inputValues, requestKey);
+      const response = await fetch(url, init);
+      return responseObject(response, { url, method: init.method });
+    }
+
+    async function getCompanionToken() {
+      if (companionToken) return companionToken;
+      const response = await fetch("/__wti/config", { cache: "no-store" });
+      if (!response.ok) throw new Error("The local companion is unavailable. Start browser-companion.mjs and open the URL it prints.");
+      companionToken = (await response.json()).token;
+      return companionToken;
+    }
+
+    async function executeCompanion(inputValues, requestKey = "main") {
+      const token = await getCompanionToken();
+      const response = await fetch("/__wti/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-WTI-Token": token },
+        body: JSON.stringify({ inputs: inputValues, requestKey })
+      });
+      const payload = await response.json().catch(() => ({ error: "The local companion returned an unreadable response." }));
+      if (!response.ok) throw new Error(payload.error || `Companion failed with HTTP ${response.status}.`);
+      return payload;
+    }
+
+    async function executeRequest(inputValues, requestKey = "main") {
+      return SPEC.mode === "direct"
+        ? executeDirect(inputValues, requestKey)
+        : executeCompanion(inputValues, requestKey);
+    }
+
+    async function loadSelection(view, card, chosenButton) {
+      if (SPEC.sideEffect && !acknowledgement.checked) {
+        setStatus("Acknowledge the side effect before loading this result.", "error");
+        acknowledgement.focus();
+        return;
+      }
+      consumeAcknowledgement();
+      document.querySelectorAll(".card.selected").forEach((element) => element.classList.remove("selected"));
+      card.classList.add("selected");
+      workflowState.selected = view.item;
+      workflowState.detail = null;
+      setRaw(workflowState);
+      setStatus(`Loading details for ${view.title || view.value}…`);
+      const detail = document.querySelector("#workflow-detail");
+      detail.replaceChildren(Object.assign(document.createElement("p"), { className: "muted", textContent: "Loading selected result…" }));
+      const selectionButtons = results.querySelectorAll("button");
+      selectionButtons.forEach((button) => { button.disabled = true; });
+      const chosenLabel = chosenButton.textContent;
+      chosenButton.textContent = "Loading…";
+      results.setAttribute("aria-busy", "true");
+      try {
+        const detailInputs = { ...lastInputValues, selectedValue: view.value };
+        let payload = await executeRequest(detailInputs, "detail");
+        payload = customizeResponse(payload, { stage: "detail", selected: view.item, renderer: SPEC.workflow.detailRenderer }) || payload;
+        workflowState.detail = payload;
+        setRaw(workflowState);
+        renderResult(usefulBody(payload), SPEC.workflow.detailRenderer, detail, { stage: "detail", selected: view.item });
+        const validation = validateUsefulResponse(payload, { stage: "detail", selected: view.item, renderer: SPEC.workflow.detailRenderer });
+        if (!validation?.ok) throw new Error(validation?.message || "The selected response was not useful.");
+        setStatus(`Loaded details for ${view.title || view.value}.`, "success");
+      } catch (error) {
+        detail.replaceChildren(Object.assign(document.createElement("p"), { className: "muted", textContent: "The selected result could not be loaded. Inspect the status and raw response." }));
+        setStatus(error instanceof Error ? error.message : String(error), "error");
+      } finally {
+        chosenButton.textContent = chosenLabel;
+        results.setAttribute("aria-busy", "false");
+        selectionButtons.forEach((button) => { button.disabled = false; });
+        syncSideEffectControls();
+      }
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!form.reportValidity()) return;
+      if (SPEC.sideEffect && !acknowledgement.checked) return;
+      consumeAcknowledgement();
+      runButton.disabled = true;
+      runButton.textContent = "Running…";
+      runButton.setAttribute("aria-busy", "true");
+      resetAttemptOutput();
+      setStatus("Running…");
+      try {
+        const inputValues = collectInputs();
+        lastInputValues = inputValues;
+        const customResult = await customWorkflow({
+          inputValues,
+          executeRequest,
+          setRaw,
+          renderResult,
+          setStatus,
+          usefulBody,
+          validateUsefulResponse
+        });
+        if (customResult?.handled) {
+          if (Object.prototype.hasOwnProperty.call(customResult, "raw")) setRaw(customResult.raw);
+          if (Object.prototype.hasOwnProperty.call(customResult, "body")) renderResult(customResult.body, customResult.renderer || SPEC.renderer);
+          setStatus(customResult.message || "Completed custom workflow.", customResult.kind || "success");
+          return;
+        }
+        const requestKey = SPEC.workflow?.type === "search-select-detail" ? "search" : "main";
+        let payload = await executeRequest(inputValues, requestKey);
+        const renderer = requestKey === "search" ? { type: "auto" } : SPEC.renderer;
+        payload = customizeResponse(payload, { stage: requestKey, renderer }) || payload;
+        setRaw(payload);
+        const validation = validateUsefulResponse(payload, { stage: requestKey, renderer });
+        if (!validation?.ok) renderResult(usefulBody(payload));
+        if (!validation?.ok) throw new Error(validation?.message || "The response did not contain verified domain data.");
+        if (SPEC.workflow?.type === "search-select-detail") {
+          workflowState = { search: payload, selected: null, detail: null };
+          setRaw(workflowState);
+          const counts = renderSelectionResults(usefulBody(payload));
+          setStatus(counts.renderedCount
+            ? `Found ${counts.totalCount.toLocaleString()} result(s); showing ${counts.renderedCount.toLocaleString()}. Choose one to continue.`
+            : "Search completed with no selectable results.", "success");
+        } else {
+          setRaw(payload);
+          renderResult(usefulBody(payload));
+          setStatus("Completed successfully.", "success");
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (!attemptHasRaw) setRaw({ error: { message, responseReceived: false } });
+        setStatus(message, "error");
+      } finally {
+        results.setAttribute("aria-busy", "false");
+        raw.setAttribute("aria-busy", "false");
+        runButton.textContent = SPEC.actionLabel;
+        runButton.setAttribute("aria-busy", "false");
+        runButton.disabled = SPEC.sideEffect ? !acknowledgement.checked : false;
+        syncSideEffectControls();
+      }
+    });
+
+    copyButton.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(rawText);
+        utilityStatus.textContent = "Copy command completed; clipboard contents were not independently verified.";
+      } catch {
+        const selection = getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(raw);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        utilityStatus.textContent = "Clipboard access was unavailable; the sanitized response is selected for copying.";
+      }
+    });
+
+    downloadButton.addEventListener("click", () => {
+      const blob = new Blob([rawText], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "web-traffic-inspector-response.json";
+      link.click();
+      utilityStatus.textContent = "Download initiated in the browser; filesystem completion was not verified.";
+      setTimeout(() => URL.revokeObjectURL(url), 1_000);
+    });
+  </script>
+</body>
+</html>
