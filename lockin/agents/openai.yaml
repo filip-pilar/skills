@@ -1,0 +1,7 @@
+interface:
+  display_name: "Lock In"
+  short_description: "Narrow the task and move it forward"
+  default_prompt: "Use $lockin to recover the active objective, narrow the working set, and advance it to concrete progress, completion, or one genuine blocker."
+
+policy:
+  allow_implicit_invocation: false

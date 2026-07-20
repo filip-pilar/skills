@@ -45,6 +45,7 @@ Compatibility describes the workflow, not just whether an agent can read the Mar
 | [`dr-react`](dr-react/) | Improves a React Doctor score through small fixes and regression checks. | Codex-enhanced | Node.js, package-manager and target-repository access; `/goal` persistence is Codex-specific |
 | [`gitprep`](gitprep/) | Inspects a diff, proposes coherent commits, runs approved checks, and commits only approved changes. | Universal | Git |
 | [`improve`](improve/) | Audits a codebase and produces self-contained implementation plans, with an optional isolated execution workflow. | Codex + Claude | Shell and Git; use its host-switching script for Claude Code |
+| [`lockin`](lockin/) | Recovers the active objective, narrows the working set, and advances the task to progress, completion, or one genuine blocker. | Codex-enhanced | Current task context and the tools required by that task |
 | [`skill-builder`](skill-builder/) | Creates, diagnoses, improves, compresses, evaluates, and releases skills with evidence and authority boundaries. | Codex-enhanced | Python for bundled validation scripts |
 | [`socket-audit`](socket-audit/) | Audits repositories for supply-chain indicators and can configure npm, pnpm, or Bun install protection. | Universal | Shell; network and Socket.dev access for online workflows |
 | [`setup-cli-proxy-gateway`](setup-cli-proxy-gateway/) | Configures and validates CLIProxyAPI routes for Codex CLI or Claude Code. | Codex + Claude | macOS/Linux shell, provider authentication, and approval for configuration changes or paid calls |
