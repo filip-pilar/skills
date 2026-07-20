@@ -2,6 +2,12 @@
 
 `improve/` is committed as a directly usable Codex skill. Its root `SKILL.md` and `agents/openai.yaml` are generated from the shared core and Codex adapter; edit the sources, not those generated files.
 
+## Origin and attribution
+
+This skill is based on [shadcn/improve](https://github.com/shadcn/improve), created by shadcn and licensed under the MIT License.
+
+This repository contains a modified version, including host-specific Codex and Claude Code adapters, validation scripts, tests, and other workflow changes. The original concept and substantial portions of the skill content come from the upstream project.
+
 ## Host selection
 
 ```bash
