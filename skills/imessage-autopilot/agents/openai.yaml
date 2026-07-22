@@ -1,7 +1,0 @@
-interface:
-  display_name: "iMessage Autopilot"
-  short_description: "Set up and operate scoped iMessage Autopilot"
-  default_prompt: "Use $imessage-autopilot to set up, configure, or operate my scoped iMessage Autopilot."
-
-policy:
-  allow_implicit_invocation: false

@@ -48,12 +48,6 @@ These require Codex Side tasks and their linked-parent workflow.
 | [`sidekick`](skills/sidekick/) | Explaining a parent's latest response, resolving decisions, and preparing an approved reply. |
 | [`tldr`](skills/tldr/) | Producing an ultra-concise digest of the complete available parent-task state. |
 
-### macOS automation
-
-| Skill | Best for |
-| --- | --- |
-| [`imessage-autopilot`](skills/imessage-autopilot/) | Operating a narrowly scoped iMessage reply controller on macOS. **Experimental:** it can send messages automatically and has not completed its first bounded real-Messages smoke test. |
-
 ### UK Global Talent Visa
 
 | Skill | Best for |
@@ -135,7 +129,6 @@ Review a skill and its bundled scripts before installing it. Pay particular atte
 | --- | --- |
 | `dr-react` | Node.js, a package manager, repository access, and potentially networked `npx` execution. |
 | `gitprep` | Git and repository access; intentionally never pushes. |
-| `imessage-autopilot` | macOS, Messages database access, Automation permission, and Codex CLI; may send live messages within an approved scope. |
 | `setup-cli-proxy-gateway` | macOS/Linux shell and provider authentication; may change listeners, services, credentials, and agent configuration. |
 | `skill-builder` | Python and PyYAML for bundled validation scripts. |
 | `socket-audit` | Relevant package managers; online workflows may require network and Socket.dev access. |
