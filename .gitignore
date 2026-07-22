@@ -11,3 +11,5 @@ work/
 local/
 .evals/
 /improve/
+/.agents/
+/.tmp/
