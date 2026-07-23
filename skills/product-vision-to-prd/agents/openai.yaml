@@ -1,0 +1,7 @@
+interface:
+  display_name: "Product Vision to PRD"
+  short_description: "Turn a product vision into a persistent PRD"
+  default_prompt: "Use $product-vision-to-prd to understand this product vision, ask one adaptive low-repetition interview only for consequential gaps, and autonomously develop it into a product-focused PRD written to a persistent Markdown file."
+
+policy:
+  allow_implicit_invocation: false
