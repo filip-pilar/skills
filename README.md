@@ -27,6 +27,7 @@ npx skills add filip-pilar/skills --list
 | [`gitprep`](skills/gitprep/) | Inspecting repository and publication state, planning coherent commits, and creating only approved commits. |
 | [`lockin`](skills/lockin/) | Recovering the active objective, narrowing the working set, and advancing to progress, completion, or one genuine blocker. |
 | [`product-vision-to-prd`](skills/product-vision-to-prd/) | Developing a broad product vision through one adaptive interview into a persistent, product-focused PRD. |
+| [`skill-usage-auditor`](skills/skill-usage-auditor/) | Auditing one custom skill against its contract using version-pinned local Codex task evidence. |
 | [`skill-builder`](skills/skill-builder/) | Creating, diagnosing, improving, evaluating, and releasing skills with explicit evidence and authority boundaries. |
 
 ### Engineering and integration

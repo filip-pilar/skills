@@ -1,0 +1,7 @@
+interface:
+  display_name: "Skill Usage Auditor"
+  short_description: "Audit one skill using version-pinned task evidence"
+  default_prompt: "Use $skill-usage-auditor to audit one named custom skill against its contract using local Codex task history."
+
+policy:
+  allow_implicit_invocation: false
