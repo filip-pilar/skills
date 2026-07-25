@@ -1,0 +1,7 @@
+interface:
+  display_name: "WDYT"
+  short_description: "Ask Claude Code for an independent second opinion"
+  default_prompt: "Use $wdyt to independently assess the current task and recommend the best next move."
+
+policy:
+  allow_implicit_invocation: false

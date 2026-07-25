@@ -29,6 +29,7 @@ npx skills add filip-pilar/skills --list
 | [`product-vision-to-prd`](skills/product-vision-to-prd/) | Developing a broad product vision through one adaptive interview into a persistent, product-focused PRD. |
 | [`skill-usage-auditor`](skills/skill-usage-auditor/) | Auditing one custom skill against its contract using version-pinned local Codex task evidence. |
 | [`skill-builder`](skills/skill-builder/) | Creating, diagnosing, improving, evaluating, and releasing skills with explicit evidence and authority boundaries. |
+| [`wdyt`](skills/wdyt/) | Getting an isolated Claude Code second opinion with curated task context and optional read-only repository exploration. |
 
 ### Engineering and integration
 
@@ -135,6 +136,7 @@ Review a skill and its bundled scripts before installing it. Pay particular atte
 | `skill-builder` | Python and PyYAML for bundled validation scripts. |
 | `socket-audit` | Relevant package managers; online workflows may require network and Socket.dev access. |
 | `web-traffic-inspector` | Browser or Chrome control (or `agent-browser`), Python 3, and Node.js; undocumented website mechanisms may change. |
+| `wdyt` | An authenticated official Claude Code CLI; sends curated task context and selectively read repository content to Anthropic. |
 
 ## Development
 

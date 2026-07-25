@@ -1,0 +1,126 @@
+{
+  "$id": "wdyt-answer/2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocolVersion",
+    "verdict",
+    "confidence",
+    "rationale",
+    "risks",
+    "unknowns",
+    "nextStep",
+    "decisionPrompt"
+  ],
+  "properties": {
+    "protocolVersion": {
+      "type": "string",
+      "const": "wdyt-answer/2"
+    },
+    "verdict": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 600
+    },
+    "confidence": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "rationale": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "point",
+          "evidence"
+        ],
+        "properties": {
+          "point": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "evidence": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "ref"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "const": "inference"
+                    },
+                    "ref": {
+                      "type": "null"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "ref"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "enum": [
+                        "context",
+                        "repository"
+                      ]
+                    },
+                    "ref": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "risks": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+        "type": "string",
+        "maxLength": 400
+      }
+    },
+    "unknowns": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+        "type": "string",
+        "maxLength": 400
+      }
+    },
+    "nextStep": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "decisionPrompt": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 400
+    }
+  }
+}
