@@ -23,7 +23,7 @@ Defaults:
 
 - model: Claude Code's current default;
 - mode: `advise`;
-- context: curated current state;
+- context: one short task prompt;
 - repository: model-directed read-only access to the current repository;
 - lifecycle: `fresh`; and
 - depth: `standard`.
@@ -32,38 +32,39 @@ Accept any explicit Claude model string and pass it through unchanged. Do not
 maintain a model allowlist, resolve aliases in the host, require the latest
 model, or substitute a model after failure.
 
-Recognize `advise`, `challenge`, `review`, `decide`, and `diagnose`; `blind`,
-`thread`, `diff`, `files`, and `no-repo`; `fresh` and `ephemeral`; and `quick`,
-`standard`, and `deep`. `consult` aliases `advise`.
+Recognize `advise`, `challenge`, `review`, `decide`, and `diagnose`; `read` and
+`no-repo`; `fresh` and `ephemeral`; and `quick`, `standard`, and `deep`.
+`consult` aliases `advise`.
 
 Only fresh and ephemeral turns exist in this launch. Both use a new
 non-persistent Claude process and WDYT stores no session. Do not advertise or
 accept continue, resume, named sessions, inspection, compaction, forgetting,
 panels, councils, or synthesis.
 
-## Prepare the request
+## Prepare the task
 
-Build one compact runtime request from information the host can actually
-access. Preserve user decisions separately from assistant proposals and retain
-provenance where it affects trust. Prefer objective, accepted decisions,
-constraints, current proposal, open questions, and recent material turns over
-a raw transcript.
+Write a short plain-text question or review task. Include only an essential
+accepted constraint or decision when Claude cannot discover it from the current
+repository. Never serialize a transcript, repository metadata, file contents,
+artifacts, or a JSON context envelope. Let Claude inspect relevant repository
+files itself through the bounded tools. For an interactive TTY, the runtime
+accepts the first completed line immediately. For piped input, it reads through
+EOF and collapses all whitespace so Claude receives one compact line.
 
 Bare invocation asks for independent judgment; never require the user to invent
-a question. `blind` removes host conclusions and proposal framing while keeping
-the underlying problem and evidence. If requested context is unavailable,
-degrade visibly rather than claiming complete history.
+a question. If the current task is not inferable in one short prompt, state the
+single decision or uncertainty that most needs judgment.
 
 An explicit `$wdyt` invocation authorizes delivery to Anthropic through Claude
-Code of the compact request and, unless `no-repo` is requested,
+Code of the short task and, unless `no-repo` is requested,
 model-directed read-only access to the current repository for this one turn.
 State that recipient and scope in the result.
 
 Write the request defined in
 [invocation-and-context.md](references/invocation-and-context.md) to the
-runtime's stdin as UTF-8 JSON. Never place the question, conversation,
-artifacts, repository content, or model string in shell source. Run the runtime
-from the canonical repository root when repository access is enabled.
+runtime's stdin as short UTF-8 plain text. Pass only launch controls such as
+model, mode, depth, repository mode, and lifecycle as runtime flags. Run the
+runtime from the canonical repository root when repository access is enabled.
 
 ## Diagnose and run
 
@@ -80,10 +81,10 @@ structured-output capability is missing, report it and stop.
 Then run:
 
 ```text
-python3 <skill-root>/scripts/wdyt.py run
+python3 <skill-root>/scripts/wdyt.py run [launch flags]
 ```
 
-Supply the request only through stdin. The runtime:
+Supply the short task only through stdin. The runtime:
 
 - constructs a direct Claude `-p` invocation without a shell;
 - uses safe mode, isolated settings, empty MCP configuration, `dontAsk`, and no
@@ -93,7 +94,8 @@ Supply the request only through stdin. The runtime:
 - passes through Claude's default or the explicit model string;
 - validates model provenance, tool registration and calls, path containment,
   customization isolation, result status, and `wdyt-answer/2`; and
-- deletes all temporary inputs and raw output when the process ends.
+- deletes temporary isolation files and captured raw output when the process
+  ends.
 
 Do not install, update, authenticate, retry with another model, relax a
 boundary, or repair malformed output on the user's behalf.

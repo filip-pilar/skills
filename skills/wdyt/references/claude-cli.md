@@ -91,8 +91,11 @@ responsibility. WDYT does not inspect credentials, initiate login, install or
 update Claude Code, or switch authentication paths.
 
 Private temporary files use `0700` directories and `0600` files. They contain
-only isolated settings and empty MCP configuration. The context travels through
-stdin. Temporary files and captured raw JSONL disappear when the process ends.
+only isolated settings and empty MCP configuration. One whitespace-normalized,
+compact plain-text task travels through stdin; no context envelope or repository
+content is serialized by the host. Interactive TTY input returns after its first
+completed line; piped input is read through EOF before normalization. Temporary
+files and captured raw JSONL disappear when the process ends.
 
 ## Output gate
 
@@ -112,6 +115,10 @@ tools and cannot be called.
 
 The renderer formats validated fields deterministically. It does not repair,
 summarize, or reinterpret Claude's answer.
+
+The runtime moves structured-output constraints that Claude does not support
+into field descriptions in the schema passed to the CLI, while retaining and
+enforcing the complete bundled schema after generation.
 
 ## Failure and cancellation
 

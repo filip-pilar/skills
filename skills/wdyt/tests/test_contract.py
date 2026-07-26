@@ -36,10 +36,21 @@ class WdytLaunchContractTests(unittest.TestCase):
 
     def test_prompt_uses_current_protocols_and_remains_advisory(self):
         prompt = (SKILL_ROOT / "assets" / "wdyt-adviser-3.txt").read_text()
-        self.assertIn("wdyt-context/3", prompt)
+        self.assertIn("short task supplied on stdin", prompt)
         self.assertIn("wdyt-answer/2", prompt)
         self.assertIn("You advise; you do not execute.", prompt)
         self.assertIn("Never use logical `/repo` as a literal tool path.", prompt)
+
+    def test_launch_uses_short_plain_text_instead_of_context_envelope(self):
+        skill = (SKILL_ROOT / "SKILL.md").read_text()
+        invocation = (
+            SKILL_ROOT / "references" / "invocation-and-context.md"
+        ).read_text()
+        runtime = (SKILL_ROOT / "scripts" / "wdyt.py").read_text()
+        combined = f"{skill}\n{invocation}\n{runtime}"
+        self.assertIn("one short", combined)
+        self.assertNotIn("wdyt-context/3", combined)
+        self.assertNotIn("build_context_envelope", runtime)
 
     def test_contract_is_feature_detected_and_model_agnostic(self):
         skill = (SKILL_ROOT / "SKILL.md").read_text()

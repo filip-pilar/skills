@@ -13,7 +13,6 @@ import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -21,14 +20,14 @@ from typing import Any, Iterable
 SKILL_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = SKILL_ROOT / "assets" / "wdyt-answer-2.schema.json"
 PROMPT_PATH = SKILL_ROOT / "assets" / "wdyt-adviser-3.txt"
-MAX_REQUEST_BYTES = 1_000_000
+MAX_PROMPT_BYTES = 768
+MAX_PROMPT_INPUT_BYTES = MAX_PROMPT_BYTES * 8
 RUN_TIMEOUT_SECONDS = 300
 
 MODES = {"advise", "challenge", "review", "decide", "diagnose"}
 DEPTH_TO_EFFORT = {"quick": "low", "standard": "medium", "deep": "high"}
 LIFECYCLES = {"fresh", "ephemeral"}
 REPOSITORY_MODES = {"read", "off"}
-CONTEXT_MODES = {"state", "blind", "thread"}
 REQUIRED_FLAGS = {
     "--disable-slash-commands",
     "--json-schema",
@@ -51,21 +50,11 @@ OPTIONAL_FLAGS = {
     "--model",
     "--prompt-suggestions",
 }
-CONTEXT_FIELDS = {
-    "artifacts",
-    "constraints",
-    "contextMode",
-    "conversationSummary",
-    "currentProposal",
-    "decisions",
-    "exclusions",
-    "objective",
-    "omissions",
-    "openQuestions",
-    "question",
-    "recentTurns",
-    "sourceTaskId",
-    "truncations",
+CLAUDE_SCHEMA_UNSUPPORTED_CONSTRAINTS = {
+    "maxItems",
+    "maxLength",
+    "minItems",
+    "minLength",
 }
 MODE_MODULES = {
     "advise": (
@@ -138,7 +127,6 @@ class Request:
     depth: str
     repository: str
     lifecycle: str
-    context: dict[str, Any]
 
 
 @dataclass
@@ -199,32 +187,38 @@ def detect_capabilities() -> Capabilities:
     )
 
 
-def read_stdin_request(stream: Any = sys.stdin) -> dict[str, Any]:
-    raw = stream.buffer.read(MAX_REQUEST_BYTES + 1) if hasattr(stream, "buffer") else stream.read(MAX_REQUEST_BYTES + 1)
+def read_stdin_prompt(stream: Any = sys.stdin) -> str:
+    reader = stream.buffer if hasattr(stream, "buffer") else stream
+    raw = reader.readline(MAX_PROMPT_BYTES + 2)
+    try:
+        non_interactive = reader.isatty() is False
+    except (AttributeError, OSError, ValueError):
+        non_interactive = False
+    if non_interactive and len(raw) <= MAX_PROMPT_INPUT_BYTES:
+        raw += reader.read(MAX_PROMPT_INPUT_BYTES + 1 - len(raw))
     if isinstance(raw, str):
-        encoded = raw.encode("utf-8")
         text = raw
     else:
-        encoded = raw
         try:
             text = raw.decode("utf-8")
         except UnicodeDecodeError as error:
-            raise WdytError("request input must be UTF-8 JSON") from error
-    if len(encoded) > MAX_REQUEST_BYTES:
-        raise WdytError(f"request exceeds {MAX_REQUEST_BYTES} bytes")
-    if not text.strip():
-        raise WdytError("run requires one JSON request on stdin")
-    try:
-        value = json.loads(text)
-    except json.JSONDecodeError as error:
-        raise WdytError(f"request is not valid JSON: {error}") from error
-    if not isinstance(value, dict):
-        raise WdytError("request must be a JSON object")
-    return value
+            raise WdytError("task prompt must be UTF-8") from error
+    if len(text.encode("utf-8")) > MAX_PROMPT_INPUT_BYTES:
+        raise WdytError("task prompt input is too large to normalize")
+    text = " ".join(text.split())
+    encoded = text.encode("utf-8")
+    if len(encoded) > MAX_PROMPT_BYTES:
+        raise WdytError(
+            f"task prompt exceeds {MAX_PROMPT_BYTES} bytes after normalization; "
+            "summarize it to one short question"
+        )
+    if not text:
+        raise WdytError("run requires one short task prompt on stdin")
+    return text
 
 
 def validate_request(value: dict[str, Any]) -> Request:
-    allowed = {"context", "depth", "lifecycle", "mode", "model", "repository"}
+    allowed = {"depth", "lifecycle", "mode", "model", "repository"}
     unknown = sorted(set(value) - allowed)
     if unknown:
         raise WdytError(f"unknown request fields: {', '.join(unknown)}")
@@ -262,100 +256,13 @@ def validate_request(value: dict[str, Any]) -> Request:
             "named sessions are not implemented"
         )
 
-    context = value.get("context", {})
-    if not isinstance(context, dict):
-        raise WdytError("context must be a JSON object")
-    unknown_context = sorted(set(context) - CONTEXT_FIELDS)
-    if unknown_context:
-        raise WdytError(f"unknown context fields: {', '.join(unknown_context)}")
-    context_mode = context.get("contextMode", "state")
-    if context_mode not in CONTEXT_MODES:
-        raise WdytError(f"unsupported context mode: {context_mode!r}")
-
     return Request(
         model=model,
         mode=mode,
         depth=depth,
         repository=repository,
         lifecycle=lifecycle,
-        context=context,
     )
-
-
-def _git_value(repository: Path, args: list[str]) -> str | None:
-    try:
-        result = run_command(["git", "-C", str(repository), *args], timeout=10)
-    except WdytError:
-        return None
-    if result.returncode != 0:
-        return None
-    value = result.stdout.strip()
-    return value or None
-
-
-def build_context_envelope(request: Request, repository: Path | None) -> dict[str, Any]:
-    context = request.context
-    source: dict[str, Any] = {
-        "host": "codex",
-        "generatedAt": datetime.now(timezone.utc).isoformat(),
-    }
-    if isinstance(context.get("sourceTaskId"), str):
-        source["sourceTaskId"] = context["sourceTaskId"]
-    if repository is not None:
-        source.update(
-            {
-                "repository": repository.name,
-                "cwd": ".",
-            }
-        )
-        branch = _git_value(repository, ["branch", "--show-current"])
-        revision = _git_value(repository, ["rev-parse", "HEAD"])
-        if branch:
-            source["branch"] = branch
-        if revision:
-            source["revision"] = revision
-
-    envelope: dict[str, Any] = {
-        "protocolVersion": "wdyt-context/3",
-        "request": {
-            "mode": request.mode,
-            "depth": request.depth,
-            "answerProtocol": "wdyt-answer/2",
-        },
-        "source": source,
-        "disclosure": {
-            "recipient": {"organization": "Anthropic", "product": "Claude Code"},
-            "conversation": context.get("contextMode", "state"),
-            "repository": (
-                "model-directed-selective-read"
-                if repository is not None
-                else "off"
-            ),
-            "artifacts": "auto" if context.get("artifacts") else "none",
-            "omissions": context.get("omissions", []),
-            "truncations": context.get("truncations", []),
-        },
-        "constraints": context.get("constraints", []),
-        "decisions": context.get("decisions", []),
-        "openQuestions": context.get("openQuestions", []),
-        "recentTurns": context.get("recentTurns", []),
-        "artifacts": context.get("artifacts", []),
-        "exclusions": context.get("exclusions", []),
-    }
-    for key in ("objective", "currentProposal", "conversationSummary"):
-        if key in context:
-            envelope[key] = context[key]
-    question = context.get("question")
-    if isinstance(question, str) and question.strip():
-        envelope["request"]["question"] = question
-    if repository is not None:
-        envelope["repositoryAccess"] = {
-            "scope": "entire-repository",
-            "view": "live-read-only",
-            "logicalRoot": "/repo",
-            "toolRoot": ".",
-        }
-    return envelope
 
 
 def load_schema() -> dict[str, Any]:
@@ -366,6 +273,34 @@ def load_schema() -> dict[str, Any]:
     if schema.get("$id") != "wdyt-answer/2":
         raise WdytError("bundled answer schema has the wrong protocol ID")
     return schema
+
+
+def schema_for_claude(value: Any) -> Any:
+    if isinstance(value, dict):
+        transformed = {
+            key: schema_for_claude(item)
+            for key, item in value.items()
+            if key not in CLAUDE_SCHEMA_UNSUPPORTED_CONSTRAINTS
+        }
+        constraints: list[str] = []
+        if isinstance(value.get("minLength"), int):
+            constraints.append(f"minimum {value['minLength']} characters")
+        if isinstance(value.get("maxLength"), int):
+            constraints.append(f"maximum {value['maxLength']} characters")
+        if isinstance(value.get("minItems"), int):
+            constraints.append(f"minimum {value['minItems']} items")
+        if isinstance(value.get("maxItems"), int):
+            constraints.append(f"maximum {value['maxItems']} items")
+        if constraints:
+            note = "Constraints: " + "; ".join(constraints) + "."
+            existing = transformed.get("description")
+            transformed["description"] = (
+                f"{existing.rstrip()} {note}" if isinstance(existing, str) else note
+            )
+        return transformed
+    if isinstance(value, list):
+        return [schema_for_claude(item) for item in value]
+    return value
 
 
 def trusted_system_prompt(mode: str, depth: str) -> str:
@@ -427,7 +362,7 @@ def build_claude_args(
     settings_path: Path,
     mcp_path: Path,
 ) -> list[str]:
-    schema = load_schema()
+    schema = schema_for_claude(load_schema())
     args = [
         capabilities.binary,
         "-p",
@@ -468,7 +403,8 @@ def build_claude_args(
     if "--effort" in optional:
         args.extend(["--effort", DEPTH_TO_EFFORT[request.depth]])
     args.append(
-        "Assess the wdyt-context/3 JSON supplied on stdin and return exactly "
+        "Use the short task supplied on stdin. When repository tools are "
+        "available, inspect only the relevant files yourself. Return exactly "
         "the required wdyt-answer/2 object."
     )
     return args
@@ -685,7 +621,7 @@ def validate_turn(
     stderr: str,
 ) -> Turn:
     if returncode != 0:
-        detail = stderr.strip().splitlines()[-1] if stderr.strip() else "no detail"
+        detail = invocation_failure_detail(stdout, stderr)
         raise WdytError(f"Claude invocation failed with exit {returncode}: {detail[:500]}")
     init, result, assistant_models, tool_calls = parse_events(stdout)
     used_model = init.get("model")
@@ -744,6 +680,25 @@ def validate_turn(
     )
 
 
+def invocation_failure_detail(stdout: str, stderr: str) -> str:
+    if stderr.strip():
+        return stderr.strip().splitlines()[-1]
+    for line in reversed(stdout.splitlines()):
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(event, dict) or event.get("type") != "result":
+            continue
+        errors = event.get("errors")
+        error_count = len(errors) if isinstance(errors, list) else 0
+        return (
+            f"result subtype={event.get('subtype')!r}, "
+            f"is_error={event.get('is_error')!r}, errors={error_count}"
+        )
+    return "no detail"
+
+
 def _evidence_suffix(evidence: Any) -> str:
     if not isinstance(evidence, list):
         return ""
@@ -757,15 +712,14 @@ def _evidence_suffix(evidence: Any) -> str:
 def render_turn(turn: Turn) -> str:
     answer = turn.answer
     repository_label = "read-only" if turn.request.repository == "read" else "off"
-    context_mode = turn.request.context.get("contextMode", "state")
     lines = [
         (
             f"WDYT · Claude Code · {turn.used_model} · {turn.request.mode} · "
             f"{turn.request.lifecycle}"
         ),
-        f"Context: {context_mode} · repo {repository_label}",
+        f"Context: minimal · repo {repository_label}",
         (
-            "Disclosure: Anthropic via Claude Code · task context + "
+            "Disclosure: Anthropic via Claude Code · short task + "
             f"{'repo read-only' if repository_label == 'read-only' else 'no repo'}"
         ),
     ]
@@ -791,6 +745,7 @@ def render_turn(turn: Turn) -> str:
 
 def execute_request(
     request: Request,
+    prompt: str,
     *,
     cwd: Path | None = None,
     timeout: int = RUN_TIMEOUT_SECONDS,
@@ -812,7 +767,6 @@ def execute_request(
         if not repository.is_dir():
             raise WdytError("repository mode requires an existing working directory")
 
-    envelope = build_context_envelope(request, repository)
     with tempfile.TemporaryDirectory(prefix="wdyt-") as temporary:
         private_directory = Path(temporary)
         private_directory.chmod(0o700)
@@ -830,16 +784,12 @@ def execute_request(
             start_new_session=True,
         )
         try:
-            stdout, stderr = process.communicate(
-                json.dumps(envelope, separators=(",", ":")), timeout=timeout
-            )
+            stdout, stderr = process.communicate(prompt, timeout=timeout)
         except subprocess.TimeoutExpired as error:
-            os.killpg(process.pid, signal.SIGTERM)
-            process.communicate()
+            terminate_process(process)
             raise WdytError(f"Claude invocation timed out after {timeout} seconds") from error
         except KeyboardInterrupt:
-            os.killpg(process.pid, signal.SIGTERM)
-            process.communicate()
+            terminate_process(process)
             raise WdytError("Claude invocation was cancelled") from None
     return validate_turn(
         request,
@@ -851,6 +801,15 @@ def execute_request(
     )
 
 
+def terminate_process(process: subprocess.Popen[str]) -> None:
+    os.killpg(process.pid, signal.SIGTERM)
+    try:
+        process.communicate(timeout=5)
+    except subprocess.TimeoutExpired:
+        os.killpg(process.pid, signal.SIGKILL)
+        process.communicate()
+
+
 def diagnostic_report() -> dict[str, Any]:
     schema_ok = False
     prompt_ok = False
@@ -859,7 +818,8 @@ def diagnostic_report() -> dict[str, Any]:
     except WdytError:
         pass
     try:
-        prompt_ok = "wdyt-context/3" in trusted_system_prompt("advise", "standard")
+        prompt = trusted_system_prompt("advise", "standard")
+        prompt_ok = "short task" in prompt and "wdyt-answer/2" in prompt
     except WdytError:
         pass
     try:
@@ -890,7 +850,28 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("doctor", help="check local Claude Code capabilities")
     run_parser = subparsers.add_parser(
-        "run", help="read one WDYT request as JSON from stdin"
+        "run", help="read and normalize a short WDYT task prompt from stdin"
+    )
+    run_parser.add_argument("--model")
+    run_parser.add_argument(
+        "--mode",
+        choices=sorted(MODES | {"consult"}),
+        default="advise",
+    )
+    run_parser.add_argument(
+        "--depth",
+        choices=sorted(DEPTH_TO_EFFORT),
+        default="standard",
+    )
+    run_parser.add_argument(
+        "--repository",
+        choices=sorted(REPOSITORY_MODES | {"no-repo"}),
+        default="read",
+    )
+    run_parser.add_argument(
+        "--lifecycle",
+        choices=sorted(LIFECYCLES),
+        default="fresh",
     )
     run_parser.add_argument(
         "--diagnostics",
@@ -907,8 +888,17 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(report, indent=2, sort_keys=True))
         return 0 if report.get("ready") else 1
     try:
-        request = validate_request(read_stdin_request())
-        turn = execute_request(request)
+        request = validate_request(
+            {
+                "model": args.model,
+                "mode": args.mode,
+                "depth": args.depth,
+                "repository": args.repository,
+                "lifecycle": args.lifecycle,
+            }
+        )
+        prompt = read_stdin_prompt()
+        turn = execute_request(request, prompt)
         print(render_turn(turn))
         if args.diagnostics:
             print(

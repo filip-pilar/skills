@@ -1,5 +1,8 @@
 import importlib.util
+import io
 import json
+import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -47,6 +50,145 @@ def capabilities(optional=("--model", "--effort")):
 
 
 class RuntimeTests(unittest.TestCase):
+    def test_interactive_prompt_reader_returns_after_first_line(self):
+        expected = "Review only the relevant files."
+
+        class InteractiveStdinBuffer:
+            def isatty(self):
+                return True
+
+            def readline(self, size):
+                self.size = size
+                return expected.encode("utf-8") + b"\n"
+
+            def read(self, size):
+                raise AssertionError("interactive input must not wait for EOF")
+
+        class InteractiveStdin:
+            buffer = InteractiveStdinBuffer()
+
+        self.assertEqual(wdyt.read_stdin_prompt(InteractiveStdin()), expected)
+        self.assertEqual(
+            InteractiveStdin.buffer.size,
+            wdyt.MAX_PROMPT_BYTES + 2,
+        )
+
+    def test_piped_prompt_reader_accepts_eof_without_trailing_newline(self):
+        prompt = io.BytesIO(b"Give an independent view.")
+        self.assertEqual(
+            wdyt.read_stdin_prompt(prompt),
+            "Give an independent view.",
+        )
+
+    def test_piped_prompt_reader_reads_to_eof_and_normalizes_multiline(self):
+        first_line = b"Review the transport.\n"
+
+        class PipedStdinBuffer:
+            def isatty(self):
+                return False
+
+            def readline(self, size):
+                self.readline_size = size
+                return first_line
+
+            def read(self, size):
+                self.read_size = size
+                return (
+                    b"  Inspect only\t relevant files.  \r\n"
+                    b"Judge correctness.\n"
+                )
+
+        class PipedStdin:
+            buffer = PipedStdinBuffer()
+
+        self.assertEqual(
+            wdyt.read_stdin_prompt(PipedStdin()),
+            "Review the transport. Inspect only relevant files. Judge correctness.",
+        )
+        self.assertEqual(
+            PipedStdin.buffer.readline_size,
+            wdyt.MAX_PROMPT_BYTES + 2,
+        )
+        self.assertEqual(
+            PipedStdin.buffer.read_size,
+            wdyt.MAX_PROMPT_INPUT_BYTES + 1 - len(first_line),
+        )
+
+    def test_prompt_reader_rejects_oversized_context(self):
+        prompt = io.BytesIO(b"x" * (wdyt.MAX_PROMPT_BYTES + 1) + b"\n")
+        with self.assertRaisesRegex(wdyt.WdytError, "summarize.*short question"):
+            wdyt.read_stdin_prompt(prompt)
+
+    def test_runtime_delivers_normalized_prompt_to_claude_stdin(self):
+        expected = (
+            "Review the transport. Inspect only relevant files. Judge correctness."
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            fake_claude = root / "claude"
+            help_output = "Claude Code\n" + "\n".join(sorted(wdyt.REQUIRED_FLAGS))
+            fake_claude.write_text(
+                f"""#!{sys.executable}
+import json
+import sys
+
+if "--version" in sys.argv:
+    print("Claude Code fake 1.0")
+    raise SystemExit
+if "--help" in sys.argv:
+    print({help_output!r})
+    raise SystemExit
+
+task = sys.stdin.read()
+answer = {answer_fixture()!r}
+answer["verdict"] = task
+init = {{
+    "type": "system",
+    "subtype": "init",
+    "model": "fake-model",
+    "tools": ["StructuredOutput"],
+    "mcp_servers": [],
+    "plugins": [],
+    "skills": [],
+    "slash_commands": [],
+}}
+result = {{
+    "type": "result",
+    "subtype": "success",
+    "is_error": False,
+    "structured_output": answer,
+}}
+print(json.dumps(init))
+print(json.dumps(result))
+"""
+            )
+            fake_claude.chmod(0o755)
+            environment = os.environ.copy()
+            environment["PATH"] = f"{root}{os.pathsep}{environment.get('PATH', '')}"
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(RUNTIME_PATH),
+                    "run",
+                    "--repository",
+                    "off",
+                ],
+                input=(
+                    "Review the transport.\n"
+                    "  Inspect only\t relevant files.  \n"
+                    "Judge correctness.\n"
+                ),
+                text=True,
+                capture_output=True,
+                env=environment,
+                timeout=10,
+                check=False,
+            )
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn(f"\n{expected}\n", completed.stdout)
+        self.assertEqual(completed.stderr, "")
+
     def test_any_explicit_model_is_passed_through(self):
         request = wdyt.validate_request(
             {
@@ -79,6 +221,28 @@ class RuntimeTests(unittest.TestCase):
         self.assertNotIn("--include-partial-messages", args)
         self.assertNotIn("--prompt-suggestions", args)
 
+    def test_claude_schema_removes_unsupported_constraints(self):
+        original = wdyt.load_schema()
+        transformed = wdyt.schema_for_claude(original)
+
+        self.assertEqual(transformed["$id"], "wdyt-answer/2")
+        self.assertEqual(
+            transformed["properties"]["protocolVersion"]["const"],
+            "wdyt-answer/2",
+        )
+        serialized = json.dumps(transformed)
+        for keyword in wdyt.CLAUDE_SCHEMA_UNSUPPORTED_CONSTRAINTS:
+            self.assertNotIn(f'"{keyword}"', serialized)
+        self.assertIn("maxLength", json.dumps(original))
+        self.assertIn(
+            "maximum 600 characters",
+            transformed["properties"]["verdict"]["description"],
+        )
+        self.assertIn(
+            "maximum 5 items",
+            transformed["properties"]["rationale"]["description"],
+        )
+
     def test_only_fresh_and_ephemeral_are_valid(self):
         self.assertEqual(
             wdyt.validate_request({"lifecycle": "fresh"}).lifecycle, "fresh"
@@ -89,6 +253,25 @@ class RuntimeTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(wdyt.WdytError, "only fresh and ephemeral"):
             wdyt.validate_request({"lifecycle": "continue"})
+
+    def test_run_parser_accepts_launch_controls_without_request_json(self):
+        parsed = wdyt.build_parser().parse_args(
+            [
+                "run",
+                "--model",
+                "claude-opus-5",
+                "--mode",
+                "review",
+                "--depth",
+                "standard",
+                "--repository",
+                "read",
+                "--lifecycle",
+                "fresh",
+            ]
+        )
+        self.assertEqual(parsed.model, "claude-opus-5")
+        self.assertEqual(parsed.repository, "read")
 
     def test_renderer_is_deterministic(self):
         request = wdyt.validate_request(
@@ -113,8 +296,8 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(
             wdyt.render_turn(turn),
             """WDYT · Claude Code · resolved-model · advise · fresh
-Context: state · repo off
-Disclosure: Anthropic via Claude Code · task context + no repo
+Context: minimal · repo off
+Disclosure: Anthropic via Claude Code · short task + no repo
 Model: alias → resolved-model
 
 Run the reversible pilot.
@@ -203,6 +386,29 @@ Confidence: high""",
         stdout = "\n".join(json.dumps(event) for event in (init, result))
         with self.assertRaisesRegex(wdyt.WdytError, "registered tools"):
             wdyt.validate_turn(request, capabilities(), None, 0, stdout, "")
+
+    def test_nonzero_exit_reports_sanitized_result_metadata(self):
+        stdout = json.dumps(
+            {
+                "type": "result",
+                "subtype": "error_max_structured_output_retries",
+                "is_error": True,
+                "errors": ["private provider detail"],
+            }
+        )
+        with self.assertRaisesRegex(
+            wdyt.WdytError,
+            "error_max_structured_output_retries.*errors=1",
+        ) as raised:
+            wdyt.validate_turn(
+                wdyt.validate_request({"repository": "off"}),
+                capabilities(),
+                None,
+                1,
+                stdout,
+                "",
+            )
+        self.assertNotIn("private provider detail", str(raised.exception))
 
     def test_symlink_escape_fails_closed(self):
         with tempfile.TemporaryDirectory() as temporary:
