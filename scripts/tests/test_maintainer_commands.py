@@ -178,6 +178,80 @@ class DevSkillTests(unittest.TestCase):
         self.assertIn("sandbox path is not a directory", result.stderr)
 
 
+class CheckSkillTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temporary = tempfile.TemporaryDirectory()
+        self.repo = Path(self.temporary.name) / "repo"
+        (self.repo / "scripts").mkdir(parents=True)
+        shutil.copy2(SCRIPTS / "check-skill", self.repo / "scripts" / "check-skill")
+
+        builder = self.repo / "skills" / "skill-builder"
+        skill(builder, "skill-builder")
+        (builder / "scripts").mkdir()
+        shutil.copy2(
+            REPO_ROOT / "skills" / "skill-builder" / "scripts" / "validate_skill.py",
+            builder / "scripts" / "validate_skill.py",
+        )
+
+        target = self.repo / "skills" / "alpha"
+        skill(target, "alpha")
+        tests = target / "tests"
+        tests.mkdir()
+        (tests / "test_alpha.py").write_text(
+            "import unittest\n\n"
+            "class AlphaTests(unittest.TestCase):\n"
+            "    def test_alpha(self):\n"
+            "        self.assertEqual(2 + 2, 4)\n",
+            encoding="utf-8",
+        )
+        (tests / "test_alpha.mjs").write_text(
+            'import test from "node:test";\n'
+            'import assert from "node:assert/strict";\n'
+            'test("alpha", () => assert.equal(2 + 2, 4));\n',
+            encoding="utf-8",
+        )
+        (tests / "live_acceptance.py").write_text(
+            "raise AssertionError('live acceptance must not run')\n",
+            encoding="utf-8",
+        )
+
+    def tearDown(self) -> None:
+        self.temporary.cleanup()
+
+    def command(self, *arguments: str) -> subprocess.CompletedProcess[str]:
+        return run(str(self.repo / "scripts" / "check-skill"), *arguments, cwd=self.repo)
+
+    def test_runs_validator_and_deterministic_package_tests(self) -> None:
+        result = self.command("alpha")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Validation passed with 0 warning(s)", result.stdout)
+        self.assertIn(
+            "skill_check=passed skill=alpha python_files=1 node_files=1",
+            result.stdout,
+        )
+
+    def test_unknown_and_malformed_names_fail(self) -> None:
+        unknown = self.command("missing")
+        self.assertEqual(unknown.returncode, 1)
+        self.assertIn("unknown skill", unknown.stderr)
+        malformed = self.command("../alpha")
+        self.assertEqual(malformed.returncode, 2)
+        self.assertIn("invalid skill name", malformed.stderr)
+
+    def test_python_failure_is_propagated(self) -> None:
+        test_path = self.repo / "skills" / "alpha" / "tests" / "test_alpha.py"
+        test_path.write_text(
+            "import unittest\n\n"
+            "class AlphaTests(unittest.TestCase):\n"
+            "    def test_alpha(self):\n"
+            "        self.fail('fixture failure')\n",
+            encoding="utf-8",
+        )
+        result = self.command("alpha")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("fixture failure", result.stderr)
+
+
 class ReadmeCatalogueTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()

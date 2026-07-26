@@ -1,0 +1,2 @@
+# Python dependency used by the skill validator and maintainer checks.
+PyYAML==6.0.3

@@ -142,28 +142,46 @@ Review a skill and its bundled scripts before installing it. Pay particular atte
 
 Every public skill lives at `skills/<skill-name>/SKILL.md`, with optional `agents/`, `assets/`, `references/`, `scripts/`, and `tests/` beside it.
 
+Repository-specific agent guidance lives in [`AGENTS.md`](AGENTS.md). Install the
+pinned Python development dependency with:
+
+```bash
+python3 -m pip install --requirement requirements-dev.txt
+```
+
 ### Checks
 
-The repository has three deliberately separate validation layers:
+The repository has focused iteration plus three deliberately separate validation layers:
 
 | Command | Purpose |
 | --- | --- |
+| `./scripts/check-skill <name>` | Validate one skill and run its deterministic Python and Node.js package tests. |
 | `./scripts/check-repo` | Fast, deterministic, network-free structure and regression checks. |
 | `./scripts/check-full` | Everything above plus credential-free browser-companion and synthetic gateway integration tests. |
 | `./scripts/check-release` | Full validation plus current `npx skills` discovery and release-state checks. |
 
-Run the fast check throughout development:
+Use the focused check while editing, then run the repository check before handoff:
 
 ```bash
+./scripts/check-skill lockin
 ./scripts/check-repo
 ```
 
-It requires Git, Python 3 with PyYAML, Node.js, `jq`, and `zsh`. It validates public skills, catalogue completeness, bundled-resource references, tracked-file hygiene, README links, maintainer commands, and fast deterministic tests.
+The focused command excludes credentialed, live-provider, and standalone shell
+integration tests. The repository check requires Git, Python 3 with PyYAML,
+Node.js, `jq`, and `zsh`. It validates public skills, catalogue completeness,
+bundled-resource references, tracked-file hygiene, README links, maintainer
+commands, and fast deterministic tests.
 
-Before a substantial change or release, run:
+Before a substantial change, run:
 
 ```bash
 ./scripts/check-full
+```
+
+For a release, additionally run:
+
+```bash
 ./scripts/check-release
 ```
 
@@ -176,6 +194,9 @@ The deeper checks start disposable loopback servers. The synthetic gateway integ
 ```
 
 Live-provider tests, real Messages checks, OAuth flows, and browser-enabled `agent-browser` tests remain explicit manual checks because they require credentials, permissions, or external state.
+
+GitHub Actions runs `./scripts/check-repo` on pull requests and pushes to `main`
+using the pinned Python dependency in `requirements-dev.txt`.
 
 ### Test a skill while editing it
 

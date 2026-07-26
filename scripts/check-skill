@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'USAGE'
+Usage: ./scripts/check-skill <skill-name>
+
+Validate one public skill and run its deterministic Python and Node.js tests.
+Credentialed, live-provider, and standalone shell integration tests are not run.
+USAGE
+}
+
+if [[ $# -ne 1 ]]; then
+  usage >&2
+  exit 2
+fi
+case "$1" in
+  -h|--help)
+    usage
+    exit 0
+    ;;
+esac
+
+skill=$1
+[[ "$skill" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] || {
+  printf 'ERROR: invalid skill name: %s\n' "$skill" >&2
+  exit 2
+}
+
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+repo_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
+skill_dir="$repo_root/skills/$skill"
+validator="$repo_root/skills/skill-builder/scripts/validate_skill.py"
+
+[[ -f "$skill_dir/SKILL.md" ]] || {
+  printf 'ERROR: unknown skill: %s\n' "$skill" >&2
+  exit 1
+}
+[[ -f "$validator" ]] || {
+  printf 'ERROR: missing skill validator: %s\n' "$validator" >&2
+  exit 1
+}
+command -v python3 >/dev/null 2>&1 || {
+  printf 'ERROR: missing required dependency: python3\n' >&2
+  exit 1
+}
+python3 -c 'import yaml' >/dev/null 2>&1 || {
+  printf 'ERROR: missing required Python package: PyYAML\n' >&2
+  exit 1
+}
+
+python3 "$validator" "$skill_dir"
+
+python_tests=()
+node_tests=()
+tests_dir="$skill_dir/tests"
+if [[ -d "$tests_dir" ]]; then
+  shopt -s nullglob
+  python_tests=("$tests_dir"/test_*.py)
+  node_tests=("$tests_dir"/test_*.mjs)
+  shopt -u nullglob
+fi
+
+if [[ ${#python_tests[@]} -gt 0 ]]; then
+  PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover \
+    -s "$tests_dir" -p 'test_*.py'
+fi
+
+if [[ ${#node_tests[@]} -gt 0 ]]; then
+  command -v node >/dev/null 2>&1 || {
+    printf 'ERROR: missing required dependency: node\n' >&2
+    exit 1
+  }
+  node --test "${node_tests[@]}"
+fi
+
+printf 'skill_check=passed skill=%s python_files=%s node_files=%s\n' \
+  "$skill" "${#python_tests[@]}" "${#node_tests[@]}"
