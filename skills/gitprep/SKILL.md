@@ -30,3 +30,25 @@ Use `git` for local repository operations. When read-only GitHub context materia
    Commit with the exact approved message after checks pass or are intentionally skipped. For multiple commits, repeat stage, verify, and commit. Do not change the message, amend, bypass hooks, retry differently, or add paths without renewed approval.
 
 5. **Report the result.** Include commit hashes and messages, checks and outcomes, user-skipped checks, remaining uncommitted or intentionally unstaged work, and the final upstream state including unpublished commits. A push requires a separate user request after this workflow is complete.
+
+## Publish handoff
+
+This skill never pushes, but it must leave a reliable handoff when the user
+separately requests publication after the commits exist:
+
+1. Prefer local `git push` for publishing local commit history. Use the GitHub
+   app for remote metadata, pull requests, and post-push verification; do not
+   reconstruct local commits through per-file connector writes.
+2. Treat a sandboxed `gh auth status` or Git authentication failure as
+   inconclusive because the sandbox may not have access to the host keychain.
+   Retry the same authentication check once through the host
+   approval/escalation flow before asking the user to log in.
+3. For an approved push, run `git push` through the host
+   approval/escalation flow so HTTPS Git can use the configured credential
+   helper. A GitHub app write failure does not preclude this direct Git path.
+4. Ask the user to authenticate only after the host-level authentication check
+   or direct push also fails. Never expose token values while diagnosing
+   authentication.
+5. After a successful push, verify that `HEAD` and `@{u}` resolve to the same
+   commit, report any remaining unpublished commits, and use the GitHub app for
+   an independent remote comparison when available.
