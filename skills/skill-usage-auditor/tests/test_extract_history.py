@@ -150,7 +150,8 @@ class AuditorExtractorTests(unittest.TestCase):
             ),
         )
         report = self.report()
-        self.assertEqual(report["summary"]["explicit_invocations"], 0)
+        self.assertEqual(report["summary"]["explicit_requests"], 0)
+        self.assertEqual(report["summary"]["confirmed_activations"], 0)
         self.assertEqual(
             report["coverage"]["sessions_with_skill_exposed_in_context"], 1
         )
@@ -178,7 +179,7 @@ class AuditorExtractorTests(unittest.TestCase):
                 ]
             ],
         )
-        self.assertEqual(self.report()["summary"]["explicit_invocations"], 0)
+        self.assertEqual(self.report()["summary"]["explicit_requests"], 0)
 
     def test_picker_link_creates_exact_version_episode(self) -> None:
         self.write_session(
@@ -210,8 +211,45 @@ class AuditorExtractorTests(unittest.TestCase):
         self.assertEqual(episode["version"]["status"], "exact")
         digest = episode["version"]["content_sha256"]
         self.assertEqual(
-            report["version_cohorts"]["exact"][digest]["explicit_episode_ids"],
+            report["version_cohorts"]["exact"][digest][
+                "explicit_request_episode_ids"
+            ],
             [episode["episode_id"]],
+        )
+        self.assertEqual(episode["activation"]["status"], "confirmed_injected")
+
+    def test_attached_body_without_request_confirms_context_activation(self) -> None:
+        self.write_session(
+            "context-only",
+            [
+                [
+                    record(
+                        "event_msg",
+                        {"type": "user_message", "message": "Review this workflow."},
+                        "2026-07-20T10:01:02Z",
+                    ),
+                    skill_context("attached contract"),
+                    record(
+                        "event_msg",
+                        {"type": "task_complete", "last_agent_message": "Done."},
+                        "2026-07-20T10:01:03Z",
+                    ),
+                ]
+            ],
+        )
+        report = self.report()
+        episode = report["episodes"][0]
+        self.assertEqual(report["summary"]["explicit_requests"], 0)
+        self.assertEqual(report["summary"]["confirmed_activations"], 1)
+        self.assertEqual(
+            report["summary"]["context_only_confirmed_activations"], 1
+        )
+        self.assertEqual(episode["episode_kind"], "context_activation")
+        self.assertEqual(
+            episode["activation"]["evidence"], ["skill_context_attached"]
+        )
+        self.assertEqual(
+            report["coverage"]["sessions_with_skill_exposed_in_context"], 0
         )
 
     def test_current_skill_path_labels_observed_exact_cohort(self) -> None:
@@ -237,9 +275,12 @@ class AuditorExtractorTests(unittest.TestCase):
             ],
         )
         report = self.report("--current-skill-path", str(current))
-        self.assertEqual(report["current_version"]["status"], "observed_explicit")
         self.assertEqual(
-            report["current_version"]["explicit_episode_ids"],
+            report["current_version"]["status"],
+            "observed_confirmed_activation",
+        )
+        self.assertEqual(
+            report["current_version"]["confirmed_activation_episode_ids"],
             ["current-version:current-version-turn-1"],
         )
 
@@ -267,7 +308,9 @@ class AuditorExtractorTests(unittest.TestCase):
         )
         report = self.report("--current-skill-path", str(current))
         self.assertEqual(report["current_version"]["status"], "unobserved")
-        self.assertEqual(report["current_version"]["explicit_episode_ids"], [])
+        self.assertEqual(
+            report["current_version"]["confirmed_activation_episode_ids"], []
+        )
 
     def test_announcement_plus_exact_read_is_an_unconfirmed_candidate(self) -> None:
         self.write_session(
@@ -310,12 +353,16 @@ class AuditorExtractorTests(unittest.TestCase):
         report = self.report()
         self.assertEqual(report["episodes"], [])
         episode = report["inferred_candidates"][0]
-        self.assertEqual(episode["invocation"]["kind"], "inferred_candidate")
+        self.assertEqual(episode["episode_kind"], "manual_access_candidate")
         self.assertEqual(
-            episode["invocation"]["confidence"], "requires_adjudication"
+            episode["activation"]["status"], "manual_access_candidate"
         )
-        self.assertTrue(episode["invocation"]["adjudication_required"])
-        self.assertEqual(report["summary"]["inferred_candidates"], 1)
+        self.assertEqual(
+            episode["activation"]["confidence"], "requires_adjudication"
+        )
+        self.assertTrue(episode["activation"]["adjudication_required"])
+        self.assertFalse(episode["activation"]["native_injection_confirmed"])
+        self.assertEqual(report["summary"]["manual_access_candidates"], 1)
 
     def test_announcement_alone_is_not_an_inferred_candidate(self) -> None:
         self.write_session(
@@ -344,7 +391,95 @@ class AuditorExtractorTests(unittest.TestCase):
                 ]
             ],
         )
-        self.assertEqual(self.report()["summary"]["inferred_candidates"], 0)
+        self.assertEqual(
+            self.report()["summary"]["manual_access_candidates"], 0
+        )
+
+    def test_file_reference_without_announcement_is_a_candidate(self) -> None:
+        self.write_session(
+            "file-reference-only",
+            [
+                [
+                    record(
+                        "event_msg",
+                        {"type": "user_message", "message": "Review this workflow."},
+                        "2026-07-20T10:01:02Z",
+                    ),
+                    record(
+                        "response_item",
+                        {
+                            "type": "custom_tool_call",
+                            "name": "exec_command",
+                            "input": {
+                                "cmd": "sed -n '1,200p' /skills/sample-skill/SKILL.md"
+                            },
+                        },
+                        "2026-07-20T10:01:03Z",
+                    ),
+                    record(
+                        "event_msg",
+                        {"type": "task_complete", "last_agent_message": "Done."},
+                        "2026-07-20T10:01:04Z",
+                    ),
+                ]
+            ],
+        )
+        report = self.report()
+        self.assertEqual(report["episodes"], [])
+        episode = report["inferred_candidates"][0]
+        self.assertEqual(episode["episode_kind"], "manual_access_candidate")
+        self.assertEqual(
+            episode["activation"]["evidence"],
+            ["skill_file_path_referenced_in_tool_call"],
+        )
+
+    def test_explicit_request_submission_modes_are_separate(self) -> None:
+        self.write_session(
+            "submission-modes",
+            [
+                [
+                    record(
+                        "event_msg",
+                        {"type": "user_message", "message": "Start reviewing."},
+                        "2026-07-20T10:01:02Z",
+                    ),
+                    record(
+                        "event_msg",
+                        {"type": "user_message", "message": "Use $sample-skill."},
+                        "2026-07-20T10:01:02Z",
+                    ),
+                    record(
+                        "event_msg",
+                        {
+                            "type": "agent_message",
+                            "phase": "commentary",
+                            "message": "Working.",
+                        },
+                        "2026-07-20T10:01:03Z",
+                    ),
+                    record(
+                        "event_msg",
+                        {"type": "user_message", "message": "Run $sample-skill again."},
+                        "2026-07-20T10:01:04Z",
+                    ),
+                    record(
+                        "event_msg",
+                        {"type": "task_complete", "last_agent_message": "Done."},
+                        "2026-07-20T10:01:05Z",
+                    ),
+                ]
+            ],
+        )
+        report = self.report()
+        episode = report["episodes"][0]
+        self.assertEqual(
+            episode["request"]["submission_modes"],
+            ["batched_input", "steer_or_pending"],
+        )
+        self.assertEqual(
+            report["summary"]["steer_or_pending_explicit_requests"], 1
+        )
+        self.assertEqual(episode["activation"]["status"], "unverified")
 
     def test_backticked_delegation_request_is_explicit(self) -> None:
         self.write_session(
@@ -373,10 +508,11 @@ class AuditorExtractorTests(unittest.TestCase):
             ],
         )
         report = self.report()
-        self.assertEqual(report["summary"]["explicit_invocations"], 1)
-        self.assertEqual(report["summary"]["inferred_candidates"], 0)
+        self.assertEqual(report["summary"]["explicit_requests"], 1)
+        self.assertEqual(report["summary"]["confirmed_activations"], 1)
+        self.assertEqual(report["summary"]["manual_access_candidates"], 0)
 
-    def test_skill_review_evidence_remains_a_candidate(self) -> None:
+    def test_attached_skill_body_confirms_context_activation(self) -> None:
         self.write_session(
             "review-candidate",
             [
@@ -419,8 +555,12 @@ class AuditorExtractorTests(unittest.TestCase):
             ],
         )
         report = self.report()
-        self.assertEqual(report["episodes"], [])
-        self.assertEqual(len(report["inferred_candidates"]), 1)
+        self.assertEqual(len(report["episodes"]), 1)
+        self.assertEqual(report["inferred_candidates"], [])
+        episode = report["episodes"][0]
+        self.assertEqual(episode["episode_kind"], "context_activation")
+        self.assertEqual(episode["request"]["kind"], "not_observed")
+        self.assertEqual(episode["activation"]["status"], "confirmed_injected")
 
     def test_embedded_guardian_transcript_is_not_invocation(self) -> None:
         self.write_session(
@@ -447,7 +587,7 @@ class AuditorExtractorTests(unittest.TestCase):
                 ]
             ],
         )
-        self.assertEqual(self.report()["summary"]["explicit_invocations"], 0)
+        self.assertEqual(self.report()["summary"]["explicit_requests"], 0)
 
     def test_follow_up_evidence_is_neutral_and_redacted(self) -> None:
         self.write_session(
@@ -513,11 +653,14 @@ class AuditorExtractorTests(unittest.TestCase):
         )
         episode = self.report()["episodes"][0]
         self.assertEqual(
-            episode["invocation"]["evidence"],
+            episode["request"]["evidence"],
+            ["user_explicit_request"],
+        )
+        self.assertEqual(
+            episode["activation"]["evidence"],
             [
-                "user_explicit_request",
                 "assistant_announcement",
-                "exact_skill_file_read",
+                "skill_file_path_referenced_in_tool_call",
             ],
         )
         self.assertEqual(
@@ -646,7 +789,8 @@ class AuditorExtractorTests(unittest.TestCase):
             ],
         )
         report = self.report()
-        self.assertEqual(report["summary"]["explicit_invocations"], 2)
+        self.assertEqual(report["summary"]["explicit_requests"], 2)
+        self.assertEqual(report["summary"]["confirmed_activations"], 2)
         self.assertEqual(report["summary"]["distinct_exact_versions"], 2)
         first, second = report["episodes"]
         self.assertNotEqual(
@@ -682,11 +826,11 @@ class AuditorExtractorTests(unittest.TestCase):
         episode = report["episodes"][0]
         self.assertEqual(episode["version"]["status"], "ambiguous")
         self.assertEqual(
-            report["version_cohorts"]["ambiguous"]["explicit_episode_ids"],
+            report["version_cohorts"]["ambiguous"]["episode_ids"],
             [episode["episode_id"]],
         )
 
-    def test_missing_attached_body_is_unversioned(self) -> None:
+    def test_request_without_attached_body_is_activation_unverified(self) -> None:
         self.write_session(
             "unversioned",
             [
@@ -706,7 +850,36 @@ class AuditorExtractorTests(unittest.TestCase):
         )
         report = self.report()
         self.assertEqual(report["episodes"][0]["version"]["status"], "unversioned")
-        self.assertEqual(report["summary"]["unversioned_explicit_episodes"], 1)
+        self.assertEqual(
+            report["episodes"][0]["activation"]["status"], "unverified"
+        )
+        self.assertEqual(
+            report["summary"]["explicit_requests_without_confirmed_activation"],
+            1,
+        )
+        self.assertEqual(report["version_cohorts"]["exact"], {})
+        self.assertFalse(
+            report["verdict_gate"]["activation_gap_allowed_from_extractor_alone"]
+        )
+        self.assertEqual(
+            report["verdict_gate"]["request_only_default_verdict"],
+            "INSUFFICIENT EVIDENCE",
+        )
+        self.assertEqual(
+            report["coverage"]["history_surface"], "persisted_rollout_jsonl"
+        )
+        self.assertEqual(
+            report["coverage"]["negative_activation_observability"], "partial"
+        )
+        self.assertEqual(report["schema_version"], 5)
+        self.assertEqual(
+            report["evidence_taxonomy"]["user_explicit_request"]["class"],
+            "intent",
+        )
+        self.assertEqual(
+            report["evidence_taxonomy"]["skill_context_attached"]["class"],
+            "native_injection",
+        )
 
     def test_aborted_turn_is_observed_without_failure_claim(self) -> None:
         self.write_session(
@@ -825,7 +998,7 @@ class AuditorExtractorTests(unittest.TestCase):
         self.assertEqual(report["coverage"]["cache"]["status"], "updated")
         self.assertEqual(report["coverage"]["cache"]["hits"], 1)
         self.assertEqual(report["coverage"]["cache"]["misses"], 1)
-        self.assertEqual(report["summary"]["explicit_invocations"], 3)
+        self.assertEqual(report["summary"]["explicit_requests"], 3)
 
     def test_invalid_cache_is_rebuilt(self) -> None:
         self.write_session(
@@ -850,7 +1023,7 @@ class AuditorExtractorTests(unittest.TestCase):
         report = self.report("--cache-path", str(cache))
         self.assertEqual(report["coverage"]["cache"]["status"], "rebuilt")
         self.assertEqual(report["coverage"]["cache"]["misses"], 1)
-        self.assertEqual(report["summary"]["explicit_invocations"], 1)
+        self.assertEqual(report["summary"]["explicit_requests"], 1)
 
     def test_malformed_matching_entry_is_reparsed(self) -> None:
         self.write_session(
@@ -892,7 +1065,7 @@ class AuditorExtractorTests(unittest.TestCase):
         self.assertEqual(report["coverage"]["cache"]["status"], "updated")
         self.assertEqual(report["coverage"]["cache"]["hits"], 0)
         self.assertEqual(report["coverage"]["cache"]["misses"], 1)
-        self.assertEqual(report["summary"]["explicit_invocations"], 1)
+        self.assertEqual(report["summary"]["explicit_requests"], 1)
 
     def test_cache_omits_raw_tool_inputs_and_full_messages(self) -> None:
         long_message = "Visible progress. " + ("x" * 300) + " FULL_MESSAGE_SECRET"
@@ -989,9 +1162,10 @@ class AuditorExtractorTests(unittest.TestCase):
             source={"subagent": {"other": "worker"}},
             thread_source="subagent",
         )
-        self.assertEqual(self.report()["summary"]["explicit_invocations"], 0)
+        self.assertEqual(self.report()["summary"]["explicit_requests"], 0)
         self.assertEqual(
-            self.report("--include-subagents")["summary"]["explicit_invocations"], 1
+            self.report("--include-subagents")["summary"]["explicit_requests"],
+            1,
         )
 
 

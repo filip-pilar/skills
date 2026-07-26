@@ -18,8 +18,8 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-SCHEMA_VERSION = 4
-CACHE_SCHEMA_VERSION = 2
+SCHEMA_VERSION = 5
+CACHE_SCHEMA_VERSION = 3
 CACHE_DIR_NAME = "skill-usage-auditor"
 
 
@@ -144,16 +144,16 @@ def is_embedded_transcript(text: str) -> bool:
     )
 
 
-def availability_pattern(skill: str) -> re.Pattern[str]:
+def catalogue_pattern(skill: str) -> re.Pattern[str]:
     escaped = re.escape(skill)
     return re.compile(
-        rf"(?:<name>\s*{escaped}\s*</name>|^\s*-\s+{escaped}\s*:|"
+        rf"(?:^\s*-\s+{escaped}\s*:|"
         rf"(?:^|[/\\]){escaped}[/\\]SKILL\.md)",
         re.IGNORECASE | re.MULTILINE,
     )
 
 
-def skill_read_pattern(skill: str) -> re.Pattern[str]:
+def skill_file_reference_pattern(skill: str) -> re.Pattern[str]:
     return re.compile(
         rf"(?:^|[/\\]){re.escape(skill)}[/\\]SKILL\.md\b", re.IGNORECASE
     )
@@ -162,7 +162,7 @@ def skill_read_pattern(skill: str) -> re.Pattern[str]:
 @dataclass
 class ToolCall:
     name: str
-    exact_skill_read: bool = False
+    skill_file_reference: bool = False
     goal_event: dict[str, Any] | None = None
 
 
@@ -171,6 +171,7 @@ class TextEvidence:
     text_sha256: str
     preview: str
     explicit_request: bool = False
+    submission_mode: str = "unknown"
 
 
 @dataclass
@@ -191,6 +192,7 @@ class Turn:
     skill_contexts: list[dict[str, Any]] = field(default_factory=list)
     terminal: str = "unfinished_turn"
     completed_at: str | None = None
+    model_activity_seen: bool = False
 
 
 @dataclass
@@ -198,7 +200,7 @@ class Session:
     path: Path
     meta: dict[str, Any]
     turns: list[Turn]
-    available: bool
+    catalogue_exposed: bool
     unsupported_user_records: int = 0
 
     @property
@@ -212,11 +214,11 @@ def read_session(path: Path, skill: str) -> Session | None:
     turns: list[Turn] = []
     by_id: dict[str, Turn] = {}
     current: Turn | None = None
-    available = False
+    catalogue_exposed = False
     unsupported_user_records = 0
     token_re, direct_re, announcement_re = skill_patterns(skill)
-    read_re = skill_read_pattern(skill)
-    availability_re = availability_pattern(skill)
+    skill_file_reference_re = skill_file_reference_pattern(skill)
+    catalogue_re = catalogue_pattern(skill)
     skill_block_re = re.compile(
         rf"<skill>\s*<name>\s*{re.escape(skill)}\s*</name>\s*"
         rf"<path>(.*?)</path>(.*?)</skill>",
@@ -258,6 +260,12 @@ def read_session(path: Path, skill: str) -> Session | None:
                     continue
                 text = payload.get("message")
                 if isinstance(text, str):
+                    if current.model_activity_seen:
+                        submission_mode = "steer_or_pending"
+                    elif current.user_texts:
+                        submission_mode = "batched_input"
+                    else:
+                        submission_mode = "new_turn"
                     current.user_texts.append(
                         TextEvidence(
                             text_sha256=text_digest(text),
@@ -267,6 +275,7 @@ def read_session(path: Path, skill: str) -> Session | None:
                                 and direct_re.search(text)
                                 and not is_embedded_transcript(text)
                             ),
+                            submission_mode=submission_mode,
                         )
                     )
                 continue
@@ -279,6 +288,7 @@ def read_session(path: Path, skill: str) -> Session | None:
                 if target is None:
                     continue
                 if payload_type == "agent_message":
+                    target.model_activity_seen = True
                     text = payload.get("message")
                     if isinstance(text, str):
                         target.assistant_messages.append(
@@ -314,7 +324,10 @@ def read_session(path: Path, skill: str) -> Session | None:
                 role = payload.get("role")
                 if role in {"developer", "user"}:
                     context_text = message_text(payload)
-                    available = available or bool(availability_re.search(context_text))
+                    if role == "developer":
+                        catalogue_exposed = catalogue_exposed or bool(
+                            catalogue_re.search(context_text)
+                        )
                     if role == "user" and current is not None:
                         for match in skill_block_re.finditer(context_text):
                             body = match.group(2).strip()
@@ -327,17 +340,22 @@ def read_session(path: Path, skill: str) -> Session | None:
                                     "bytes": len(body.encode("utf-8")),
                                 }
                             )
+                elif role == "assistant" and current is not None:
+                    current.model_activity_seen = True
                 continue
             if kind == "response_item" and payload_type in {
                 "function_call",
                 "custom_tool_call",
             }:
                 if current is not None:
+                    current.model_activity_seen = True
                     serialized_input = serialized_tool_input(payload)
                     current.tool_calls.append(
                         ToolCall(
                             name=tool_name(payload),
-                            exact_skill_read=bool(read_re.search(serialized_input)),
+                            skill_file_reference=bool(
+                                skill_file_reference_re.search(serialized_input)
+                            ),
                             goal_event=goal_event(payload),
                         )
                     )
@@ -348,7 +366,7 @@ def read_session(path: Path, skill: str) -> Session | None:
         path=path,
         meta=meta,
         turns=turns,
-        available=available,
+        catalogue_exposed=catalogue_exposed,
         unsupported_user_records=unsupported_user_records,
     )
 
@@ -378,7 +396,7 @@ def session_cache_record(
     }
     return {
         "meta": meta,
-        "available": session.available,
+        "catalogue_exposed": session.catalogue_exposed,
         "unsupported_user_records": session.unsupported_user_records,
         "turns": [
             {
@@ -389,6 +407,7 @@ def session_cache_record(
                         "text_sha256": text.text_sha256,
                         "preview": text.preview,
                         "explicit_request": text.explicit_request,
+                        "submission_mode": text.submission_mode,
                     }
                     for text in turn.user_texts
                 ],
@@ -404,7 +423,7 @@ def session_cache_record(
                 "tool_calls": [
                     {
                         "name": call.name,
-                        "exact_skill_read": call.exact_skill_read,
+                        "skill_file_reference": call.skill_file_reference,
                         "goal_event": call.goal_event,
                     }
                     for call in turn.tool_calls
@@ -417,7 +436,7 @@ def session_cache_record(
         ],
     } if include_turns else {
         "meta": meta,
-        "available": session.available,
+        "catalogue_exposed": session.catalogue_exposed,
         "unsupported_user_records": session.unsupported_user_records,
         "turns": [],
     }
@@ -434,6 +453,9 @@ def session_from_cache(path: Path, data: dict[str, Any]) -> Session | None:
                         text_sha256=str(text["text_sha256"]),
                         preview=str(text["preview"]),
                         explicit_request=bool(text.get("explicit_request")),
+                        submission_mode=str(
+                            text.get("submission_mode") or "unknown"
+                        ),
                     )
                     for text in turn.get("user_texts", [])
                 ],
@@ -449,7 +471,9 @@ def session_from_cache(path: Path, data: dict[str, Any]) -> Session | None:
                 tool_calls=[
                     ToolCall(
                         name=str(call.get("name") or "unknown"),
-                        exact_skill_read=bool(call.get("exact_skill_read")),
+                        skill_file_reference=bool(
+                            call.get("skill_file_reference")
+                        ),
                         goal_event=(
                             call.get("goal_event")
                             if isinstance(call.get("goal_event"), dict)
@@ -476,7 +500,7 @@ def session_from_cache(path: Path, data: dict[str, Any]) -> Session | None:
             path=path,
             meta=meta,
             turns=turns,
-            available=bool(data.get("available")),
+            catalogue_exposed=bool(data.get("catalogue_exposed")),
             unsupported_user_records=int(data.get("unsupported_user_records") or 0),
         )
     except (KeyError, TypeError, ValueError):
@@ -703,7 +727,7 @@ def compact_tool_activity(
 def episode_for(
     session: Session,
     invocation_index: int,
-    invocation_kind: str,
+    episode_kind: str,
     skill: str,
     title: str | None,
     omit_previews: bool,
@@ -726,15 +750,39 @@ def episode_for(
         for message in turn.assistant_messages
         if message.announcement
     ]
-    exact_read = any(call.exact_skill_read for call in turn.tool_calls)
+    skill_file_reference = any(
+        call.skill_file_reference for call in turn.tool_calls
+    )
     version = version_for(turn)
-    evidence = ["user_explicit_request"] if invocation_kind == "explicit" else []
+    native_injection_confirmed = version["status"] in {"exact", "ambiguous"}
+    request_evidence = (
+        ["user_explicit_request"]
+        if episode_kind == "explicit_request"
+        else []
+    )
+    activation_evidence: list[str] = []
     if version["status"] in {"exact", "ambiguous"}:
-        evidence.append("skill_context_attached")
+        activation_evidence.append("skill_context_attached")
     if announcements:
-        evidence.append("assistant_announcement")
-    if exact_read:
-        evidence.append("exact_skill_file_read")
+        activation_evidence.append("assistant_announcement")
+    if skill_file_reference:
+        activation_evidence.append("skill_file_path_referenced_in_tool_call")
+    if native_injection_confirmed:
+        activation_status = "confirmed_injected"
+        activation_observability = "authoritative_positive"
+    elif skill_file_reference:
+        activation_status = "manual_access_candidate"
+        activation_observability = "partial_history"
+    else:
+        activation_status = "unverified"
+        activation_observability = "partial_history"
+    submission_modes = sorted(
+        {
+            text.submission_mode
+            for text in turn.user_texts
+            if text.explicit_request
+        }
+    )
 
     follow_up_messages: list[dict[str, Any]] = []
     for later_turn in window[1:]:
@@ -758,19 +806,34 @@ def episode_for(
         "cwd": session.meta.get("cwd"),
         "source": session.meta.get("source"),
         "thread_source": session.meta.get("thread_source"),
-        "skill_exposed_in_context": session.available,
-        "invocation": {
-            "kind": invocation_kind,
+        "skill_catalogue_exposed": session.catalogue_exposed,
+        "episode_kind": episode_kind,
+        "request": {
+            "kind": (
+                "explicit_request"
+                if episode_kind == "explicit_request"
+                else "not_observed"
+            ),
             "turn_user_messages": turn_user_messages,
-            "evidence": evidence,
+            "evidence": request_evidence,
+            "submission_modes": submission_modes,
+        },
+        "activation": {
+            "status": activation_status,
+            "native_injection_confirmed": native_injection_confirmed,
+            "evidence": activation_evidence,
+            "observability": activation_observability,
+            "activation_gap_supported_by_extractor": False,
             "confidence": (
                 "requires_adjudication"
-                if invocation_kind == "inferred_candidate"
-                else "supported"
-                if len(evidence) > 1
-                else "observed"
+                if episode_kind == "manual_access_candidate"
+                else "confirmed"
+                if native_injection_confirmed
+                else "unverified"
             ),
-            "adjudication_required": invocation_kind == "inferred_candidate",
+            "adjudication_required": (
+                episode_kind == "manual_access_candidate"
+            ),
         },
         "version": version,
         "follow_up": {
@@ -795,12 +858,16 @@ def invocation_candidates(session: Session, skill: str) -> list[tuple[int, str]]
     for index, turn in enumerate(session.turns):
         for text in turn.user_texts:
             if text.explicit_request:
-                candidates[index] = "explicit"
+                candidates[index] = "explicit_request"
         if index not in candidates:
-            announced = any(message.announcement for message in turn.assistant_messages)
-            exact_read = any(call.exact_skill_read for call in turn.tool_calls)
-            if announced and (exact_read or bool(unique_contexts(turn))):
-                candidates[index] = "inferred_candidate"
+            if unique_contexts(turn):
+                candidates[index] = "context_activation"
+                continue
+            skill_file_reference = any(
+                call.skill_file_reference for call in turn.tool_calls
+            )
+            if skill_file_reference:
+                candidates[index] = "manual_access_candidate"
     return sorted(candidates.items())
 
 
@@ -813,17 +880,13 @@ def prefer_session(candidate: Session, existing: Session) -> bool:
 
 
 def build_version_cohorts(
-    explicit_episodes: list[dict[str, Any]],
-    inferred_candidates: list[dict[str, Any]],
+    episodes: list[dict[str, Any]],
 ) -> dict[str, Any]:
     exact: dict[str, dict[str, Any]] = {}
-    ambiguous = {"explicit_episode_ids": [], "candidate_episode_ids": []}
-    unversioned = {"explicit_episode_ids": [], "candidate_episode_ids": []}
-    for episode in explicit_episodes + inferred_candidates:
-        candidate = episode["invocation"]["adjudication_required"]
-        id_field = (
-            "candidate_episode_ids" if candidate else "explicit_episode_ids"
-        )
+    ambiguous = {"episode_ids": []}
+    for episode in episodes:
+        if not episode["activation"]["native_injection_confirmed"]:
+            continue
         version = episode["version"]
         if version["status"] == "exact":
             digest = version["content_sha256"]
@@ -831,23 +894,27 @@ def build_version_cohorts(
                 digest,
                 {
                     "paths": [],
-                    "explicit_episode_ids": [],
-                    "candidate_episode_ids": [],
+                    "episode_ids": [],
+                    "explicit_request_episode_ids": [],
+                    "context_activation_episode_ids": [],
                 },
             )
-            cohort[id_field].append(episode["episode_id"])
+            cohort["episode_ids"].append(episode["episode_id"])
+            kind_field = (
+                "explicit_request_episode_ids"
+                if episode["episode_kind"] == "explicit_request"
+                else "context_activation_episode_ids"
+            )
+            cohort[kind_field].append(episode["episode_id"])
             cohort["paths"] = sorted(
                 set(cohort["paths"])
                 | {context["path"] for context in version["contexts"]}
             )
         elif version["status"] == "ambiguous":
-            ambiguous[id_field].append(episode["episode_id"])
-        else:
-            unversioned[id_field].append(episode["episode_id"])
+            ambiguous["episode_ids"].append(episode["episode_id"])
     return {
         "exact": exact,
         "ambiguous": ambiguous,
-        "unversioned": unversioned,
     }
 
 
@@ -874,19 +941,14 @@ def current_version_report(
             "path": str(resolved),
             "content_sha256": digest,
             "bytes": len(body.encode("utf-8")),
-            "explicit_episode_ids": [],
-            "candidate_episode_ids": [],
+            "confirmed_activation_episode_ids": [],
         }
-    explicit_ids = cohort["explicit_episode_ids"]
-    candidate_ids = cohort["candidate_episode_ids"]
-    status = "observed_explicit" if explicit_ids else "candidate_only"
     return {
-        "status": status,
+        "status": "observed_confirmed_activation",
         "path": str(resolved),
         "content_sha256": digest,
         "bytes": len(body.encode("utf-8")),
-        "explicit_episode_ids": explicit_ids,
-        "candidate_episode_ids": candidate_ids,
+        "confirmed_activation_episode_ids": cohort["episode_ids"],
     }
 
 
@@ -997,7 +1059,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     exposure_count = 0
     unsupported_user_records = 0
     for session in selected.values():
-        exposure_count += int(session.available)
+        exposure_count += int(session.catalogue_exposed)
         unsupported_user_records += session.unsupported_user_records
         candidates = invocation_candidates(session, args.skill)
         for position, (index, kind) in enumerate(candidates):
@@ -1019,17 +1081,32 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
                 )
             )
     episodes.sort(key=lambda item: (item.get("date") or "", item["episode_id"]))
-    explicit_episodes = [
+    retained_episodes = [
         episode
         for episode in episodes
-        if not episode["invocation"]["adjudication_required"]
+        if not episode["activation"]["adjudication_required"]
     ]
     inferred_candidates = [
         episode
         for episode in episodes
-        if episode["invocation"]["adjudication_required"]
+        if episode["activation"]["adjudication_required"]
     ]
-    cohorts = build_version_cohorts(explicit_episodes, inferred_candidates)
+    explicit_request_episodes = [
+        episode
+        for episode in retained_episodes
+        if episode["episode_kind"] == "explicit_request"
+    ]
+    confirmed_activation_episodes = [
+        episode
+        for episode in retained_episodes
+        if episode["activation"]["native_injection_confirmed"]
+    ]
+    unverified_request_episodes = [
+        episode
+        for episode in explicit_request_episodes
+        if not episode["activation"]["native_injection_confirmed"]
+    ]
+    cohorts = build_version_cohorts(retained_episodes)
     current_version = current_version_report(args.current_skill_path, cohorts)
 
     return {
@@ -1047,6 +1124,8 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         },
         "coverage": {
             "codex_home": str(codex_home),
+            "history_surface": "persisted_rollout_jsonl",
+            "negative_activation_observability": "partial",
             "files_scanned": files_scanned,
             "parseable_sessions": parseable_sessions,
             "qualifying_sessions": len(selected),
@@ -1061,43 +1140,103 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             },
         },
         "summary": {
-            "explicit_invocations": len(explicit_episodes),
-            "inferred_candidates": len(inferred_candidates),
-            "exact_version_explicit_episodes": sum(
+            "explicit_requests": len(explicit_request_episodes),
+            "confirmed_activations": len(confirmed_activation_episodes),
+            "explicit_requests_with_confirmed_activation": sum(
+                episode["activation"]["native_injection_confirmed"]
+                for episode in explicit_request_episodes
+            ),
+            "explicit_requests_without_confirmed_activation": len(
+                unverified_request_episodes
+            ),
+            "context_only_confirmed_activations": sum(
+                episode["episode_kind"] == "context_activation"
+                for episode in confirmed_activation_episodes
+            ),
+            "manual_access_candidates": len(inferred_candidates),
+            "steer_or_pending_explicit_requests": sum(
+                "steer_or_pending" in episode["request"]["submission_modes"]
+                for episode in explicit_request_episodes
+            ),
+            "exact_version_confirmed_activations": sum(
                 episode["version"]["status"] == "exact"
-                for episode in explicit_episodes
+                for episode in confirmed_activation_episodes
             ),
-            "exact_version_candidate_episodes": sum(
-                episode["version"]["status"] == "exact"
-                for episode in inferred_candidates
-            ),
-            "ambiguous_version_explicit_episodes": len(
-                cohorts["ambiguous"]["explicit_episode_ids"]
-            ),
-            "ambiguous_version_candidate_episodes": len(
-                cohorts["ambiguous"]["candidate_episode_ids"]
-            ),
-            "unversioned_explicit_episodes": len(
-                cohorts["unversioned"]["explicit_episode_ids"]
-            ),
-            "unversioned_candidate_episodes": len(
-                cohorts["unversioned"]["candidate_episode_ids"]
+            "ambiguous_version_confirmed_activations": len(
+                cohorts["ambiguous"]["episode_ids"]
             ),
             "distinct_exact_versions": len(cohorts["exact"]),
         },
+        "evidence_taxonomy": {
+            "user_explicit_request": {
+                "class": "intent",
+                "establishes": "the user explicitly requested the named skill",
+                "does_not_establish": "native injection or model receipt",
+            },
+            "skill_catalogue_exposed": {
+                "class": "availability",
+                "establishes": "the skill appeared in developer catalogue context",
+                "does_not_establish": "activation",
+            },
+            "skill_context_attached": {
+                "class": "native_injection",
+                "establishes": (
+                    "a matching skill body was captured in model-visible "
+                    "user-role context"
+                ),
+                "does_not_establish": "correct behavior or added value",
+            },
+            "assistant_announcement": {
+                "class": "claim",
+                "establishes": "the assistant claimed it was using the skill",
+                "does_not_establish": "activation",
+            },
+            "skill_file_path_referenced_in_tool_call": {
+                "class": "manual_access_candidate",
+                "establishes": (
+                    "a model-issued tool call referenced the target SKILL.md path"
+                ),
+                "does_not_establish": (
+                    "successful file access, complete instruction acquisition, "
+                    "or native injection"
+                ),
+            },
+        },
+        "verdict_gate": {
+            "activation_gap_allowed_from_extractor_alone": False,
+            "request_only_default_verdict": "INSUFFICIENT EVIDENCE",
+            "reason": (
+                "Persisted rollout history can prove a captured skill injection "
+                "when an exact <skill> block is present, but absence of that block "
+                "is not authoritative proof that the outbound model request omitted it."
+            ),
+            "activation_gap_requires": [
+                "an explicit activation request",
+                "authoritative outbound model-request evidence for that sampling step",
+                "confirmation that the expected skill fragment is absent",
+            ],
+            "unverified_request_episode_ids": [
+                episode["episode_id"] for episode in unverified_request_episodes
+            ],
+        },
         "current_version": current_version,
         "version_cohorts": cohorts,
-        "episodes": explicit_episodes,
+        "episodes": retained_episodes,
         "inferred_candidates": inferred_candidates,
         "limitations": [
-            "Injected skill catalogues establish availability only.",
+            "Advertised skill catalogues establish exposure only; an exact <skill> body establishes positive injection evidence.",
+            "A direct $skill request establishes intent, not successful activation.",
+            "Assistant announcements are claims, and SKILL.md path references establish only manual-access candidates rather than native host injection.",
+            "Absence of a filesystem read does not count against activation because host injection is internal.",
+            "Ephemeral tasks without persisted rollout JSONL are outside this extractor's historical evidence surface.",
+            "Persisted rollout absence is not authoritative negative prompt evidence; request-only episodes default to INSUFFICIENT EVIDENCE.",
             "Explicit-request matching is intentionally high precision and may miss paraphrases.",
-            "Inferred candidates require manual adjudication and are never counted as observed invocations.",
+            "Manual-access candidates require adjudication and are never counted as confirmed native activations.",
             "Follow-up evidence is neutral and requires review against a stated audit rubric.",
             "Follow-up review is bounded to the configured number of later turns.",
             "turn_completed means a final response was returned, not objective success.",
             "Goal lifecycle records are requested tool actions, not proof that the action succeeded.",
-            "Only an exact attached skill-body hash establishes a version cohort.",
+            "Only a confirmed attached skill-body hash establishes an activation version cohort.",
         ],
     }
 
@@ -1122,10 +1261,10 @@ def print_summary(report: dict[str, Any]) -> None:
     )
     print(
         "observed "
-        f"explicit={summary['explicit_invocations']} "
-        f"inferred_candidates={summary['inferred_candidates']} "
-        f"exact_explicit={summary['exact_version_explicit_episodes']} "
-        f"unversioned_explicit={summary['unversioned_explicit_episodes']} "
+        f"requests={summary['explicit_requests']} "
+        f"confirmed_activations={summary['confirmed_activations']} "
+        f"request_without_confirmation={summary['explicit_requests_without_confirmed_activation']} "
+        f"manual_candidates={summary['manual_access_candidates']} "
         f"versions={summary['distinct_exact_versions']}"
     )
     current = report["current_version"]
