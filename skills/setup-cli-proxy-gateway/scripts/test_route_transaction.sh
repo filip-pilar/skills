@@ -37,10 +37,13 @@ printf '%s\n' 'must-be-removed' > "$target_root/initially-absent"
 [[ -L "$target_root/existing-link" ]]
 [[ ! -e "$target_root/initially-absent" ]]
 
-if mode=$(stat -f '%Lp' "$target_root/existing-file" 2>/dev/null); then :; else
-  mode=$(stat -c '%a' "$target_root/existing-file")
+if mode=$(stat -c '%a' "$target_root/existing-file" 2>/dev/null); then :; else
+  mode=$(stat -f '%Lp' "$target_root/existing-file")
 fi
-[[ "$mode" == '640' ]]
+[[ "$mode" == '640' ]] || {
+  printf 'restored file mode mismatch: expected 640, got %s\n' "$mode" >&2
+  exit 1
+}
 
 vibe_root="$tmp_root/vibe-migration"
 mkdir -p "$vibe_root/VibeProxy.app/Contents" "$vibe_root/home/.cli-proxy-api"
@@ -70,8 +73,8 @@ mkdir -p "$fake_bin"
 {
   printf '%s\n' '#!/bin/sh'
   printf '%s\n' 'case "$1" in'
-  printf '%s\n' "  -f) printf '%s\\n' 'partial GNU stat output'; exit 1 ;;"
-  printf '%s\n' "  -c) printf '%s\\n' '640' ;;"
+  printf '%s\n' "  -c) printf '%s\\n' 'partial unsupported stat output'; exit 1 ;;"
+  printf '%s\n' "  -f) printf '%s\\n' '640' ;;"
   printf '%s\n' '  *) exit 2 ;;'
   printf '%s\n' 'esac'
 } > "$fake_bin/stat"

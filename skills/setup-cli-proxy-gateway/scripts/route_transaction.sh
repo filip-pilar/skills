@@ -36,11 +36,11 @@ esac
 
 mode_of() {
   local mode
-  if mode=$(stat -f '%Lp' "$1" 2>/dev/null); then
+  if mode=$(stat -c '%a' "$1" 2>/dev/null); then
     printf '%s\n' "$mode"
     return
   fi
-  stat -c '%a' "$1"
+  stat -f '%Lp' "$1"
 }
 
 hash_file() {
@@ -158,7 +158,9 @@ case "$action" in
           backup="$bundle/$relative"
           /bin/rm -rf -- "$path"
           copy_path "$backup" "$path"
-          chmod "$mode" "$path" 2>/dev/null || true
+          if [[ ! -L "$path" ]]; then
+            chmod "$mode" "$path" 2>/dev/null || true
+          fi
           ;;
         absent)
           /bin/rm -rf -- "$path"
