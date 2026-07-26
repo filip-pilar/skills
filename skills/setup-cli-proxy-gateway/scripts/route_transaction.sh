@@ -35,7 +35,9 @@ case "$bundle" in
 esac
 
 mode_of() {
-  if stat -f '%Lp' "$1" 2>/dev/null; then
+  local mode
+  if mode=$(stat -f '%Lp' "$1" 2>/dev/null); then
+    printf '%s\n' "$mode"
     return
   fi
   stat -c '%a' "$1"

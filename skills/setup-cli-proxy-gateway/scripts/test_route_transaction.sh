@@ -65,4 +65,22 @@ if "$transaction" snapshot --dir "$tmp_root/nested-bundle" -- "$tmp_root" >/dev/
   exit 1
 fi
 
+fake_bin="$tmp_root/fake-bin"
+mkdir -p "$fake_bin"
+{
+  printf '%s\n' '#!/bin/sh'
+  printf '%s\n' 'case "$1" in'
+  printf '%s\n' "  -f) printf '%s\\n' 'partial GNU stat output'; exit 1 ;;"
+  printf '%s\n' "  -c) printf '%s\\n' '640' ;;"
+  printf '%s\n' '  *) exit 2 ;;'
+  printf '%s\n' 'esac'
+} > "$fake_bin/stat"
+chmod 700 "$fake_bin/stat"
+portable_target="$tmp_root/portable-stat-target"
+portable_bundle="$tmp_root/portable-stat-snapshot"
+printf '%s\n' 'portable-stat-content' > "$portable_target"
+PATH="$fake_bin:$PATH" "$transaction" snapshot --dir "$portable_bundle" -- \
+  "$portable_target" >/dev/null
+PATH="$fake_bin:$PATH" "$transaction" verify --dir "$portable_bundle" >/dev/null
+
 printf '%s\n' 'route_transaction_tests=verified' 'vibe_migration_rollback_simulation=verified'
