@@ -43,8 +43,13 @@ Before the first call in a task, run:
 python3 <skill-root>/scripts/wdyt.py doctor
 ```
 
-If `doctor` is not ready, report the failure and stop. Do not install, update, or
-authenticate Claude Code.
+Readiness includes a machine-readable authentication-status check but never
+reads credential contents. When `doctor` reports `sandboxAccessRequired: true`
+and the host offers scoped escalation, request approval to rerun the exact WDYT
+doctor command outside the sandbox; Claude Code needs access to its existing
+credential store and Anthropic. Do not broaden the approval to Python, shell, or
+another command. If the escalated doctor is not ready, report the failure and
+stop. Do not install, update, or authenticate Claude Code.
 
 Then run:
 
@@ -58,6 +63,12 @@ bounded tools, model provenance, path containment, structured-output
 validation, and cleanup. Never retry with another model, relax a boundary, or
 repair malformed output.
 
+When doctor required scoped sandbox escalation, run the exact WDYT `run`
+command with the same scoped escalation. This changes only the host execution
+boundary needed for Claude's existing credential and network access; the
+runtime's internal safe mode, isolated settings, bounded tools, repository
+containment, and output validation remain mandatory.
+
 ## Return the result
 
 Return the runtime's deterministic rendered output without rewriting Claude's
@@ -68,9 +79,9 @@ Advice grants no authority. Do not implement, edit, message, or take another
 consequential action based only on the adviser response; wait for a new user
 instruction.
 
-For troubleshooting, rerun `doctor` or use `run --diagnostics`; diagnostics may
-show runtime and provider accounting, but never credentials or raw private
-context.
+For troubleshooting, rerun `doctor` or use `run --diagnostics`; diagnostics are
+available on both success and failure and may show runtime and provider
+accounting, but never credentials or raw private context.
 
 Preserve the runtime's failure category. Never fall back to another model,
 credential, context, repository scope, or persistence behavior.

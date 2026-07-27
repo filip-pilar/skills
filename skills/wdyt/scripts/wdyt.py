@@ -104,7 +104,18 @@ DEPTH_MODULES = {
 
 
 class WdytError(RuntimeError):
-    """A user-visible WDYT failure."""
+    """A user-visible WDYT failure with optional sanitized diagnostics."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        category: str = "runtime_failure",
+        diagnostics: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.category = category
+        self.diagnostics = diagnostics or {}
 
 
 @dataclass(frozen=True)
@@ -114,10 +125,19 @@ class Capabilities:
     missing_flags: tuple[str, ...]
     supported_optional_flags: tuple[str, ...]
     official_signal: bool
+    authenticated: bool = True
+    auth_method: str | None = None
+    api_provider: str | None = None
+    sandbox_access_required: bool = False
 
     @property
     def ready(self) -> bool:
-        return self.official_signal and not self.missing_flags
+        return (
+            self.official_signal
+            and not self.missing_flags
+            and self.authenticated
+            and not self.sandbox_access_required
+        )
 
 
 @dataclass(frozen=True)
@@ -178,12 +198,38 @@ def detect_capabilities() -> Capabilities:
         sorted(flag for flag in OPTIONAL_FLAGS if flag in help_text)
     )
     official_signal = "Claude Code" in f"{version}\n{help_text}"
+    auth_result = run_command([binary, "auth", "status", "--json"])
+    try:
+        auth_status = json.loads(auth_result.stdout)
+    except json.JSONDecodeError as error:
+        raise WdytError(
+            "Claude Code returned malformed authentication status",
+            category="authentication_status_unavailable",
+        ) from error
+    if not isinstance(auth_status, dict) or not isinstance(
+        auth_status.get("loggedIn"), bool
+    ):
+        raise WdytError(
+            "Claude Code returned incomplete authentication status",
+            category="authentication_status_unavailable",
+        )
+    auth_method = auth_status.get("authMethod")
+    api_provider = auth_status.get("apiProvider")
+    network_blocked = os.environ.get("CODEX_SANDBOX_NETWORK_DISABLED") == "1"
+    sandboxed = bool(os.environ.get("CODEX_SANDBOX"))
+    sandbox_access_required = sandboxed and (
+        network_blocked or not auth_status["loggedIn"]
+    )
     return Capabilities(
         binary=binary,
         version=version,
         missing_flags=missing,
         supported_optional_flags=supported_optional,
         official_signal=official_signal,
+        authenticated=auth_status["loggedIn"],
+        auth_method=auth_method if isinstance(auth_method, str) else None,
+        api_provider=api_provider if isinstance(api_provider, str) else None,
+        sandbox_access_required=sandbox_access_required,
     )
 
 
@@ -621,8 +667,13 @@ def validate_turn(
     stderr: str,
 ) -> Turn:
     if returncode != 0:
-        detail = invocation_failure_detail(stdout, stderr)
-        raise WdytError(f"Claude invocation failed with exit {returncode}: {detail[:500]}")
+        diagnostics = invocation_failure_diagnostics(returncode, stdout, stderr)
+        detail = invocation_failure_detail(diagnostics)
+        raise WdytError(
+            f"Claude invocation failed with exit {returncode}: {detail}",
+            category=str(diagnostics["failureCategory"]),
+            diagnostics=diagnostics,
+        )
     init, result, assistant_models, tool_calls = parse_events(stdout)
     used_model = init.get("model")
     if not isinstance(used_model, str) or not used_model:
@@ -680,23 +731,98 @@ def validate_turn(
     )
 
 
-def invocation_failure_detail(stdout: str, stderr: str) -> str:
-    if stderr.strip():
-        return stderr.strip().splitlines()[-1]
+def classify_invocation_failure(text: str) -> str:
+    lowered = text.lower()
+    if any(
+        marker in lowered
+        for marker in (
+            "not logged in",
+            "please run /login",
+            "authentication required",
+            "unauthorized",
+            "invalid api key",
+        )
+    ):
+        return "authentication_failure"
+    if any(marker in lowered for marker in ("rate limit", "usage limit", "quota")):
+        return "rate_limit"
+    if "model" in lowered and any(
+        marker in lowered
+        for marker in ("unavailable", "not found", "not supported", "no access")
+    ):
+        return "model_unavailable"
+    if any(
+        marker in lowered
+        for marker in (
+            "structured output",
+            "json schema",
+            "schema validation",
+            "max structured output",
+        )
+    ):
+        return "structured_output_failure"
+    if any(
+        marker in lowered
+        for marker in ("api error", "provider", "transport", "connection")
+    ):
+        return "provider_failure"
+    return "claude_invocation_failure"
+
+
+def invocation_failure_diagnostics(
+    returncode: int, stdout: str, stderr: str
+) -> dict[str, Any]:
+    result: dict[str, Any] | None = None
     for line in reversed(stdout.splitlines()):
         try:
             event = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if not isinstance(event, dict) or event.get("type") != "result":
-            continue
-        errors = event.get("errors")
-        error_count = len(errors) if isinstance(errors, list) else 0
+        if isinstance(event, dict) and event.get("type") == "result":
+            result = event
+            break
+    errors = result.get("errors") if result is not None else None
+    error_count = len(errors) if isinstance(errors, list) else 0
+    result_text = result.get("result") if result is not None else None
+    private_text = "\n".join(
+        [
+            stderr,
+            result_text if isinstance(result_text, str) else "",
+            *(
+                item
+                for item in (errors if isinstance(errors, list) else [])
+                if isinstance(item, str)
+            ),
+        ]
+    )
+    subtype = result.get("subtype") if result is not None else None
+    if isinstance(subtype, str) and "structured_output" in subtype:
+        failure_category = "structured_output_failure"
+    else:
+        failure_category = classify_invocation_failure(private_text)
+    return {
+        "status": "failed",
+        "failureCategory": failure_category,
+        "exitCode": returncode,
+        "stderrPresent": bool(stderr.strip()),
+        "resultEventPresent": result is not None,
+        "resultSubtype": result.get("subtype") if result is not None else None,
+        "isError": result.get("is_error") if result is not None else None,
+        "errorCount": error_count,
+    }
+
+
+def invocation_failure_detail(diagnostics: dict[str, Any]) -> str:
+    category = diagnostics["failureCategory"]
+    if category != "claude_invocation_failure":
+        return str(category).replace("_", " ")
+    if diagnostics["resultEventPresent"]:
         return (
-            f"result subtype={event.get('subtype')!r}, "
-            f"is_error={event.get('is_error')!r}, errors={error_count}"
+            f"result subtype={diagnostics['resultSubtype']!r}, "
+            f"is_error={diagnostics['isError']!r}, "
+            f"errors={diagnostics['errorCount']}"
         )
-    return "no detail"
+    return "no sanitized provider detail"
 
 
 def _evidence_suffix(evidence: Any) -> str:
@@ -759,6 +885,30 @@ def execute_request(
         raise WdytError(
             "installed Claude Code lacks required capabilities: "
             + ", ".join(capabilities.missing_flags)
+        )
+    if capabilities.sandbox_access_required:
+        raise WdytError(
+            "Claude authentication and network access are unavailable inside "
+            "the current sandbox; rerun the exact WDYT command with scoped "
+            "sandbox escalation",
+            category="sandbox_access_required",
+            diagnostics={
+                "status": "failed",
+                "failureCategory": "sandbox_access_required",
+                "sandboxAccessRequired": True,
+            },
+        )
+    if not capabilities.authenticated:
+        raise WdytError(
+            "Claude Code is not authenticated; run `claude auth login`, then retry",
+            category="authentication_required",
+            diagnostics={
+                "status": "failed",
+                "failureCategory": "authentication_required",
+                "authenticated": False,
+                "authMethod": capabilities.auth_method,
+                "apiProvider": capabilities.api_provider,
+            },
         )
 
     repository = None
@@ -824,7 +974,7 @@ def diagnostic_report() -> dict[str, Any]:
         pass
     try:
         capabilities = detect_capabilities()
-        return {
+        report = {
             "ready": capabilities.ready and schema_ok and prompt_ok,
             "binary": capabilities.binary,
             "version": capabilities.version,
@@ -835,7 +985,31 @@ def diagnostic_report() -> dict[str, Any]:
             "prompt": "ok" if prompt_ok else "invalid",
             "supportedLifecycles": ["fresh", "ephemeral"],
             "modelPolicy": "Claude default or any explicit model string",
+            "authentication": (
+                "unavailable_in_sandbox"
+                if capabilities.sandbox_access_required
+                else (
+                    "authenticated"
+                    if capabilities.authenticated
+                    else "not_authenticated"
+                )
+            ),
+            "authMethod": capabilities.auth_method,
+            "apiProvider": capabilities.api_provider,
+            "sandboxAccessRequired": capabilities.sandbox_access_required,
         }
+        if capabilities.sandbox_access_required:
+            report["error"] = (
+                "Claude authentication and network access are unavailable "
+                "inside the current sandbox; rerun the exact WDYT command with "
+                "scoped sandbox escalation"
+            )
+        elif not capabilities.authenticated:
+            report["error"] = (
+                "Claude Code is not authenticated; run `claude auth login`, "
+                "then retry"
+            )
+        return report
     except WdytError as error:
         return {
             "ready": False,
@@ -918,6 +1092,18 @@ def main(argv: list[str] | None = None) -> int:
             )
         return 0
     except WdytError as error:
+        if args.command == "run" and args.diagnostics:
+            print(
+                json.dumps(
+                    {
+                        "status": "failed",
+                        "failureCategory": error.category,
+                        **error.diagnostics,
+                    },
+                    sort_keys=True,
+                ),
+                file=sys.stderr,
+            )
         print(f"WDYT failed: {error}", file=sys.stderr)
         return 1
 

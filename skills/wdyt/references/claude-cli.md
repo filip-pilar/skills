@@ -8,7 +8,19 @@ its argument construction in the host.
 
 WDYT has no exact-version pin and does not require the latest Claude Code.
 `doctor` resolves the installed `claude`, checks that it identifies itself as
-Claude Code, reads print-mode help, and feature-detects the required flags.
+Claude Code, reads print-mode help, feature-detects the required flags, and
+checks only the machine-readable authentication status. It never reads or emits
+credential contents.
+
+Codex's macOS sandbox can hide Claude's Keychain credential and block Anthropic
+network access. A logged-out result observed there is not proof that the
+unsandboxed CLI is logged out. `doctor` reports this as
+`sandboxAccessRequired: true`; after a scoped host approval, the exact WDYT
+command must be rerun outside the host sandbox. WDYT's child-process isolation
+and tool boundary remain unchanged. The active `CODEX_SANDBOX` marker identifies
+that boundary; `CODEX_SANDBOX_NETWORK_DISABLED=1` can remain in the environment
+after escalation, so that network marker alone is not treated as proof that the
+escalated process is still sandboxed.
 
 Required capabilities cover:
 
@@ -87,8 +99,9 @@ resume, session, bypass, agent, plugin, extra-directory, file-download,
 worktree, remote-control, or non-empty MCP options.
 
 Claude's existing authentication and provider configuration remain the user's
-responsibility. WDYT does not inspect credentials, initiate login, install or
-update Claude Code, or switch authentication paths.
+responsibility. WDYT checks whether Claude Code reports an authenticated state,
+but does not inspect credentials, initiate login, install or update Claude Code,
+or switch authentication paths.
 
 Private temporary files use `0700` directories and `0600` files. They contain
 only isolated settings and empty MCP configuration. One whitespace-normalized,
@@ -130,3 +143,8 @@ answer-schema failure.
 On timeout or host cancellation, it terminates the Claude process group and
 returns no partial answer. It never retries with another model or weaker
 settings.
+
+`run --diagnostics` emits sanitized metadata on success or failure. Failure
+diagnostics may include the category, exit status, result subtype, error count,
+and whether stderr or a result event existed. They never emit provider error
+text, credential material, the task, repository contents, or raw JSONL.

@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
@@ -49,7 +50,201 @@ def capabilities(optional=("--model", "--effort")):
     )
 
 
+def write_capability_probe(root: Path) -> Path:
+    fake_claude = root / "claude"
+    help_output = "Claude Code\n" + "\n".join(sorted(wdyt.REQUIRED_FLAGS))
+    fake_claude.write_text(
+        f"""#!{sys.executable}
+import json
+import os
+import sys
+
+mode = os.environ.get("WDYT_FAKE_MODE", "ok")
+if "--version" in sys.argv:
+    if mode == "bad-version":
+        raise SystemExit(1)
+    print("Claude Code fake 1.0")
+    raise SystemExit
+if "--help" in sys.argv:
+    if mode == "bad-help":
+        raise SystemExit(1)
+    print({help_output!r})
+    raise SystemExit
+if sys.argv[1:] == ["auth", "status", "--json"]:
+    if mode == "malformed-auth":
+        print("{{")
+    elif mode == "incomplete-auth":
+        print("{{}}")
+    elif mode == "logged-out":
+        print(json.dumps({{
+            "loggedIn": False,
+            "authMethod": "none",
+            "apiProvider": "firstParty",
+        }}))
+    else:
+        print(json.dumps({{
+            "loggedIn": True,
+            "authMethod": "oauth",
+            "apiProvider": "firstParty",
+        }}))
+    raise SystemExit
+raise SystemExit(2)
+"""
+    )
+    fake_claude.chmod(0o755)
+    return fake_claude
+
+
 class RuntimeTests(unittest.TestCase):
+    def test_detect_capabilities_exercises_external_failure_surfaces(self):
+        with patch.object(wdyt.shutil, "which", return_value=None):
+            with self.assertRaisesRegex(wdyt.WdytError, "not found on PATH"):
+                wdyt.detect_capabilities()
+
+        cases = (
+            ("bad-version", "usable version", "runtime_failure"),
+            ("bad-help", "print-mode help failed", "runtime_failure"),
+            (
+                "malformed-auth",
+                "malformed authentication status",
+                "authentication_status_unavailable",
+            ),
+            (
+                "incomplete-auth",
+                "incomplete authentication status",
+                "authentication_status_unavailable",
+            ),
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            fake_claude = write_capability_probe(Path(temporary))
+            for mode, message, category in cases:
+                with (
+                    self.subTest(mode=mode),
+                    patch.object(wdyt.shutil, "which", return_value=str(fake_claude)),
+                    patch.dict(os.environ, {"WDYT_FAKE_MODE": mode}, clear=False),
+                    self.assertRaisesRegex(wdyt.WdytError, message) as raised,
+                ):
+                    wdyt.detect_capabilities()
+                self.assertEqual(raised.exception.category, category)
+
+    def test_detect_capabilities_distinguishes_sandbox_auth_and_network(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            fake_claude = write_capability_probe(Path(temporary))
+            cases = (
+                (
+                    "logged-out",
+                    {
+                        "WDYT_FAKE_MODE": "logged-out",
+                        "CODEX_SANDBOX": "seatbelt",
+                        "CODEX_SANDBOX_NETWORK_DISABLED": "0",
+                    },
+                    False,
+                    True,
+                ),
+                (
+                    "logged-in-network-blocked",
+                    {
+                        "WDYT_FAKE_MODE": "ok",
+                        "CODEX_SANDBOX": "seatbelt",
+                        "CODEX_SANDBOX_NETWORK_DISABLED": "1",
+                    },
+                    True,
+                    True,
+                ),
+                (
+                    "logged-in-network-available",
+                    {
+                        "WDYT_FAKE_MODE": "ok",
+                        "CODEX_SANDBOX": "seatbelt",
+                        "CODEX_SANDBOX_NETWORK_DISABLED": "0",
+                    },
+                    True,
+                    False,
+                ),
+                (
+                    "escalated-stale-network-marker",
+                    {
+                        "WDYT_FAKE_MODE": "ok",
+                        "CODEX_SANDBOX": "",
+                        "CODEX_SANDBOX_NETWORK_DISABLED": "1",
+                    },
+                    True,
+                    False,
+                ),
+            )
+            for name, environment, authenticated, escalation_required in cases:
+                with (
+                    self.subTest(name=name),
+                    patch.object(wdyt.shutil, "which", return_value=str(fake_claude)),
+                    patch.dict(os.environ, environment, clear=False),
+                ):
+                    detected = wdyt.detect_capabilities()
+                self.assertEqual(detected.authenticated, authenticated)
+                self.assertEqual(
+                    detected.sandbox_access_required,
+                    escalation_required,
+                )
+
+    def test_parse_events_rejects_malformed_or_incomplete_streams(self):
+        cases = (
+            ("{", "malformed JSONL"),
+            ("[]", "non-object event"),
+            (json.dumps({"type": "system", "subtype": "init"}), "omitted required"),
+            (json.dumps({"type": "result"}), "omitted required"),
+        )
+        for stdout, message in cases:
+            with self.subTest(stdout=stdout), self.assertRaisesRegex(
+                wdyt.WdytError, message
+            ):
+                wdyt.parse_events(stdout)
+
+    def test_failure_classifier_covers_each_public_category(self):
+        cases = (
+            ("not logged in", "authentication_failure"),
+            ("usage limit reached", "rate_limit"),
+            ("requested model is unavailable", "model_unavailable"),
+            ("JSON schema validation failed", "structured_output_failure"),
+            ("provider connection failed", "provider_failure"),
+            ("unrecognized failure", "claude_invocation_failure"),
+        )
+        for private_text, expected in cases:
+            with self.subTest(expected=expected):
+                self.assertEqual(
+                    wdyt.classify_invocation_failure(private_text),
+                    expected,
+                )
+
+    def test_execute_request_terminates_a_timed_out_process_group(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            fake_claude = root / "claude"
+            fake_claude.write_text(
+                f"""#!{sys.executable}
+import time
+time.sleep(30)
+"""
+            )
+            fake_claude.chmod(0o755)
+            available = wdyt.Capabilities(
+                binary=str(fake_claude),
+                version="Claude Code fake 1.0",
+                missing_flags=(),
+                supported_optional_flags=(),
+                official_signal=True,
+                authenticated=True,
+                auth_method="oauth",
+                api_provider="firstParty",
+            )
+            with (
+                patch.object(wdyt, "detect_capabilities", return_value=available),
+                self.assertRaisesRegex(wdyt.WdytError, "timed out"),
+            ):
+                wdyt.execute_request(
+                    wdyt.validate_request({"repository": "off"}),
+                    "Give an independent view.",
+                    timeout=0.05,
+                )
+
     def test_interactive_prompt_reader_returns_after_first_line(self):
         expected = "Review only the relevant files."
 
@@ -138,6 +333,13 @@ if "--version" in sys.argv:
 if "--help" in sys.argv:
     print({help_output!r})
     raise SystemExit
+if sys.argv[1:] == ["auth", "status", "--json"]:
+    print(json.dumps({{
+        "loggedIn": True,
+        "authMethod": "oauth",
+        "apiProvider": "firstParty",
+    }}))
+    raise SystemExit
 
 task = sys.stdin.read()
 answer = {answer_fixture()!r}
@@ -164,6 +366,8 @@ print(json.dumps(result))
             )
             fake_claude.chmod(0o755)
             environment = os.environ.copy()
+            environment.pop("CODEX_SANDBOX", None)
+            environment.pop("CODEX_SANDBOX_NETWORK_DISABLED", None)
             environment["PATH"] = f"{root}{os.pathsep}{environment.get('PATH', '')}"
             completed = subprocess.run(
                 [
@@ -398,7 +602,7 @@ Confidence: high""",
         )
         with self.assertRaisesRegex(
             wdyt.WdytError,
-            "error_max_structured_output_retries.*errors=1",
+            "structured output failure",
         ) as raised:
             wdyt.validate_turn(
                 wdyt.validate_request({"repository": "off"}),
@@ -409,6 +613,173 @@ Confidence: high""",
                 "",
             )
         self.assertNotIn("private provider detail", str(raised.exception))
+        self.assertEqual(
+            raised.exception.category,
+            "structured_output_failure",
+        )
+        self.assertEqual(
+            raised.exception.diagnostics["errorCount"],
+            1,
+        )
+
+    def test_logged_out_cli_is_not_ready_and_stops_before_inference(self):
+        logged_out = capabilities()
+        logged_out = wdyt.Capabilities(
+            binary=logged_out.binary,
+            version=logged_out.version,
+            missing_flags=logged_out.missing_flags,
+            supported_optional_flags=logged_out.supported_optional_flags,
+            official_signal=logged_out.official_signal,
+            authenticated=False,
+            auth_method="none",
+            api_provider="firstParty",
+        )
+        with (
+            patch.object(wdyt, "detect_capabilities", return_value=logged_out),
+            patch.object(wdyt.subprocess, "Popen") as popen,
+            self.assertRaisesRegex(wdyt.WdytError, "not authenticated") as raised,
+        ):
+            wdyt.execute_request(
+                wdyt.validate_request({"repository": "off"}),
+                "Give an independent view.",
+            )
+        popen.assert_not_called()
+        self.assertEqual(raised.exception.category, "authentication_required")
+
+    def test_sandboxed_auth_miss_requests_scoped_escalation(self):
+        sandboxed = capabilities()
+        sandboxed = wdyt.Capabilities(
+            binary=sandboxed.binary,
+            version=sandboxed.version,
+            missing_flags=sandboxed.missing_flags,
+            supported_optional_flags=sandboxed.supported_optional_flags,
+            official_signal=sandboxed.official_signal,
+            authenticated=False,
+            auth_method="none",
+            api_provider="firstParty",
+            sandbox_access_required=True,
+        )
+        with (
+            patch.object(wdyt, "detect_capabilities", return_value=sandboxed),
+            patch.object(wdyt.subprocess, "Popen") as popen,
+            self.assertRaisesRegex(
+                wdyt.WdytError, "scoped sandbox escalation"
+            ) as raised,
+        ):
+            wdyt.execute_request(
+                wdyt.validate_request({"repository": "off"}),
+                "Give an independent view.",
+            )
+        popen.assert_not_called()
+        self.assertEqual(
+            raised.exception.category,
+            "sandbox_access_required",
+        )
+
+    def test_failure_diagnostics_are_printed_on_failure(self):
+        failure = wdyt.WdytError(
+            "provider failed",
+            category="provider_failure",
+            diagnostics={
+                "status": "failed",
+                "failureCategory": "provider_failure",
+                "exitCode": 1,
+            },
+        )
+        stderr = io.StringIO()
+        with (
+            patch.object(wdyt, "read_stdin_prompt", return_value="Review it."),
+            patch.object(wdyt, "execute_request", side_effect=failure),
+            patch("sys.stderr", stderr),
+        ):
+            status = wdyt.main(
+                ["run", "--repository", "off", "--diagnostics"]
+            )
+        self.assertEqual(status, 1)
+        lines = stderr.getvalue().splitlines()
+        self.assertEqual(
+            json.loads(lines[0]),
+            {
+                "exitCode": 1,
+                "failureCategory": "provider_failure",
+                "status": "failed",
+            },
+        )
+        self.assertEqual(lines[1], "WDYT failed: provider failed")
+
+    def test_observed_contradictory_result_remains_diagnostic(self):
+        stdout = json.dumps(
+            {
+                "type": "result",
+                "subtype": "success",
+                "is_error": True,
+            }
+        )
+        with self.assertRaises(wdyt.WdytError) as raised:
+            wdyt.validate_turn(
+                wdyt.validate_request({"repository": "off"}),
+                capabilities(),
+                None,
+                1,
+                stdout,
+                "",
+            )
+        self.assertEqual(
+            raised.exception.category,
+            "claude_invocation_failure",
+        )
+        self.assertEqual(
+            raised.exception.diagnostics,
+            {
+                "status": "failed",
+                "failureCategory": "claude_invocation_failure",
+                "exitCode": 1,
+                "stderrPresent": False,
+                "resultEventPresent": True,
+                "resultSubtype": "success",
+                "isError": True,
+                "errorCount": 0,
+            },
+        )
+
+    def test_failure_classifier_uses_private_text_without_emitting_it(self):
+        private_message = "Not logged in. Please run /login for account@example.com"
+        diagnostics = wdyt.invocation_failure_diagnostics(
+            1,
+            json.dumps(
+                {
+                    "type": "result",
+                    "subtype": "success",
+                    "is_error": True,
+                    "result": private_message,
+                }
+            ),
+            "",
+        )
+        self.assertEqual(
+            diagnostics["failureCategory"],
+            "authentication_failure",
+        )
+        self.assertNotIn(private_message, json.dumps(diagnostics))
+        self.assertNotIn("account@example.com", json.dumps(diagnostics))
+
+    def test_failure_diagnostics_tolerate_non_string_result(self):
+        diagnostics = wdyt.invocation_failure_diagnostics(
+            1,
+            json.dumps(
+                {
+                    "type": "result",
+                    "subtype": "success",
+                    "is_error": True,
+                    "result": {"unexpected": "shape"},
+                }
+            ),
+            "",
+        )
+        self.assertEqual(
+            diagnostics["failureCategory"],
+            "claude_invocation_failure",
+        )
 
     def test_symlink_escape_fails_closed(self):
         with tempfile.TemporaryDirectory() as temporary:

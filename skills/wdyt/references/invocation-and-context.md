@@ -39,3 +39,9 @@ When repository access is on, Claude discovers evidence through `Read`, `Glob`,
 and `Grep`; `no-repo` exposes none of them. Answers cite repository evidence
 with logical `/repo` paths, the supplied task as `task`, and inference with a
 null reference.
+
+In a host sandbox that hides macOS Keychain or blocks Anthropic network access,
+`doctor` reports `sandboxAccessRequired: true`. A host with a scoped escalation
+mechanism may rerun only the exact WDYT doctor and run commands outside that
+host sandbox. The Claude child still uses WDYT's safe mode, isolated settings,
+empty MCP configuration, bounded tools, and path validation.
