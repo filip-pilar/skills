@@ -47,7 +47,7 @@ These require Codex Side tasks and their linked-parent workflow.
 | Skill | Best for |
 | --- | --- |
 | [`co-prompt`](skills/co-prompt/) | Reasoning through a linked parent task without drafting or sending its final reply. |
-| [`reply`](skills/reply/) | Turning a settled Side discussion into the smallest sufficient reply, sent only after explicit approval. |
+| [`reply`](skills/reply/) | Turning a settled Side discussion into a parent-sufficient reply, sent only after explicit approval. |
 | [`sidekick`](skills/sidekick/) | Explaining a parent's latest response, resolving decisions, and preparing an approved reply. |
 | [`tldr`](skills/tldr/) | Producing an ultra-concise digest of the complete available parent-task state. |
 

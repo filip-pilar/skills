@@ -1,7 +1,7 @@
 interface:
   display_name: "Reply"
-  short_description: "Turn Side-task decisions into a clear reply"
-  default_prompt: "Use $reply to draft the smallest sufficient response to this Side task's linked parent and wait for my approval."
+  short_description: "Draft a parent-sufficient Side-task reply"
+  default_prompt: "Use $reply to draft the shortest reply that preserves my settled intent and any Side-only context the linked parent needs, then wait for my approval."
 
 policy:
   allow_implicit_invocation: false
