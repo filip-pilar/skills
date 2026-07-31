@@ -195,9 +195,6 @@ The deeper checks start disposable loopback servers. The synthetic gateway integ
 
 Live-provider tests, real Messages checks, OAuth flows, and browser-enabled `agent-browser` tests remain explicit manual checks because they require credentials, permissions, or external state.
 
-GitHub Actions runs `./scripts/check-repo` on pull requests and pushes to `main`
-using the pinned Python dependency in `requirements-dev.txt`.
-
 ### Test a skill while editing it
 
 For interactive dogfooding, activate one source skill in the ignored sandbox:
