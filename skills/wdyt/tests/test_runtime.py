@@ -185,6 +185,41 @@ class RuntimeTests(unittest.TestCase):
                     escalation_required,
                 )
 
+    def test_detect_capabilities_rejects_alternate_provider_routing(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            fake_claude = write_capability_probe(Path(temporary))
+            with (
+                patch.object(wdyt.shutil, "which", return_value=str(fake_claude)),
+                patch.dict(
+                    os.environ,
+                    {"WDYT_FAKE_MODE": "ok", "ANTHROPIC_BASE_URL": "https://proxy"},
+                    clear=True,
+                ),
+            ):
+                detected = wdyt.detect_capabilities()
+        self.assertFalse(detected.ready)
+        self.assertEqual(
+            detected.unsupported_provider_routing,
+            ("ANTHROPIC_BASE_URL",),
+        )
+
+        with (
+            patch.object(wdyt, "detect_capabilities", return_value=detected),
+            patch.object(wdyt.subprocess, "Popen") as popen,
+            self.assertRaisesRegex(
+                wdyt.WdytError, "requires direct Anthropic first-party routing"
+            ) as raised,
+        ):
+            wdyt.execute_request(
+                wdyt.validate_request({"repository": "off"}),
+                "Give an independent view.",
+            )
+        popen.assert_not_called()
+        self.assertEqual(
+            raised.exception.category,
+            "unsupported_provider_configuration",
+        )
+
     def test_parse_events_rejects_malformed_or_incomplete_streams(self):
         cases = (
             ("{", "malformed JSONL"),
@@ -201,6 +236,7 @@ class RuntimeTests(unittest.TestCase):
     def test_failure_classifier_covers_each_public_category(self):
         cases = (
             ("not logged in", "authentication_failure"),
+            ("Fable 5 requires usage credits", "usage_credits_required"),
             ("usage limit reached", "rate_limit"),
             ("requested model is unavailable", "model_unavailable"),
             ("JSON schema validation failed", "structured_output_failure"),
@@ -411,6 +447,31 @@ print(json.dumps(result))
         model_index = args.index("--model")
         self.assertEqual(args[model_index + 1], "future-model/name with spaces")
         self.assertNotIn("--fallback-model", args)
+
+    def test_opus_5_and_fable_5_names_are_passed_through_unchanged(self):
+        for model in ("claude-opus-5", "claude-fable-5"):
+            with self.subTest(model=model), tempfile.TemporaryDirectory() as temporary:
+                request = wdyt.validate_request(
+                    {"model": model, "repository": "off"}
+                )
+                root = Path(temporary)
+                settings, mcp = wdyt.write_private_inputs(root, None)
+                args = wdyt.build_claude_args(
+                    capabilities(), request, None, settings, mcp
+                )
+            model_index = args.index("--model")
+            self.assertEqual(args[model_index + 1], model)
+            self.assertNotIn("--fallback-model", args)
+
+    def test_prompt_keeps_generated_fields_below_runtime_caps(self):
+        prompt = wdyt.trusted_system_prompt("review", "deep")
+        self.assertIn("Target at most 450 characters for verdict", prompt)
+        self.assertIn("These conservative targets apply even in deep mode", prompt)
+
+        schema = wdyt.schema_for_claude(wdyt.load_schema())
+        verdict_description = schema["properties"]["verdict"]["description"]
+        self.assertTrue(verdict_description.startswith("Hard constraints:"))
+        self.assertIn("maximum 600 characters.", verdict_description)
 
     def test_default_model_omits_model_and_optional_tuning(self):
         request = wdyt.validate_request({"repository": "off"})
@@ -739,8 +800,36 @@ Confidence: high""",
                 "resultSubtype": "success",
                 "isError": True,
                 "errorCount": 0,
+                "apiErrorStatus": None,
+                "terminalReason": None,
             },
         )
+
+    def test_fable_credit_failure_is_actionable_without_leaking_provider_text(self):
+        private_message = (
+            "Fable 5 requires usage credits. Run /usage-credits to continue."
+        )
+        diagnostics = wdyt.invocation_failure_diagnostics(
+            1,
+            json.dumps(
+                {
+                    "type": "result",
+                    "subtype": "success",
+                    "is_error": True,
+                    "terminal_reason": "api_error",
+                    "api_error_status": 429,
+                    "result": private_message,
+                }
+            ),
+            "",
+        )
+        self.assertEqual(
+            diagnostics["failureCategory"],
+            "usage_credits_required",
+        )
+        self.assertEqual(diagnostics["apiErrorStatus"], 429)
+        self.assertEqual(diagnostics["terminalReason"], "api_error")
+        self.assertNotIn(private_message, json.dumps(diagnostics))
 
     def test_failure_classifier_uses_private_text_without_emitting_it(self):
         private_message = "Not logged in. Please run /login for account@example.com"

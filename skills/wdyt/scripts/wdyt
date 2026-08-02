@@ -1,0 +1,27 @@
+#!/bin/sh
+set -eu
+
+case "$0" in
+    /*) ;;
+    *)
+        echo "WDYT failed: launcher must be invoked by absolute path" >&2
+        exit 1
+        ;;
+esac
+
+if [ -L "$0" ]; then
+    echo "WDYT failed: launcher must be a regular installed file, not a symlink" >&2
+    exit 1
+fi
+
+launcher_directory=${0%/*}
+runtime_path=$launcher_directory/wdyt.py
+if [ ! -f "$runtime_path" ] || [ -L "$runtime_path" ]; then
+    echo "WDYT failed: adjacent wdyt.py must be a regular installed file" >&2
+    exit 1
+fi
+
+PATH="${HOME:-}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+export PATH
+
+exec /usr/bin/python3 -I "$runtime_path" "$@"

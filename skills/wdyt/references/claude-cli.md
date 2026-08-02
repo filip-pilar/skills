@@ -1,8 +1,16 @@
 # Claude Code runtime contract
 
-`scripts/wdyt.py` is the normative launch implementation. It invokes the
-official `claude` executable directly as one child process; do not duplicate
-its argument construction in the host.
+`scripts/wdyt` is the only host entrypoint. It uses macOS system Python in
+isolated mode to execute the adjacent `wdyt.py`, which is the normative launch
+implementation. The runtime invokes the official `claude` executable directly
+as one child process; do not duplicate its argument construction in the host.
+
+The dedicated launcher exists so a host can pre-authorize only WDYT without
+allowing Python, a shell, or `claude` generally. Its executable path and
+adjacent runtime must be regular files in an installed skill package outside
+repositories writable by the agent; symlinks and bare-name invocation fail
+closed. A Codex rule should match that absolute path followed by only `doctor`
+or `run`; the runtime remains responsible for validating every later argument.
 
 ## Compatibility policy
 
@@ -98,10 +106,13 @@ The runtime may add feature-detected optional flags. It never passes fallback,
 resume, session, bypass, agent, plugin, extra-directory, file-download,
 worktree, remote-control, or non-empty MCP options.
 
-Claude's existing authentication and provider configuration remain the user's
-responsibility. WDYT checks whether Claude Code reports an authenticated state,
-but does not inspect credentials, initiate login, install or update Claude Code,
-or switch authentication paths.
+Claude's existing authentication remains the user's responsibility. WDYT
+checks whether Claude Code reports an authenticated state, but does not inspect
+credentials, initiate login, install or update Claude Code, or switch
+authentication paths. To keep its Anthropic disclosure accurate, it fails
+closed when Claude Code reports a non-first-party provider or the environment
+sets an explicit Bedrock, Vertex, Foundry, or alternate base-URL route. It
+reports only the routing variable names, never their values.
 
 Private temporary files use `0700` directories and `0600` files. They contain
 only isolated settings and empty MCP configuration. One whitespace-normalized,
@@ -136,7 +147,8 @@ enforcing the complete bundled schema after generation.
 ## Failure and cancellation
 
 The runtime distinguishes local request errors, missing CLI, missing
-capabilities, invocation failure, timeout, cancellation, malformed JSONL,
+capabilities, authentication failure, required usage credits, rate limits,
+provider or invocation failure, timeout, cancellation, malformed JSONL,
 model-provenance disagreement, unexpected capabilities, path escape, and
 answer-schema failure.
 
@@ -145,6 +157,7 @@ returns no partial answer. It never retries with another model or weaker
 settings.
 
 `run --diagnostics` emits sanitized metadata on success or failure. Failure
-diagnostics may include the category, exit status, result subtype, error count,
-and whether stderr or a result event existed. They never emit provider error
-text, credential material, the task, repository contents, or raw JSONL.
+diagnostics may include the category, exit status, result subtype, API status,
+terminal reason, error count, and whether stderr or a result event existed.
+They never emit provider error text, credential material, the task, repository
+contents, or raw JSONL.

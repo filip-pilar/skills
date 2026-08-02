@@ -1,12 +1,13 @@
 # Runtime invocation and task
 
-Run `scripts/wdyt.py run` from the canonical repository root, pass controls as
-flags, and send only the short UTF-8 task through stdin. The task is plain text,
-not JSON, and must not contain a transcript, file contents or artifacts, or
-serialized repository metadata.
+Invoke `scripts/wdyt` directly from the canonical repository root, pass controls
+as flags, and send only the short UTF-8 task through stdin. Do not prefix it
+with Python, a shell, or another launcher. The task is plain text, not JSON, and
+must not contain a transcript, file contents or artifacts, or serialized
+repository metadata.
 
 ```text
-python3 <skill-root>/scripts/wdyt.py run \
+<skill-root>/scripts/wdyt run \
   --model claude-opus-5 \
   --mode review \
   --depth standard \
@@ -45,3 +46,8 @@ In a host sandbox that hides macOS Keychain or blocks Anthropic network access,
 mechanism may rerun only the exact WDYT doctor and run commands outside that
 host sandbox. The Claude child still uses WDYT's safe mode, isolated settings,
 empty MCP configuration, bounded tools, and path validation.
+
+A host may instead pre-authorize the absolute dedicated launcher with an
+exec-policy rule restricted to the `doctor` and `run` subcommands. Such a rule
+is standing authorization for WDYT only. It must not match `python3`, a shell,
+`claude`, another script, or the launcher without one of those two subcommands.

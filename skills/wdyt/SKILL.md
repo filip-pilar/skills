@@ -9,8 +9,9 @@ Treat a bare `$wdyt` as a complete request. Ask Claude Code to independently
 assess the current objective, proposal, evidence, risks, unknowns, and best next
 move. A question is optional.
 
-Claude Code is the only adviser backend. Use `scripts/wdyt.py`; never reconstruct
-its command or route through another provider.
+Claude Code is the only adviser backend. Invoke the dedicated `scripts/wdyt`
+launcher directly; never reconstruct its command, invoke it through Python or a
+shell, or route through another provider.
 
 Before the first call, read
 [invocation-and-context.md](references/invocation-and-context.md). Read
@@ -40,21 +41,23 @@ State that recipient and scope in the result.
 Before the first call in a task, run:
 
 ```text
-python3 <skill-root>/scripts/wdyt.py doctor
+<skill-root>/scripts/wdyt doctor
 ```
 
 Readiness includes a machine-readable authentication-status check but never
-reads credential contents. When `doctor` reports `sandboxAccessRequired: true`
-and the host offers scoped escalation, request approval to rerun the exact WDYT
-doctor command outside the sandbox; Claude Code needs access to its existing
-credential store and Anthropic. Do not broaden the approval to Python, shell, or
-another command. If the escalated doctor is not ready, report the failure and
-stop. Do not install, update, or authenticate Claude Code.
+reads credential contents. A host may grant the dedicated launcher standing
+authorization outside its sandbox; use that rule without requesting another
+approval. When `doctor` instead reports `sandboxAccessRequired: true` and the
+host offers scoped escalation, request one-time approval to rerun only the exact
+WDYT launcher command outside the sandbox. Never request or propose a reusable
+prefix rule, and never broaden approval to Python, a shell, `claude`, or another
+command. If the escalated doctor is not ready, report the failure and stop. Do
+not install, update, or authenticate Claude Code.
 
 Then run:
 
 ```text
-python3 <skill-root>/scripts/wdyt.py run [launch flags]
+<skill-root>/scripts/wdyt run [launch flags]
 ```
 
 Supply the task through stdin and launch from the canonical repository root when
@@ -64,10 +67,11 @@ validation, and cleanup. Never retry with another model, relax a boundary, or
 repair malformed output.
 
 When doctor required scoped sandbox escalation, run the exact WDYT `run`
-command with the same scoped escalation. This changes only the host execution
-boundary needed for Claude's existing credential and network access; the
-runtime's internal safe mode, isolated settings, bounded tools, repository
-containment, and output validation remain mandatory.
+launcher command with the same one-time scoped escalation and no `prefix_rule`.
+This changes only the host execution boundary needed for Claude's existing
+credential and network access; the runtime's internal safe mode, isolated
+settings, bounded tools, repository containment, and output validation remain
+mandatory.
 
 ## Return the result
 

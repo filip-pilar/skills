@@ -1,4 +1,7 @@
 import json
+import os
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -7,6 +10,52 @@ SKILL_ROOT = Path(__file__).resolve().parents[1]
 
 
 class WdytLaunchContractTests(unittest.TestCase):
+    def test_dedicated_launcher_is_executable_and_fail_closed(self):
+        launcher = SKILL_ROOT / "scripts" / "wdyt"
+        self.assertTrue(os.access(launcher, os.X_OK))
+        text = launcher.read_text()
+        self.assertIn("/usr/bin/python3 -I", text)
+        self.assertIn('"$@"', text)
+        self.assertNotIn("eval ", text)
+        self.assertNotIn("sh -c", text)
+        self.assertIn("launcher must be invoked by absolute path", text)
+        self.assertIn("launcher must be a regular installed file", text)
+
+        completed = subprocess.run(
+            [str(launcher), "shell"],
+            text=True,
+            capture_output=True,
+            timeout=10,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 2)
+        self.assertIn("invalid choice", completed.stderr)
+
+    def test_dedicated_launcher_rejects_symlink_entrypoint(self):
+        launcher = SKILL_ROOT / "scripts" / "wdyt"
+        with tempfile.TemporaryDirectory() as temporary:
+            linked = Path(temporary) / "wdyt"
+            linked.symlink_to(launcher)
+            completed = subprocess.run(
+                [str(linked), "doctor"],
+                text=True,
+                capture_output=True,
+                timeout=10,
+                check=False,
+            )
+            self.assertEqual(completed.returncode, 1)
+            self.assertIn("not a symlink", completed.stderr)
+
+    def test_skill_requires_direct_launcher_without_reusable_rule(self):
+        skill = (SKILL_ROOT / "SKILL.md").read_text()
+        invocation = (
+            SKILL_ROOT / "references" / "invocation-and-context.md"
+        ).read_text()
+        self.assertIn("<skill-root>/scripts/wdyt doctor", skill)
+        self.assertIn("<skill-root>/scripts/wdyt run", skill)
+        self.assertNotIn("python3 <skill-root>", f"{skill}\n{invocation}")
+        self.assertIn("Never request or propose a reusable", skill)
+
     def test_answer_schema_discriminates_evidence_references(self):
         schema = json.loads(
             (SKILL_ROOT / "assets" / "wdyt-answer-2.schema.json").read_text()
@@ -57,7 +106,8 @@ class WdytLaunchContractTests(unittest.TestCase):
         cli_contract = (SKILL_ROOT / "references" / "claude-cli.md").read_text()
         package_text = f"{skill}\n{cli_contract}"
 
-        self.assertIn("scripts/wdyt.py", package_text)
+        self.assertIn("scripts/wdyt", package_text)
+        self.assertIn("wdyt.py", package_text)
         self.assertIn("feature-detect", package_text)
         self.assertRegex(
             cli_contract.lower(), r"any\s+explicit non-empty model string"

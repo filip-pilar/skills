@@ -50,6 +50,12 @@ OPTIONAL_FLAGS = {
     "--model",
     "--prompt-suggestions",
 }
+UNSUPPORTED_PROVIDER_ENV = (
+    "ANTHROPIC_BASE_URL",
+    "CLAUDE_CODE_USE_BEDROCK",
+    "CLAUDE_CODE_USE_FOUNDRY",
+    "CLAUDE_CODE_USE_VERTEX",
+)
 CLAUDE_SCHEMA_UNSUPPORTED_CONSTRAINTS = {
     "maxItems",
     "maxLength",
@@ -129,6 +135,7 @@ class Capabilities:
     auth_method: str | None = None
     api_provider: str | None = None
     sandbox_access_required: bool = False
+    unsupported_provider_routing: tuple[str, ...] = ()
 
     @property
     def ready(self) -> bool:
@@ -137,6 +144,7 @@ class Capabilities:
             and not self.missing_flags
             and self.authenticated
             and not self.sandbox_access_required
+            and not self.unsupported_provider_routing
         )
 
 
@@ -220,6 +228,11 @@ def detect_capabilities() -> Capabilities:
     sandbox_access_required = sandboxed and (
         network_blocked or not auth_status["loggedIn"]
     )
+    unsupported_provider_routing = tuple(
+        name for name in UNSUPPORTED_PROVIDER_ENV if os.environ.get(name)
+    )
+    if isinstance(api_provider, str) and api_provider != "firstParty":
+        unsupported_provider_routing += ("Claude Code apiProvider",)
     return Capabilities(
         binary=binary,
         version=version,
@@ -230,6 +243,7 @@ def detect_capabilities() -> Capabilities:
         auth_method=auth_method if isinstance(auth_method, str) else None,
         api_provider=api_provider if isinstance(api_provider, str) else None,
         sandbox_access_required=sandbox_access_required,
+        unsupported_provider_routing=unsupported_provider_routing,
     )
 
 
@@ -338,7 +352,7 @@ def schema_for_claude(value: Any) -> Any:
         if isinstance(value.get("maxItems"), int):
             constraints.append(f"maximum {value['maxItems']} items")
         if constraints:
-            note = "Constraints: " + "; ".join(constraints) + "."
+            note = "Hard constraints: " + "; ".join(constraints) + "."
             existing = transformed.get("description")
             transformed["description"] = (
                 f"{existing.rstrip()} {note}" if isinstance(existing, str) else note
@@ -744,6 +758,8 @@ def classify_invocation_failure(text: str) -> str:
         )
     ):
         return "authentication_failure"
+    if "usage credits" in lowered:
+        return "usage_credits_required"
     if any(marker in lowered for marker in ("rate limit", "usage limit", "quota")):
         return "rate_limit"
     if "model" in lowered and any(
@@ -800,6 +816,10 @@ def invocation_failure_diagnostics(
         failure_category = "structured_output_failure"
     else:
         failure_category = classify_invocation_failure(private_text)
+    api_error_status = result.get("api_error_status") if result is not None else None
+    if failure_category == "claude_invocation_failure" and api_error_status == 429:
+        failure_category = "rate_limit"
+    terminal_reason = result.get("terminal_reason") if result is not None else None
     return {
         "status": "failed",
         "failureCategory": failure_category,
@@ -809,6 +829,14 @@ def invocation_failure_diagnostics(
         "resultSubtype": result.get("subtype") if result is not None else None,
         "isError": result.get("is_error") if result is not None else None,
         "errorCount": error_count,
+        "apiErrorStatus": (
+            api_error_status if isinstance(api_error_status, int) else None
+        ),
+        "terminalReason": (
+            terminal_reason
+            if terminal_reason in {"api_error", "error", "max_turns", "stop_sequence"}
+            else None
+        ),
     }
 
 
@@ -896,6 +924,20 @@ def execute_request(
                 "status": "failed",
                 "failureCategory": "sandbox_access_required",
                 "sandboxAccessRequired": True,
+            },
+        )
+    if capabilities.unsupported_provider_routing:
+        routing = ", ".join(capabilities.unsupported_provider_routing)
+        raise WdytError(
+            "Claude Code has alternate provider routing configured through "
+            f"{routing}; WDYT requires direct Anthropic first-party routing",
+            category="unsupported_provider_configuration",
+            diagnostics={
+                "status": "failed",
+                "failureCategory": "unsupported_provider_configuration",
+                "unsupportedProviderRouting": list(
+                    capabilities.unsupported_provider_routing
+                ),
             },
         )
     if not capabilities.authenticated:
@@ -997,6 +1039,9 @@ def diagnostic_report() -> dict[str, Any]:
             "authMethod": capabilities.auth_method,
             "apiProvider": capabilities.api_provider,
             "sandboxAccessRequired": capabilities.sandbox_access_required,
+            "unsupportedProviderRouting": list(
+                capabilities.unsupported_provider_routing
+            ),
         }
         if capabilities.sandbox_access_required:
             report["error"] = (
@@ -1008,6 +1053,11 @@ def diagnostic_report() -> dict[str, Any]:
             report["error"] = (
                 "Claude Code is not authenticated; run `claude auth login`, "
                 "then retry"
+            )
+        elif capabilities.unsupported_provider_routing:
+            report["error"] = (
+                "Claude Code has alternate provider routing configured; "
+                "WDYT requires direct Anthropic first-party routing"
             )
         return report
     except WdytError as error:
