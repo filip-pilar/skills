@@ -23,6 +23,7 @@ npx skills add filip-pilar/skills --list
 
 | Skill | Best for |
 | --- | --- |
+| [`catchup`](skills/catchup/) | Orienting yourself to current repository state, recent workstreams, and concrete loose ends from local evidence. |
 | [`devils-advocate`](skills/devils-advocate/) | Pressure-testing a plan, decision, argument, or piece of research without inventing objections. |
 | [`gitprep`](skills/gitprep/) | Inspecting repository and publication state, planning coherent commits, and creating only approved commits. |
 | [`lockin`](skills/lockin/) | Recovering the active objective, narrowing the working set, and advancing to progress, completion, or one genuine blocker. |

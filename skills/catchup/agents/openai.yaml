@@ -1,0 +1,7 @@
+interface:
+  display_name: "Repo Catch-up"
+  short_description: "Catch up on recent repository work and state"
+  default_prompt: "Use $catchup to explain what has been happening in this repository and where it stands now."
+
+policy:
+  allow_implicit_invocation: false
