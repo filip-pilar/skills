@@ -1,0 +1,7 @@
+interface:
+  display_name: "Recover Thread"
+  short_description: "Find archived chats and build safe handover prompts"
+  default_prompt: "Use $recover-thread to find the relevant archived Codex chat, let me choose one, and generate a paste-ready continuity handoff."
+
+policy:
+  allow_implicit_invocation: false

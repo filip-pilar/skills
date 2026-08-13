@@ -25,6 +25,7 @@ npx skills add filip-pilar/skills --list
 | --- | --- |
 | [`catchup`](skills/catchup/) | Orienting yourself to current repository state, recent workstreams, and concrete loose ends from local evidence. |
 | [`devils-advocate`](skills/devils-advocate/) | Pressure-testing a plan, decision, argument, or piece of research without inventing objections. |
+| [`recover-thread`](skills/recover-thread/) | Finding archived Codex threads and generating paste-ready recovery handovers. |
 | [`gitprep`](skills/gitprep/) | Inspecting repository and publication state, planning coherent commits, and creating only approved commits. |
 | [`lockin`](skills/lockin/) | Recovering the active objective, narrowing the working set, and advancing to progress, completion, or one genuine blocker. |
 | [`product-vision-to-prd`](skills/product-vision-to-prd/) | Developing a broad product vision through one adaptive interview into a persistent, product-focused PRD. |
