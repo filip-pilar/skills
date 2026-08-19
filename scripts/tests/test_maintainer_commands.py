@@ -396,6 +396,22 @@ class CheckRepoTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("public skill directory must not be a symlink", result.stderr)
 
+    def test_every_public_deterministic_test_package_is_wired(self) -> None:
+        check_repo = (SCRIPTS / "check-repo").read_text(encoding="utf-8")
+        omitted = []
+
+        for tests_dir in sorted((REPO_ROOT / "skills").glob("*/tests")):
+            deterministic_tests = [
+                *tests_dir.glob("test_*.py"),
+                *tests_dir.glob("test_*.mjs"),
+            ]
+            if deterministic_tests:
+                package_reference = f"$skills_dir/{tests_dir.parent.name}/tests"
+                if package_reference not in check_repo:
+                    omitted.append(tests_dir.parent.name)
+
+        self.assertEqual(omitted, [], f"check-repo omits deterministic tests for: {omitted}")
+
 
 class FullCheckTests(unittest.TestCase):
     def setUp(self) -> None:
