@@ -1,0 +1,7 @@
+interface:
+  display_name: "Reply"
+  short_description: "Draft one parent-sufficient Side prompt"
+  default_prompt: "Use $reply to compile my settled Side discussion into one exact prompt for the linked parent, then wait."
+
+policy:
+  allow_implicit_invocation: false

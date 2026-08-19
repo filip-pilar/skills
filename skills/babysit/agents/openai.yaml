@@ -1,0 +1,7 @@
+interface:
+  display_name: "Babysit"
+  short_description: "Send and supervise the current Reply artifact"
+  default_prompt: "Use $babysit to approve, send, and supervise the latest current reply on its linked parent."
+
+policy:
+  allow_implicit_invocation: false
