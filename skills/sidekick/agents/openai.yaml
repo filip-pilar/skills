@@ -1,7 +1,7 @@
 interface:
   display_name: "Sidekick"
-  short_description: "Understand and discuss a linked parent task"
-  default_prompt: "Use $sidekick to help me understand and discuss this Side task's linked parent."
+  short_description: "Understand a parent task in plain language"
+  default_prompt: "Use $sidekick to explain this Side task's linked parent in plain language, clearly show what—if anything—you need from me, and help me think it through."
 
 policy:
   allow_implicit_invocation: false

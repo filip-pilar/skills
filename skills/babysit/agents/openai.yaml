@@ -1,7 +1,7 @@
 interface:
   display_name: "Babysit"
-  short_description: "Send and supervise the current Reply artifact"
-  default_prompt: "Use $babysit to approve, send, and supervise the latest current reply on its linked parent."
+  short_description: "Send, supervise, and plainly report the result"
+  default_prompt: "Use $babysit to send the latest Current reply to its linked parent, supervise and verify the work, then report it plainly beginning with the required bold status label."
 
 policy:
   allow_implicit_invocation: false

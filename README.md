@@ -53,9 +53,9 @@ orchestration skills are manual-only and are intended to be invoked in order:
 
 | Skill | Best for |
 | --- | --- |
-| [`sidekick`](skills/sidekick/) | Understanding and discussing a linked parent task while preserving source, uncertainty, and user agency. |
-| [`reply`](skills/reply/) | Compiling settled Side discussion into one exact parent-sufficient prompt without sending it. |
-| [`babysit`](skills/babysit/) | Approving, sending, supervising, correcting, and verifying the latest Reply artifact. |
+| [`sidekick`](skills/sidekick/) | Explaining a linked parent task in plain language and showing what, if anything, the user needs to decide. |
+| [`reply`](skills/reply/) | Turning settled Side discussion into one clear parent prompt in the user's voice without sending it. |
+| [`babysit`](skills/babysit/) | Sending the latest Reply prompt, supervising the work, and reporting the result plainly. |
 | [`recover-side-thread`](skills/recover-side-thread/) | Recovering one expired or unavailable Side chat while explicitly refusing normal Codex tasks. |
 | [`tldr`](skills/tldr/) | Producing an ultra-concise digest of the complete available parent-task state. |
 

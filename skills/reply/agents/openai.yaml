@@ -1,7 +1,7 @@
 interface:
   display_name: "Reply"
-  short_description: "Draft one parent-sufficient Side prompt"
-  default_prompt: "Use $reply to compile my settled Side discussion into one exact prompt for the linked parent, then wait."
+  short_description: "Draft one clear prompt in the user's voice"
+  default_prompt: "Use $reply to turn my settled Side discussion into one clear prompt for the linked parent, written in my voice, then wait without sending it."
 
 policy:
   allow_implicit_invocation: false

@@ -1,6 +1,6 @@
 ---
 name: babysit
-description: Approve, dispatch, and supervise the latest unambiguous Reply artifact on its exact linked parent with bounded correction and verification.
+description: Send the latest clear Reply prompt to its linked parent, supervise the work, and report the result plainly. Every final report starts with a bold status label and avoids routine process bullets.
 ---
 
 # Babysit
@@ -8,14 +8,33 @@ description: Approve, dispatch, and supervise the latest unambiguous Reply artif
 Treat a bare `$babysit` invocation as approval to run only the latest eligible
 reply.
 
-## Approve and bind
+## Final report contract
 
-An eligible artifact is the newest prior assistant response labeled `Current
+Every final user-facing response begins with exactly one bold status label and
+the practical result on the same line:
+
+```text
+**Done:** <one or two plain sentences>
+```
+
+Replace `Done` with `Partly done`, `Blocked`, or `Delivery uncertain` when that
+is the true state. Do not put an unlabelled sentence before it. A normal
+completed run ends after that line. It has no bullets and does not mention that
+no correction was needed or nothing remains open.
+
+Add a separate `**Checked:**` line only when the strongest direct check adds
+important confidence. Add `**Still open:**` only for actual unfinished work.
+End with `**Needs from you:**` only when the user must decide or authorize
+something. These are output requirements, not examples to paraphrase.
+
+## Confirm exactly what may be sent
+
+An eligible prompt is the newest prior assistant response labeled `Current
 reply` with exactly one fenced `text` block. The approved message is the
 block's contents exactly, excluding only its outer presentation fence. It is
 ineligible if it is missing or ambiguous, or if later user content rejects,
-qualifies, replaces, or materially changes it. Stop and request a fresh
-`$reply` instead of guessing.
+qualifies, replaces, or materially changes it. Request a fresh `$reply` instead
+of guessing.
 
 Resolve only the Side task's exact linked parent. If parent identity or routing
 is unavailable or ambiguous, do not send.
@@ -28,13 +47,13 @@ state is immaterial. If current parent state cannot be established and
 staleness could change authorization or outcome, stop rather than risk stale
 dispatch.
 
-## Send once and correlate
+## Send once and follow that run
 
 Call `send_message_to_thread` once with the exact approved contents and linked
 parent. A successful tool return records the send attempt as accepted; never
-send that artifact again in the same run. If the call errors, times out, or
+send that prompt again in the same run. If the call errors, times out, or
 leaves delivery uncertain, do not retry automatically. Report the ambiguous
-attempt so the user can reconcile it without risking a duplicate.
+attempt plainly so the user can check it without risking a duplicate.
 
 Wait on only that parent with `wait_threads`. Retain and reuse its returned
 cursor so a completion is not processed twice. Accept only a response that can
@@ -43,7 +62,7 @@ ambiguous parent turn prevents correlation.
 
 After interruption or re-invocation, inspect surviving Side state and the
 parent's newest response before acting. If they do not establish whether the
-artifact was sent, never resend it. Escalate the uncertainty.
+prompt was sent, never resend it. Tell the user that delivery is uncertain.
 
 ## Inspect, verify, and correct
 
@@ -66,14 +85,34 @@ scope, authorize consequential action, guess missing intent, or repeat an
 ineffective correction. Two unsuccessful follow-ups are stagnation, even if
 the parent continues claiming progress.
 
-## Finish or escalate
+## Decide what the final report says
 
 Finish only when available evidence supports the result. Report what is true,
-the strongest focused proof, any material intervention, and what remains open.
-When independent verification is unavailable, qualify the result rather than
-claiming it verified.
+what was checked, any correction Babysit requested, and what remains open. When
+independent verification is unavailable, say so rather than claiming the work
+was verified.
 
-Escalate with the smallest genuine decision surface when there is new scope or
-authority, a material tradeoff, contradictory or infeasible instructions,
-ambiguous routing or delivery, failed correlation, unavailable necessary
-verification, or stagnation. Do not silently create a new draft or plan.
+Choose exactly one opening label:
+
+- `**Done:**` when the approved request is complete.
+- `**Partly done:**` when useful work completed but an explicit requirement
+  remains.
+- `**Blocked:**` when the parent cannot continue without new information,
+  permission, or an outside change.
+- `**Delivery uncertain:**` when it is unclear whether the prompt was sent.
+
+For a non-routine result, use bullets only when several independent results or
+open items cannot be understood clearly in short prose. Group checks instead
+of reproducing logs, test output, the parent's checklist, or every
+intervention.
+
+Use everyday language and concrete consequences. Do not expose internal
+workflow terms such as “correlation,” “decision surface,” “material
+intervention,” “authority boundary,” or “stagnation” when plain language will
+do.
+
+Stop and ask the user when continuing would require broader scope, new
+permission, a meaningful tradeoff, a choice between contradictory instructions,
+guessing about delivery, claiming work that cannot be checked, or trying again
+after two ineffective corrections. State the specific practical problem and
+question. Do not silently create a new draft or plan.

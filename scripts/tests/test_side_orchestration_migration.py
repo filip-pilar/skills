@@ -26,6 +26,32 @@ class SideOrchestrationMigrationTests(unittest.TestCase):
         self.assertIn("fresh `$reply`", babysit)
         self.assertNotIn("side-draft", reply + babysit)
 
+    def test_human_facing_format_contracts_are_stable(self):
+        sidekick = (REPO_ROOT / "skills" / "sidekick" / "SKILL.md").read_text()
+        reply = (REPO_ROOT / "skills" / "reply" / "SKILL.md").read_text()
+        babysit = (REPO_ROOT / "skills" / "babysit" / "SKILL.md").read_text()
+
+        self.assertLess(sidekick.index("`**Bottom line:**`"), sidekick.index("`**Needs from you:**`"))
+        self.assertLess(sidekick.index("`**Needs from you:**`"), sidekick.index("`**Why it matters:**`"))
+        self.assertIn("stop after those two sections\nby default", sidekick)
+        self.assertIn("Do not\nuse bullets to summarize a long parent list", sidekick)
+
+        self.assertIn("output only the label `Current reply`", reply)
+        self.assertIn("exactly one fenced `text` block", reply)
+
+        for label in (
+            "`**Done:**`",
+            "`**Partly done:**`",
+            "`**Blocked:**`",
+            "`**Delivery uncertain:**`",
+            "`**Checked:**`",
+            "`**Still open:**`",
+            "`**Needs from you:**`",
+        ):
+            self.assertIn(label, babysit)
+        self.assertIn("Every final user-facing response begins", babysit)
+        self.assertIn("A normal\ncompleted run ends after that line. It has no bullets", babysit)
+
     def test_retired_packages_are_archived_without_public_shims(self):
         for name in ("co-prompt", "side-mode", "side-draft", "side-run"):
             self.assertFalse((REPO_ROOT / "skills" / name).exists())

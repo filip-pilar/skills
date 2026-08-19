@@ -5,18 +5,19 @@
 The permanent Side workflow is a manual-only three-phase sequence:
 
 1. **`$sidekick` — understand and discuss.** Open a Side task from the relevant
-   parent, invoke Sidekick, and work through the smallest genuine decision
-   surface. Sidekick can explain, compare, recommend, and correct, but it does
-   not produce one canonical parent-ready prompt or send anything.
+   parent and invoke Sidekick. It starts with the bottom line, states what—if
+   anything—the user actually needs to decide, and translates difficult parent
+   context into plain language. It can explain, compare, recommend, and correct,
+   but it does not produce one complete parent-ready prompt or send anything.
 2. **`$reply` — draft without sending.** After the user's intent is settled,
-   invoke Reply. It refreshes material parent state when possible and displays
-   exactly one revision-controlled artifact labeled `Current reply`. Reinvoke
+   invoke Reply. It refreshes important parent state when possible and displays
+   one prompt labeled `Current reply`, written in the user's voice. Reinvoke
    `$reply` to revise it. Display is never send approval.
 3. **`$babysit` — approve, send, supervise, and verify.** Invoke Babysit only
    when the latest `Current reply` is the exact message to run. Babysit binds it
    to the exact linked parent, sends it once, waits, verifies proportionately,
-   issues at most two in-scope corrective follow-ups, and escalates genuine
-   decisions, authority changes, ambiguity, or stagnation.
+   issues at most two in-scope corrective follow-ups, and reports completion or
+   the exact remaining problem in plain language.
 
 All three skills are explicitly manual-only. They intentionally depend on the
 shared Side context and exact linked-parent relationship; they are not generic
@@ -31,7 +32,7 @@ standalone chat skills.
 | Natural deliberation, recommendations, and corrections | Sidekick |
 | Settled-intent compilation and parent-relative sufficiency | Reply |
 | Draft-local parent freshness and ambiguity checks | Reply |
-| Canonical artifact identity and revision | Reply (`Current reply`) |
+| One current prompt and its revision | Reply (`Current reply`) |
 | Exact approval, final parent freshness, and one send attempt | Babysit |
 | Waiting, correlation, verification, and bounded correction | Babysit |
 | New scope, tradeoffs, consequential authority, or stagnation | User through a focused Babysit escalation |
@@ -52,10 +53,15 @@ parent response when the exact route is available. It distinguishes inherited,
 live, unchanged, and unavailable state only when freshness matters instead of
 turning freshness tracking into user-facing ceremony.
 
-Its output exposes the smallest lossless decision surface, preserving material
-failure, uncertainty, tradeoffs, scope, source attribution, and user agency.
-Provisional fragments are allowed when visibly provisional. One complete
-canonical parent-ready prompt and all parent sends are prohibited.
+Its first response follows a stable reading order: `Bottom line`, `Needs from
+you`, then only context that can change the user's understanding or answer.
+Recommendations, backlog items, implementation details, and work the parent can
+resolve are not promoted into user decisions. Long parent reports are grouped
+into a few themes instead of reproduced as a bullet wall. Sidekick uses everyday
+language while preserving failures, uncertainty, tradeoffs, changed scope,
+source attribution, and user agency when they matter. Provisional fragments are
+allowed when visibly provisional. One complete parent-ready prompt and all
+parent sends are prohibited.
 
 ### Reply
 
@@ -64,10 +70,11 @@ discussion. It silently continues through immaterial changes and pauses for the
 smallest decision when newer state conflicts with or invalidates settled intent.
 
 It compiles only authorized intent, necessary uncertainty, and the minimum
-Side-only context the parent needs. Consequential authorization must include
-the target, action, quantity, cap or limits, and stop condition. A successful
-response contains exactly one fenced `text` artifact labeled `Current reply`;
-reinvocation replaces the prior artifact and never approves or sends it.
+Side-only context the parent needs. It writes as the user rather than imitating
+Sidekick. Consequential authorization must include the target, action, quantity,
+cap or limits, and stop condition. A successful response contains only the
+`Current reply` label and one fenced `text` prompt; reinvocation replaces the
+prior prompt and never approves or sends it.
 
 ### Babysit
 
@@ -83,11 +90,20 @@ parent-authored tests alone are not independent proof of a material correctness
 or safety property: Babysit directly inspects or adversarially probes the
 highest-risk requirement when feasible, otherwise it qualifies the result.
 
+Its user-facing report starts with `Done`, `Partly done`, `Blocked`, or
+`Delivery uncertain`. It adds `Checked`, `Still open`, or `Needs from you` only
+when that information is useful, and does not reproduce logs or the parent's
+full checklist.
+
 ## Verified behavior
 
 Evidence is scenario-specific. Structural validation is Level 1; manual
 contract replay is Level 2; isolated live execution is Level 3; replay of a
-real historical regression is Level 4.
+real historical regression is Level 4. The table records the strongest baseline
+evidence for the orchestration mechanics retained from promotion. The later
+plain-language and formatting revision has Level 3 isolated synthetic execution,
+including a replay of the real screenshot case. A fresh linked-parent Side run
+remains the next integration check.
 
 | Capability | Strongest evidence | Result |
 | --- | --- | --- |
@@ -107,8 +123,8 @@ real historical regression is Level 4.
 | Risk proportionality | A README-only run used lightweight checks and a 45-word report after the stronger safety-verification rule | Level 3 pass |
 
 The installed and repository copies matched after each experimental iteration.
-At promotion, runtime loading paths are 303 words for Sidekick, 354 for Reply,
-and 565 for Babysit, with no conditional references.
+Loading-path sizes are rechecked during every release, with no conditional
+references in these three packages.
 
 ## Historical development evidence
 
