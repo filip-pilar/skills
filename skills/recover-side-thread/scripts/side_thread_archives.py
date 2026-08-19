@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bounded, read-only discovery and extraction for archived Codex threads."""
+"""Bounded, read-only discovery and extraction for Side-chat archive candidates."""
 
 from __future__ import annotations
 
@@ -217,10 +217,10 @@ def load_database_metadata(codex_home: Path) -> tuple[dict[str, dict[str, Any]],
                 "branch": branch if isinstance(branch, str) else "",
                 "rollout_path": rollout_path if isinstance(rollout_path, str) else "",
             }
-            by_id.setdefault(thread_id, item)
+            # Later database locations are newer in current desktop installs.
+            by_id[thread_id] = item
             if item["rollout_path"]:
-                by_path.setdefault(item["rollout_path"], item)
-        break
+                by_path[item["rollout_path"]] = item
     return by_id, by_path
 
 
@@ -229,6 +229,46 @@ def meta_from_records(records: Iterable[dict[str, Any]]) -> dict[str, Any]:
         if record.get("type") == "session_meta" and isinstance(record.get("payload"), dict):
             return record["payload"]
     return {}
+
+
+def read_session_meta(path: Path) -> dict[str, Any]:
+    """Read only the archive header needed for source classification."""
+
+    try:
+        with path.open("rb") as handle:
+            block = handle.read(EDGE_BYTES)
+    except OSError:
+        return {}
+    for raw in block.splitlines():
+        record = parse_record(raw)
+        if record and record.get("type") == "session_meta":
+            item = record.get("payload")
+            return item if isinstance(item, dict) else {}
+    return {}
+
+
+def classify_source(codex_home: Path, thread_id: str, scan_limit: int) -> dict[str, Any]:
+    """Classify one ID without extracting visible conversation content."""
+
+    database_by_id, database_by_path = load_database_metadata(codex_home)
+    database = database_by_id.get(thread_id) or {}
+    archive_exists = False
+    kind = database.get("kind", "") if database else ""
+    for path in archive_paths(codex_home / "archived_sessions")[:scan_limit]:
+        meta = read_session_meta(path)
+        archive_id = str(meta.get("id") or meta.get("session_id") or "")
+        if archive_id != thread_id:
+            continue
+        archive_exists = True
+        database = database or database_by_path.get(str(path)) or {}
+        kind = meta.get("thread_source") or database.get("kind") or "unknown"
+        break
+    return {
+        "thread_id": thread_id,
+        "source_type": "main_task" if database else "unverified",
+        "archive_exists": archive_exists,
+        "kind": str(kind or "unknown"),
+    }
 
 
 def message_events(records: Iterable[dict[str, Any]]) -> tuple[list[str], list[str], list[datetime]]:
@@ -337,6 +377,7 @@ def index_path(
         "title": title,
         "display_title": short_display_title(title),
         "kind": str(source),
+        "source_type": "main_task" if database else "unverified",
         "cwd": str(cwd),
         "workspace": workspace_label(cwd),
         "started_at": display_timestamp(meta_time),
@@ -380,6 +421,7 @@ def discover(
     scan_limit: int,
     query: str = "",
     kind: str = "user",
+    source_type: str = "unverified",
     thread_id: str = "",
 ) -> tuple[list[dict[str, Any]], int]:
     paths = archive_paths(codex_home / "archived_sessions")
@@ -392,6 +434,8 @@ def discover(
         if normalized_thread_id and item["thread_id"] != normalized_thread_id:
             continue
         if not normalized_thread_id and kind != "all" and item["kind"] != kind:
+            continue
+        if not normalized_thread_id and source_type != "all" and item["source_type"] != source_type:
             continue
         searchable = " ".join(
             str(item[field])
@@ -432,7 +476,7 @@ def discover(
 
 def format_discovery_markdown(items: list[dict[str, Any]], scanned: int) -> str:
     lines = [
-        "Archived Codex thread candidates (archive files only; read-only):",
+        "Unverified Side-chat candidates (archive files only; read-only):",
         f"Scanned up to {scanned} recent archive files.",
         "",
     ]
@@ -443,12 +487,8 @@ def format_discovery_markdown(items: list[dict[str, Any]], scanned: int) -> str:
         lines.extend(
             [
                 f"{number}. {item.get('display_title') or item['title']}",
-                f"   kind: {item['kind']} | last observed: {item['last_observed']} | started: {item['started_at']}",
+                f"   source type: {item['source_type']} | kind: {item['kind']} | last observed: {item['last_observed']} | started: {item['started_at']}",
                 f"   workspace: {item.get('workspace') or workspace_label(item['cwd'])}",
-                f"   thread ID: {item['thread_id']}",
-                f"   last user message: {item['last_user'] or 'unavailable'}",
-                f"   latest assistant context: {item['last_assistant'] or 'unavailable'}",
-                f"   archive path: {item['path']}",
                 "",
             ]
         )
@@ -773,16 +813,29 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    list_parser = subparsers.add_parser("list", help="list recent archived thread candidates")
+    list_parser = subparsers.add_parser("list", help="list recent Side-chat archive candidates")
     list_parser.add_argument("--codex-home", type=str, default=None)
     list_parser.add_argument("--limit", type=int, default=DEFAULT_LIMIT)
     list_parser.add_argument("--scan-limit", type=int, default=DEFAULT_SCAN_LIMIT)
     list_parser.add_argument("--query", type=str, default="")
     list_parser.add_argument("--thread-id", type=str, default="")
     list_parser.add_argument("--kind", choices=("all", "user", "subagent"), default="user")
+    list_parser.add_argument(
+        "--source-type",
+        choices=("all", "main_task", "unverified"),
+        default="unverified",
+    )
     list_parser.add_argument("--format", choices=("markdown", "json"), default="markdown")
 
-    inspect_parser = subparsers.add_parser("inspect", help="extract visible evidence from one archived thread")
+    classify_parser = subparsers.add_parser(
+        "classify",
+        help="classify one source without reading visible messages",
+    )
+    classify_parser.add_argument("--codex-home", type=str, default=None)
+    classify_parser.add_argument("--thread-id", type=str, required=True)
+    classify_parser.add_argument("--scan-limit", type=int, default=DEFAULT_SCAN_LIMIT)
+
+    inspect_parser = subparsers.add_parser("inspect", help="extract visible evidence from one Side-chat archive")
     inspect_parser.add_argument("--codex-home", type=str, default=None)
     inspect_parser.add_argument("--path", type=Path, required=True)
     inspect_parser.add_argument("--max-message-chars", type=int, default=DEFAULT_MAX_MESSAGE_CHARS)
@@ -795,6 +848,18 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if args.command == "classify":
+        if args.scan_limit < 1:
+            parser.error("--scan-limit must be positive")
+        home = resolve_codex_home(args.codex_home)
+        print(
+            json.dumps(
+                classify_source(home, compact_text(args.thread_id), args.scan_limit),
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return 0
     if args.command == "list":
         if args.limit < 1 or args.scan_limit < 1:
             parser.error("--limit and --scan-limit must be positive")
@@ -805,6 +870,7 @@ def main(argv: list[str] | None = None) -> int:
             scan_limit=args.scan_limit,
             query=args.query,
             kind=args.kind,
+            source_type=args.source_type,
             thread_id=args.thread_id,
         )
         if args.format == "json":
@@ -828,6 +894,15 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if not path.is_file():
         print(f"Archive path does not exist or is not a file: {path}", file=sys.stderr)
+        return 2
+    database_by_id, database_by_path = load_database_metadata(home)
+    indexed = index_path(path, database_by_id, database_by_path)
+    if indexed["source_type"] == "main_task":
+        print(
+            "Refusing to inspect an archive registered as a main Codex task; "
+            "use native task history instead.",
+            file=sys.stderr,
+        )
         return 2
     report = inspect_thread(
         path,

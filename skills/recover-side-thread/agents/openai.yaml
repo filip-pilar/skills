@@ -1,0 +1,7 @@
+interface:
+  display_name: "Recover Side Thread"
+  short_description: "Recover an expired Codex Side chat safely"
+  default_prompt: "Use $recover-side-thread to classify and recover one expired Codex Side chat into a paste-ready continuity handoff. Refuse normal Codex tasks."
+
+policy:
+  allow_implicit_invocation: false

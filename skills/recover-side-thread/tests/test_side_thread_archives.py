@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -9,7 +10,7 @@ from pathlib import Path
 
 
 PACKAGE_ROOT = Path(__file__).parents[1]
-SCRIPT = PACKAGE_ROOT / "scripts" / "expired_threads.py"
+SCRIPT = PACKAGE_ROOT / "scripts" / "side_thread_archives.py"
 SKILL = PACKAGE_ROOT / "SKILL.md"
 
 
@@ -17,7 +18,7 @@ def record(kind: str, payload: dict, timestamp: str) -> dict:
     return {"timestamp": timestamp, "type": kind, "payload": payload}
 
 
-class ExpiredThreadHandoverScriptTests(unittest.TestCase):
+class SideThreadArchiveScriptTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
         self.home = Path(self.temp.name) / ".codex"
@@ -124,7 +125,151 @@ class ExpiredThreadHandoverScriptTests(unittest.TestCase):
         self.assertEqual(candidate["display_title"], "Recover the handoff parser and preserve the failing test.")
         self.assertEqual(candidate["workspace"], "example-project")
         self.assertEqual(candidate["path"], str(self.archive_path.resolve()))
+        self.assertEqual(candidate["source_type"], "unverified")
         self.assertNotIn("active thread", result.stdout)
+
+    def test_classify_returns_metadata_without_message_previews_or_paths(self) -> None:
+        result = self.run_script(
+            "classify",
+            "--codex-home",
+            str(self.home),
+            "--thread-id",
+            "019test00-0000-0000-0000-000000000001",
+            "--scan-limit",
+            "5",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = json.loads(result.stdout)
+        self.assertEqual(report["source_type"], "unverified")
+        self.assertTrue(report["archive_exists"])
+        self.assertNotIn("Recover the handoff parser", result.stdout)
+        self.assertNotIn(str(self.archive_path), result.stdout)
+
+    def register_main_task(self) -> None:
+        database = self.home / "state_5.sqlite"
+        connection = sqlite3.connect(database)
+        connection.execute(
+            """
+            CREATE TABLE threads (
+                id TEXT PRIMARY KEY,
+                title TEXT,
+                archived INTEGER,
+                archived_at INTEGER,
+                updated_at_ms INTEGER,
+                cwd TEXT,
+                thread_source TEXT,
+                git_branch TEXT,
+                rollout_path TEXT
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO threads (
+                id, title, archived, archived_at, updated_at_ms, cwd,
+                thread_source, git_branch, rollout_path
+            ) VALUES (?, ?, 1, NULL, 1785837600000, ?, 'user', '', ?)
+            """,
+            (
+                "019test00-0000-0000-0000-000000000001",
+                "Registered main task",
+                "/tmp/example-project",
+                str(self.archive_path.resolve()),
+            ),
+        )
+        connection.commit()
+        connection.close()
+
+    def test_default_discovery_excludes_registered_main_tasks(self) -> None:
+        self.register_main_task()
+        result = self.run_script(
+            "list",
+            "--codex-home",
+            str(self.home),
+            "--limit",
+            "5",
+            "--scan-limit",
+            "5",
+            "--format",
+            "json",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["candidates"], [])
+
+        exact = self.run_script(
+            "list",
+            "--codex-home",
+            str(self.home),
+            "--thread-id",
+            "019test00-0000-0000-0000-000000000001",
+            "--scan-limit",
+            "5",
+            "--format",
+            "json",
+        )
+        self.assertEqual(exact.returncode, 0, exact.stderr)
+        candidate = json.loads(exact.stdout)["candidates"][0]
+        self.assertEqual(candidate["source_type"], "main_task")
+
+    def test_current_database_overrides_stale_database(self) -> None:
+        stale_directory = self.home / "sqlite"
+        stale_directory.mkdir()
+        stale = sqlite3.connect(stale_directory / "state_5.sqlite")
+        stale.execute(
+            """
+            CREATE TABLE threads (
+                id TEXT PRIMARY KEY, title TEXT, archived INTEGER,
+                archived_at INTEGER, updated_at_ms INTEGER, cwd TEXT,
+                thread_source TEXT, git_branch TEXT, rollout_path TEXT
+            )
+            """
+        )
+        stale.commit()
+        stale.close()
+        self.register_main_task()
+
+        result = self.run_script(
+            "list",
+            "--codex-home",
+            str(self.home),
+            "--thread-id",
+            "019test00-0000-0000-0000-000000000001",
+            "--scan-limit",
+            "5",
+            "--format",
+            "json",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        candidate = json.loads(result.stdout)["candidates"][0]
+        self.assertEqual(candidate["source_type"], "main_task")
+
+    def test_inspect_refuses_registered_main_task(self) -> None:
+        self.register_main_task()
+        result = self.run_script(
+            "inspect",
+            "--codex-home",
+            str(self.home),
+            "--path",
+            str(self.archive_path),
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("main Codex task", result.stderr)
+
+    def test_classify_identifies_registered_main_task(self) -> None:
+        self.register_main_task()
+        result = self.run_script(
+            "classify",
+            "--codex-home",
+            str(self.home),
+            "--thread-id",
+            "019test00-0000-0000-0000-000000000001",
+            "--scan-limit",
+            "5",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = json.loads(result.stdout)
+        self.assertEqual(report["source_type"], "main_task")
+        self.assertTrue(report["archive_exists"])
 
     def test_markdown_uses_short_workspace_label(self) -> None:
         result = self.run_script(
@@ -143,7 +288,9 @@ class ExpiredThreadHandoverScriptTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("workspace: example-project", result.stdout)
         self.assertNotIn("workspace: /tmp/example-project", result.stdout)
-        self.assertIn("latest assistant context: The parser is partly fixed", result.stdout)
+        self.assertNotIn("The parser is partly fixed", result.stdout)
+        self.assertNotIn("archive path", result.stdout.lower())
+        self.assertNotIn("thread ID", result.stdout)
 
     def test_kind_filter_can_narrow_results_when_needed(self) -> None:
         subagent_path = self.archive / (
@@ -485,13 +632,13 @@ class ExpiredThreadHandoverScriptTests(unittest.TestCase):
 
     def test_handoff_contract_keeps_source_inside_prompt_and_omits_ids(self) -> None:
         instructions = SKILL.read_text(encoding="utf-8")
-        handoff = instructions.split("## 4. Produce the handoff", 1)[1]
+        handoff = instructions.split("## 5. Produce the handoff", 1)[1]
 
-        self.assertIn("Never show the task ID", instructions)
+        self.assertIn("Main Codex task (confirmed)", instructions)
+        self.assertIn("Source type unverified", instructions)
+        self.assertIn("Do not produce a recovery handoff", instructions)
         self.assertIn("The fenced prompt must include", handoff)
-        self.assertIn("native title and original workspace", handoff)
-        self.assertIn("The historical task recorded", instructions)
-        self.assertIn("History records 359 downloaded photos", instructions)
+        self.assertIn("`Type: Side chat`", handoff)
 
 
 if __name__ == "__main__":
