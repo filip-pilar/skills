@@ -1,0 +1,7 @@
+interface:
+  display_name: "Supervise"
+  short_description: "Send, follow, verify, and correct parent work"
+  default_prompt: "Use $supervise to send the latest Current reply to its linked parent, follow and verify the work, make limited in-scope corrections, and report the result plainly."
+
+policy:
+  allow_implicit_invocation: false

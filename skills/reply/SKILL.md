@@ -1,61 +1,48 @@
 ---
 name: reply
-description: Draft the user's settled Side decisions as one clear prompt for the linked parent without sending it.
+description: Turn the user's settled Side decisions into one prompt for the linked parent without sending it.
 ---
 
 # Reply
 
-Treat a bare `$reply` invocation as a complete request to draft, never to
-send.
+A bare `$reply` means: draft the current prompt, but do not send it.
 
-## Check that the discussion is still current
+## Check the parent
 
-Use only the Side task's exact linked parent. Before drafting, read its newest
-completed response when the exact route is available and compare it with the
-parent state underlying the Side discussion. Continue silently when nothing
-important changed. If a newer response fulfills, conflicts with, or invalidates
-the settled intent, do not draft; explain the change plainly and ask only for
-the decision now required.
+Use only this Side task's linked parent. Before drafting, read its newest
+completed response when possible. If it already completed the request or
+changed something that affects the user's decision, explain that change and ask
+only what is now needed. If current state is unavailable and could change the
+prompt, ask for the missing response instead of guessing.
 
-If binding or reading is unavailable or ambiguous, say so outside the proposed
-prompt. Use inherited context only when it is sufficient and a newer response
-could not materially change the draft; otherwise ask for the missing response
-without guessing.
+## Draft only what the user decided
 
-## Draft only what the user settled
+Write as the user speaking directly to the parent. Include the user's settled
+decisions and only the Side context the parent needs. Refer briefly to context
+the parent already knows. Leave out rejected ideas, unresolved suggestions, and
+the Side assistant's reasoning unless the user adopted it.
 
-Separate what the parent already knows from what the user explicitly decided
-in Side. Carry the decision and only the Side context the parent needs to
-understand and act on it. Preserve necessary uncertainty. Leave out rejected
-ideas, unsettled suggestions, unnecessary recap, and the Side assistant's
-reasoning or preferred wording unless the user explicitly adopted it.
+Match the user's tone and directness. Prefer natural prose. Keep technical
+wording only when the parent needs it to act correctly.
 
-Write as the user speaking directly to the parent. Match the user's recent
-tone, directness, vocabulary, and level of formality; do not imitate the Side
-assistant. Prefer plain prose and concrete instructions. Keep an exact
-technical term when the parent needs it to act correctly, but do not turn a
-casual user decision into formal project-management or agent-workflow language.
-Use Markdown inside the prompt only when it materially improves a genuinely
-complex request or preserves literal syntax.
+Do not add a planning phase, preview, review checkpoint, confirmation step, or
+`do not implement yet` limit unless the user chose it. When the user authorized
+the work from planning through implementation and validation, keep those as
+ordered steps in one prompt. Preserve a pause when the user explicitly asked to
+approve something before work continues.
 
-Reference unchanged parent-known context briefly. State Side-developed or
-materially revised outcomes concretely, with their accepted limits. Never make
-uncertainty sound certain or turn interest, partial agreement, or an assistant
-suggestion into the user's instruction.
+Never invent permission for a risky, destructive, external, or paid action. If
+the user has not settled what may happen, to what, within which limits, and when
+to stop, ask one focused question instead of drafting.
 
-If a material choice remains open, do not show a proposed prompt. Ask one plain,
-focused question covering only the missing choice. Before drafting a
-consequential authorization, confirm its target, action, quantity, cap or
-limits, and stop condition; never invent a missing permission.
+If any other open choice would change the result, ask that one question and do
+not show a prompt yet.
 
-## Show one clean proposed prompt
+## Show one prompt
 
-For a successful draft, output only the label `Current reply` followed by
-exactly one fenced `text` block containing the proposed prompt. Do not add a
-summary, rationale, approval explanation, or second version. Use a longer outer
-fence if the prompt contains fenced code.
+A successful response contains only `Current reply` followed by one fenced
+`text` block. Put only the proposed prompt inside the block. Use a longer outer
+fence if the prompt itself contains fenced code.
 
-A new successful draft replaces every earlier `Current reply`; re-invocation
-means redraft, not approval. The fence is presentation, not authorization.
-Never send the prompt, message the parent, or claim approval. Wait for an
-explicit transition to the sending phase.
+Each new draft replaces the previous `Current reply`. Displaying it is not
+approval to send. Never message the parent; wait for an explicit `$supervise`.

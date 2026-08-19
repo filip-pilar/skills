@@ -16,7 +16,7 @@ npx skills add filip-pilar/skills --list
 | Recover focus and move the current task forward | [`lockin`](skills/lockin/) |
 | Improve a React Doctor score without gaming it | [`dr-react`](skills/dr-react/) |
 | Create, diagnose, or refine an agent skill | [`skill-builder`](skills/skill-builder/) |
-| Orchestrate a Codex parent from Side | [`sidekick`](skills/sidekick/) → [`reply`](skills/reply/) → [`babysit`](skills/babysit/) |
+| Orchestrate a Codex parent from Side | [`sidekick`](skills/sidekick/) → [`reply`](skills/reply/) → [`supervise`](skills/supervise/) |
 
 ## Skills
 
@@ -49,13 +49,13 @@ orchestration skills are manual-only and are intended to be invoked in order:
 
 1. **`$sidekick` — understand and discuss.**
 2. **`$reply` — draft the exact parent prompt without sending.**
-3. **`$babysit` — approve, send, supervise, and verify.**
+3. **`$supervise` — send, follow, verify, and correct.**
 
 | Skill | Best for |
 | --- | --- |
 | [`sidekick`](skills/sidekick/) | Explaining a linked parent task in plain language and showing what, if anything, the user needs to decide. |
 | [`reply`](skills/reply/) | Turning settled Side discussion into one clear parent prompt in the user's voice without sending it. |
-| [`babysit`](skills/babysit/) | Sending the latest Reply prompt, supervising the work, and reporting the result plainly. |
+| [`supervise`](skills/supervise/) | Sending the latest Reply prompt, following and verifying the work, and making limited in-scope corrections. |
 | [`recover-side-thread`](skills/recover-side-thread/) | Recovering one expired or unavailable Side chat while explicitly refusing normal Codex tasks. |
 | [`tldr`](skills/tldr/) | Producing an ultra-concise digest of the complete available parent-task state. |
 
@@ -143,7 +143,7 @@ Review a skill and its bundled scripts before installing it. Pay particular atte
 | `setup-cli-proxy-gateway` | macOS/Linux shell and provider authentication; may change listeners, services, credentials, and agent configuration. |
 | `skill-builder` | Python and PyYAML for bundled validation scripts. |
 | `socket-audit` | Relevant package managers; online workflows may require network and Socket.dev access. |
-| `sidekick`, `reply`, `babysit` | Codex Side, an exact linked parent task, and manual invocation. |
+| `sidekick`, `reply`, `supervise` | Codex Side, an exact linked parent task, and manual invocation. |
 | `web-traffic-inspector` | Browser or Chrome control (or `agent-browser`), Python 3, and Node.js; undocumented website mechanisms may change. |
 | `wdyt` | An authenticated official Claude Code CLI; sends curated task context and selectively read repository content to Anthropic. |
 
