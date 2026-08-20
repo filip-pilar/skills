@@ -94,6 +94,11 @@ class SideThreadArchiveScriptTests(unittest.TestCase):
         )
         self.side_id = "01aside00-0000-0000-0000-000000000001"
         self.closed_side_id = "01aside00-0000-0000-0000-000000000002"
+        self.likely_side_id = "01aside00-0000-0000-0000-000000000003"
+        self.synthetic_thread_id = "01aside00-0000-0000-0000-000000000004"
+        self.possible_side_id = "01aside00-0000-0000-0000-000000000005"
+        self.internal_thread_id = "01aside00-0000-0000-0000-000000000006"
+        self.recovery_meta_id = "01aside00-0000-0000-0000-000000000007"
         self.parent_id = "01parent0-0000-0000-0000-000000000001"
         global_state = {
             "electron-persisted-atom-state": {
@@ -150,6 +155,72 @@ class SideThreadArchiveScriptTests(unittest.TestCase):
             "INSERT INTO logs (ts, ts_nanos, target, feedback_log_body, thread_id) VALUES (?, 0, ?, ?, ?)",
             (1785837501, "codex_core::session::handlers", closed_body, self.closed_side_id),
         )
+        likely_messages = (
+            '[$sidekick](/tmp/sidekick/SKILL.md)',
+            "good work, whats next",
+            "Im AI. We need to decide whether live webhook testing belongs in this adapter repository.",
+            "The Linq Chat SDK project should preserve the signed-webhook replay decisions.",
+        )
+        for index, message in enumerate(likely_messages):
+            body = (
+                'Submission sub=Submission { op: TurnInput { request: TurnInputRequest { '
+                f'input: UserInput {{ content: [Text {{ text: {json.dumps(message)}, '
+                'text_elements: [] }], client_id: "test" } } } }'
+            )
+            logs.execute(
+                "INSERT INTO logs (ts, ts_nanos, target, feedback_log_body, thread_id) VALUES (?, 0, ?, ?, ?)",
+                (1785837700 + index, "codex_core::session::handlers", body, self.likely_side_id),
+            )
+        logs.execute(
+            "INSERT INTO logs (ts, ts_nanos, target, feedback_log_body, thread_id) VALUES (?, 0, ?, ?, ?)",
+            (
+                1785837704,
+                "feedback_tags",
+                "session_task.run model=gpt-test cwd=/tmp/linq-chat-sdk}: sampling",
+                self.likely_side_id,
+            ),
+        )
+        synthetic_body = (
+            'Submission sub=Submission { op: TurnInput { request: TurnInputRequest { '
+            'input: UserInput { content: [Text { text: "<codex_delegation>Inspect the adapter.</codex_delegation>", '
+            'text_elements: [] }], client_id: "test" } } } }'
+        )
+        logs.execute(
+            "INSERT INTO logs (ts, ts_nanos, target, feedback_log_body, thread_id) VALUES (?, 0, ?, ?, ?)",
+            (1785837800, "codex_core::session::handlers", synthetic_body, self.synthetic_thread_id),
+        )
+        possible_body = (
+            'Submission sub=Submission { op: TurnInput { request: TurnInputRequest { '
+            'input: UserInput { content: [Text { text: "Check the rare adapter edge case.", '
+            'text_elements: [] }], client_id: "test" } } } }'
+        )
+        logs.execute(
+            "INSERT INTO logs (ts, ts_nanos, target, feedback_log_body, thread_id) VALUES (?, 0, ?, ?, ?)",
+            (1785837602, "codex_core::session::handlers", possible_body, self.possible_side_id),
+        )
+        internal_body = (
+            'Submission sub=Submission { op: TurnInput { request: TurnInputRequest { '
+            'input: UserInput { content: [Text { text: "You write the one-line activity update displayed beneath an existing Codex task title.", '
+            'text_elements: [] }], client_id: "test" } } } }'
+        )
+        logs.execute(
+            "INSERT INTO logs (ts, ts_nanos, target, feedback_log_body, thread_id) VALUES (?, 0, ?, ?, ?)",
+            (1785837900, "codex_core::session::handlers", internal_body, self.internal_thread_id),
+        )
+        recovery_messages = (
+            '[$recover-side-thread](/tmp/recover-side-thread/SKILL.md)',
+            "Which one is the latest one from the Linq Chat SDK project?",
+        )
+        for index, message in enumerate(recovery_messages):
+            body = (
+                'Submission sub=Submission { op: TurnInput { request: TurnInputRequest { '
+                f'input: UserInput {{ content: [Text {{ text: {json.dumps(message)}, '
+                'text_elements: [] }], client_id: "test" } } } }'
+            )
+            logs.execute(
+                "INSERT INTO logs (ts, ts_nanos, target, feedback_log_body, thread_id) VALUES (?, 0, ?, ?, ?)",
+                (1785838000 + index, "codex_core::session::handlers", body, self.recovery_meta_id),
+            )
         logs.commit()
         logs.close()
 
@@ -219,6 +290,193 @@ class SideThreadArchiveScriptTests(unittest.TestCase):
         self.assertFalse(closed["registered_in_tab_state"])
         self.assertIn("reply", closed["title"].lower())
 
+    def test_side_list_finds_likely_chat_without_fork_marker(self) -> None:
+        result = self.run_script(
+            "side-list",
+            "--codex-home",
+            str(self.home),
+            "--limit",
+            "10",
+            "--scan-limit",
+            "20",
+            "--format",
+            "json",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = json.loads(result.stdout)
+        by_id = {item["thread_id"]: item for item in report["candidates"]}
+        self.assertEqual(report["candidates"][0]["thread_id"], self.likely_side_id)
+        self.assertEqual(report["groups"][-1]["project"], "Unknown project")
+        likely = by_id[self.likely_side_id]
+        self.assertEqual(likely["source_type"], "side_chat_likely")
+        self.assertEqual(likely["confidence"], "likely")
+        self.assertFalse(likely["fork_marker_observed"])
+        self.assertEqual(likely["workspace"], "linq-chat-sdk")
+        self.assertEqual(likely["project_label"], "Linq Chat SDK")
+        self.assertIn("live webhook testing", likely["title"].lower())
+        self.assertNotIn("recover-side-thread", likely["title"])
+        self.assertEqual(report["sources_scanned"]["interactive_log_threads_scanned"], 7)
+
+    def test_side_list_excludes_synthetic_and_unmatched_single_turn_threads(self) -> None:
+        broad = self.run_script(
+            "side-list",
+            "--codex-home",
+            str(self.home),
+            "--limit",
+            "20",
+            "--scan-limit",
+            "20",
+            "--format",
+            "json",
+        )
+        self.assertEqual(broad.returncode, 0, broad.stderr)
+        broad_ids = {item["thread_id"] for item in json.loads(broad.stdout)["candidates"]}
+        self.assertNotIn(self.synthetic_thread_id, broad_ids)
+        self.assertNotIn(self.internal_thread_id, broad_ids)
+        self.assertNotIn(self.recovery_meta_id, broad_ids)
+        self.assertNotIn(self.possible_side_id, broad_ids)
+
+        narrowed = self.run_script(
+            "side-list",
+            "--codex-home",
+            str(self.home),
+            "--query",
+            "rare adapter edge case",
+            "--limit",
+            "20",
+            "--scan-limit",
+            "20",
+            "--format",
+            "json",
+        )
+        self.assertEqual(narrowed.returncode, 0, narrowed.stderr)
+        candidates = json.loads(narrowed.stdout)["candidates"]
+        self.assertEqual([item["thread_id"] for item in candidates], [self.possible_side_id])
+        self.assertEqual(candidates[0]["confidence"], "possible")
+
+    def test_side_list_query_searches_all_turns_and_groups_by_project(self) -> None:
+        result = self.run_script(
+            "side-list",
+            "--codex-home",
+            str(self.home),
+            "--query",
+            "signed-webhook replay",
+            "--limit",
+            "20",
+            "--scan-limit",
+            "20",
+            "--format",
+            "json",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = json.loads(result.stdout)
+        self.assertEqual(
+            [item["thread_id"] for item in report["candidates"]],
+            [self.likely_side_id],
+        )
+        self.assertEqual(report["groups"][0]["project"], "Linq Chat SDK")
+
+    def test_side_list_markdown_is_grouped_and_compact(self) -> None:
+        result = self.run_script(
+            "side-list",
+            "--codex-home",
+            str(self.home),
+            "--limit",
+            "20",
+            "--scan-limit",
+            "20",
+            "--format",
+            "markdown",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("I found 3 matching Side chats; showing 1–3.", result.stdout)
+        self.assertIn("Linq Chat SDK\n", result.stdout)
+        self.assertIn("Confirmed Side chat", result.stdout)
+        self.assertIn("Likely Side chat", result.stdout)
+        self.assertIn("Reply with the number you want to recover.", result.stdout)
+        self.assertNotIn("/tmp/", result.stdout)
+        self.assertNotIn(self.likely_side_id, result.stdout)
+
+    def test_side_list_reports_totals_and_supports_show_more_pagination(self) -> None:
+        first = self.run_script(
+            "side-list",
+            "--codex-home",
+            str(self.home),
+            "--limit",
+            "1",
+            "--scan-limit",
+            "20",
+            "--format",
+            "json",
+        )
+        self.assertEqual(first.returncode, 0, first.stderr)
+        first_report = json.loads(first.stdout)
+        self.assertEqual(first_report["pagination"]["total_matches"], 3)
+        self.assertEqual(first_report["pagination"]["returned"], 1)
+        self.assertTrue(first_report["pagination"]["has_more"])
+        self.assertEqual(first_report["pagination"]["next_offset"], 1)
+        self.assertEqual(
+            first_report["pagination"]["confidence_counts"],
+            {"confirmed": 1, "likely": 2, "possible": 0},
+        )
+
+        more = self.run_script(
+            "side-list",
+            "--codex-home",
+            str(self.home),
+            "--limit",
+            "1",
+            "--offset",
+            "1",
+            "--scan-limit",
+            "20",
+            "--format",
+            "markdown",
+        )
+        self.assertEqual(more.returncode, 0, more.stderr)
+        self.assertIn("showing 2–2", more.stdout)
+        self.assertIn("2. ", more.stdout)
+        self.assertIn("More matches are available; ask to show more.", more.stdout)
+
+    def test_side_list_supports_project_phrase_title_and_id_filters(self) -> None:
+        filter_cases = (
+            ("--project", "linq chat sdk", self.likely_side_id),
+            ("--phrase", "signed-webhook replay", self.likely_side_id),
+            ("--title", "live webhook testing", self.likely_side_id),
+            ("--thread-id", self.possible_side_id, self.possible_side_id),
+        )
+        for flag, value, expected_id in filter_cases:
+            with self.subTest(flag=flag):
+                result = self.run_script(
+                    "side-list",
+                    "--codex-home",
+                    str(self.home),
+                    flag,
+                    value,
+                    "--limit",
+                    "20",
+                    "--scan-limit",
+                    "20",
+                    "--format",
+                    "json",
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                candidates = json.loads(result.stdout)["candidates"]
+                self.assertEqual([item["thread_id"] for item in candidates], [expected_id])
+
+        possible = self.run_script(
+            "side-list",
+            "--codex-home",
+            str(self.home),
+            "--thread-id",
+            self.possible_side_id,
+            "--format",
+            "markdown",
+        )
+        self.assertEqual(possible.returncode, 0, possible.stderr)
+        self.assertIn("Possible Side chat", possible.stdout)
+        self.assertIn("Confirmation required before recovery", possible.stdout)
+
     def test_side_inspect_recovers_user_turn_and_marks_assistant_gap(self) -> None:
         result = self.run_script(
             "side-inspect",
@@ -233,6 +491,33 @@ class SideThreadArchiveScriptTests(unittest.TestCase):
         self.assertIn("Batch 013A", report["visible_messages"][0]["text"])
         self.assertFalse(report["coverage"]["assistant_message_bodies_available"])
         self.assertTrue(report["coverage"]["raw_tool_inputs_and_outputs_excluded"])
+
+    def test_side_inspect_requires_confirmation_for_possible_candidate(self) -> None:
+        blocked = self.run_script(
+            "side-inspect",
+            "--codex-home",
+            str(self.home),
+            "--thread-id",
+            self.possible_side_id,
+        )
+        self.assertEqual(blocked.returncode, 1)
+        blocked_report = json.loads(blocked.stdout)
+        self.assertTrue(blocked_report["confirmation_required"])
+        self.assertEqual(blocked_report["candidate"]["confidence"], "possible")
+        self.assertNotIn("visible_messages", blocked_report)
+
+        confirmed = self.run_script(
+            "side-inspect",
+            "--codex-home",
+            str(self.home),
+            "--thread-id",
+            self.possible_side_id,
+            "--confirm-possible",
+        )
+        self.assertEqual(confirmed.returncode, 0, confirmed.stderr)
+        confirmed_report = json.loads(confirmed.stdout)
+        self.assertEqual(confirmed_report["confidence"], "possible")
+        self.assertIn("rare adapter edge case", confirmed_report["visible_messages"][0]["text"])
 
     def test_classify_returns_metadata_without_message_previews_or_paths(self) -> None:
         result = self.run_script(
@@ -742,7 +1027,9 @@ class SideThreadArchiveScriptTests(unittest.TestCase):
 
         self.assertIn("Main Codex task (confirmed)", instructions)
         self.assertIn("Side chat (confirmed)", instructions)
-        self.assertIn("Historical Side-chat candidate", instructions)
+        self.assertIn("Likely Side chat", instructions)
+        self.assertIn("Possible Side chat", instructions)
+        self.assertIn("Group numbered choices by Codex project", instructions)
         self.assertIn("Discover local Side chats first", instructions)
         self.assertIn("side-list", instructions)
         self.assertIn("side-inspect", instructions)

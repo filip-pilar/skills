@@ -52,6 +52,37 @@ META_RECOVERY_PATTERN = re.compile(
     r"\b(?:find|locate|recover|restore|revive)\b.{0,40}\b(?:archived?|expired|task|thread|project)\b",
     re.IGNORECASE,
 )
+SKILL_ONLY_PATTERN = re.compile(
+    r"^\s*\[\$[^\]]+\]\([^)]*SKILL\.md\)\s*$",
+    re.IGNORECASE,
+)
+SKILL_LINK_PATTERN = re.compile(r"\[\$[^\]]+\]\([^)]*SKILL\.md\)", re.IGNORECASE)
+SYNTHETIC_INPUT_PATTERN = re.compile(
+    r"^\s*<(?:codex_delegation|subagent_notification|automation|heartbeat)\b",
+    re.IGNORECASE,
+)
+INTERNAL_INPUT_PATTERN = re.compile(
+    r"^(?:You write the one-line activity update displayed beneath an existing Codex task title\.|"
+    r"The following is the Codex agent history(?: added since your last approval assessment)?\b|"
+    r"# Overview\s+Generate 0 to 3 hyperpersonalized suggestions\b|"
+    r"You are in a fork of an existing Codex thread\.|"
+    r"You are a helpful assistant\.)",
+    re.IGNORECASE,
+)
+RECOVERY_SKILL_PATTERN = re.compile(r"\[\$recover-(?:side-)?thread\]", re.IGNORECASE)
+RECOVERY_HANDOFF_PATTERN = re.compile(
+    r"^You are continuing work from an expired Codex Side chat\.", re.IGNORECASE
+)
+SIDE_REFERENCE_PATTERN = re.compile(
+    r"\b(?:side\s*chat|side\s*thread|parent\s+(?:task|thread))\b",
+    re.IGNORECASE,
+)
+GENERIC_MESSAGE_PATTERN = re.compile(
+    r"^(?:wdyt\??|what(?:'?s| is) next\??|good work[,.! ]*what(?:'?s| is) next\??|"
+    r"elaborate(?: on this)?|give me (?:a )?tldr|approved|sounds good|continue|proceed)[.!? ]*$",
+    re.IGNORECASE,
+)
+PROJECT_ACRONYMS = {"ai", "api", "cli", "mcp", "sdk", "ui", "ux"}
 
 
 def resolve_codex_home(raw: str | None) -> Path:
@@ -335,111 +366,352 @@ def historical_fork_ids(connection: sqlite3.Connection, limit: int) -> list[str]
     return [row[0] for row in rows if isinstance(row[0], str)]
 
 
-def side_log_summary(connection: sqlite3.Connection, thread_id: str) -> dict[str, Any]:
+def recent_interactive_thread_ids(connection: sqlite3.Connection, limit: int) -> list[str]:
+    """Find recent threads with submitted user input, without classifying them yet."""
+
     try:
         rows = connection.execute(
             """
-            SELECT ts, feedback_log_body
+            SELECT thread_id, MAX(ts) AS latest
             FROM logs
-            WHERE thread_id = ?
-              AND target = 'codex_core::session::handlers'
+            WHERE target = 'codex_core::session::handlers'
               AND (feedback_log_body LIKE '%op: TurnInput%'
                    OR feedback_log_body LIKE '%op: UserInput%')
-            ORDER BY ts ASC, ts_nanos ASC
+              AND thread_id IS NOT NULL AND thread_id != ''
+            GROUP BY thread_id
+            ORDER BY latest DESC
+            LIMIT ?
             """,
-            (thread_id,),
+            (limit,),
         ).fetchall()
-        bounds = connection.execute(
-            "SELECT MIN(ts), MAX(ts), COUNT(*) FROM logs WHERE thread_id = ?", (thread_id,)
-        ).fetchone()
     except sqlite3.Error:
-        return {"messages": [], "cwd": "", "first": None, "last": None, "log_rows": 0}
-    messages: list[dict[str, Any]] = []
-    seen: set[str] = set()
-    cwd = ""
-    for timestamp, body in rows:
-        cwd = cwd or cwd_from_log(body)
-        text = redact_sensitive(user_text_from_log(body)).strip()
-        digest = hashlib.sha256(text.encode("utf-8")).hexdigest() if text else ""
-        if not text or digest in seen:
-            continue
-        seen.add(digest)
-        messages.append({
-            "role": "user",
-            "timestamp": display_timestamp(parse_timestamp(timestamp)),
-            "text": text,
-        })
-    return {
-        "messages": messages,
-        "cwd": cwd,
-        "first": parse_timestamp(bounds[0]) if bounds else None,
-        "last": parse_timestamp(bounds[1]) if bounds else None,
-        "log_rows": int(bounds[2]) if bounds else 0,
+        return []
+    return [row[0] for row in rows if isinstance(row[0], str)]
+
+
+def side_log_summaries(
+    connection: sqlite3.Connection, thread_ids: Iterable[str]
+) -> dict[str, dict[str, Any]]:
+    """Batch user-turn, workspace, and activity evidence for candidate IDs."""
+
+    ids = list(dict.fromkeys(item for item in thread_ids if item))
+    summaries: dict[str, dict[str, Any]] = {
+        item: {
+            "messages": [],
+            "cwd": "",
+            "first": None,
+            "last": None,
+            "log_rows": 0,
+            "synthetic_messages": 0,
+            "first_input_recovery": False,
+            "_input_count": 0,
+            "_seen": set(),
+        }
+        for item in ids
     }
+    for offset in range(0, len(ids), 400):
+        chunk = ids[offset : offset + 400]
+        placeholders = ",".join("?" for _ in chunk)
+        try:
+            rows = connection.execute(
+                f"""
+                SELECT thread_id, ts, feedback_log_body
+                FROM logs
+                WHERE thread_id IN ({placeholders})
+                  AND target = 'codex_core::session::handlers'
+                  AND (feedback_log_body LIKE '%op: TurnInput%'
+                       OR feedback_log_body LIKE '%op: UserInput%')
+                ORDER BY thread_id ASC, ts ASC, ts_nanos ASC
+                """,
+                chunk,
+            ).fetchall()
+            cwd_rows = connection.execute(
+                f"""
+                SELECT thread_id, feedback_log_body
+                FROM logs
+                WHERE thread_id IN ({placeholders})
+                  AND (feedback_log_body LIKE '%cwd=%'
+                       OR feedback_log_body LIKE '%cwd: \"%')
+                ORDER BY ts ASC, ts_nanos ASC
+                """,
+                chunk,
+            ).fetchall()
+            bounds = connection.execute(
+                f"""
+                SELECT thread_id, MIN(ts), MAX(ts), COUNT(*)
+                FROM logs
+                WHERE thread_id IN ({placeholders})
+                GROUP BY thread_id
+                """,
+                chunk,
+            ).fetchall()
+        except sqlite3.Error:
+            continue
+        for side_id, timestamp, body in rows:
+            summary = summaries.get(side_id)
+            if summary is None:
+                continue
+            summary["cwd"] = summary["cwd"] or cwd_from_log(body)
+            text = redact_sensitive(user_text_from_log(body)).strip()
+            if not text:
+                continue
+            digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+            if digest in summary["_seen"]:
+                continue
+            summary["_seen"].add(digest)
+            summary["_input_count"] += 1
+            if summary["_input_count"] == 1 and (
+                RECOVERY_SKILL_PATTERN.search(text) or RECOVERY_HANDOFF_PATTERN.search(text)
+            ):
+                summary["first_input_recovery"] = True
+            if is_synthetic_input(text):
+                summary["synthetic_messages"] += 1
+                continue
+            summary["messages"].append(
+                {
+                    "role": "user",
+                    "timestamp": display_timestamp(parse_timestamp(timestamp)),
+                    "text": text,
+                }
+            )
+        for side_id, body in cwd_rows:
+            summary = summaries.get(side_id)
+            if summary is not None:
+                summary["cwd"] = summary["cwd"] or cwd_from_log(body)
+        for side_id, first, last, count in bounds:
+            summary = summaries.get(side_id)
+            if summary is None:
+                continue
+            summary["first"] = parse_timestamp(first)
+            summary["last"] = parse_timestamp(last)
+            summary["log_rows"] = int(count or 0)
+    for summary in summaries.values():
+        summary.pop("_seen", None)
+        summary.pop("_input_count", None)
+    return summaries
+
+
+def side_log_summary(connection: sqlite3.Connection, thread_id: str) -> dict[str, Any]:
+    return side_log_summaries(connection, [thread_id]).get(
+        thread_id,
+        {
+            "messages": [],
+            "cwd": "",
+            "first": None,
+            "last": None,
+            "log_rows": 0,
+            "synthetic_messages": 0,
+            "first_input_recovery": False,
+        },
+    )
+
+
+def group_side_candidates(
+    items: list[dict[str, Any]], query: str = ""
+) -> list[dict[str, Any]]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for item in items:
+        grouped.setdefault(item["project_label"], []).append(item)
+    normalized_query = compact_text(query).lower()
+    groups = [
+        {
+            "project": project,
+            "candidates": sorted(
+                candidates,
+                key=lambda item: (item["sort_epoch"], item["thread_id"]),
+                reverse=True,
+            ),
+        }
+        for project, candidates in grouped.items()
+    ]
+    groups.sort(
+        key=lambda group: (
+            group["project"] == "Unknown project",
+            -int(bool(normalized_query and normalized_query in group["project"].lower())),
+            -max(item["sort_epoch"] for item in group["candidates"]),
+            group["project"].lower(),
+        )
+    )
+    return groups
 
 
 def discover_side_chats(
-    codex_home: Path, *, limit: int, scan_limit: int, query: str = "", thread_id: str = ""
-) -> tuple[list[dict[str, Any]], dict[str, int]]:
-    """Discover confirmed registered Side chats plus historical fork candidates."""
+    codex_home: Path,
+    *,
+    limit: int,
+    offset: int = 0,
+    scan_limit: int,
+    query: str = "",
+    project: str = "",
+    phrase: str = "",
+    title_filter: str = "",
+    thread_id: str = "",
+) -> tuple[list[dict[str, Any]], dict[str, int], dict[str, Any]]:
+    """Discover confirmed, likely, and query-matched possible Side chats."""
 
     registry = load_side_registry(codex_home)
     database_by_id, _ = load_database_metadata(codex_home)
     connection = open_logs(codex_home)
     ids = list(registry)
     historical: list[str] = []
+    interactive: list[str] = []
     if connection is not None:
         historical = historical_fork_ids(connection, scan_limit)
         ids.extend(item for item in historical if item not in registry and item not in database_by_id)
+        interactive = recent_interactive_thread_ids(connection, scan_limit)
+        ids.extend(item for item in interactive if item not in ids and item not in database_by_id)
     if thread_id and thread_id not in ids:
         ids.append(thread_id)
     normalized_query = compact_text(query).lower()
+    normalized_project = compact_text(project).lower()
+    normalized_phrase = compact_text(phrase).lower()
+    normalized_title = compact_text(title_filter).lower()
+    narrowed = bool(
+        normalized_query
+        or normalized_project
+        or normalized_phrase
+        or normalized_title
+        or thread_id
+    )
+    summaries = side_log_summaries(connection, ids) if connection is not None else {}
     items: list[dict[str, Any]] = []
     for side_id in ids:
         if thread_id and side_id != thread_id:
             continue
-        evidence = side_log_summary(connection, side_id) if connection is not None else {
-            "messages": [], "cwd": "", "first": None, "last": None, "log_rows": 0
-        }
+        if side_id in database_by_id and side_id not in registry:
+            continue
+        evidence = summaries.get(side_id, {
+            "messages": [], "cwd": "", "first": None, "last": None, "log_rows": 0,
+            "synthetic_messages": 0, "first_input_recovery": False,
+        })
         messages = evidence["messages"]
         parent = registry.get(side_id, {}).get("parent_thread_id", "")
         parent_meta = database_by_id.get(parent, {})
         cwd = evidence["cwd"] or parent_meta.get("cwd") or "unknown"
-        first_user = messages[0]["text"] if messages else ""
         last_user = messages[-1]["text"] if messages else ""
-        title = short_display_title(first_user or parent_meta.get("title") or "Untitled Side chat")
-        searchable = " ".join((title, first_user, last_user, str(cwd), str(parent_meta.get("title", "")))).lower()
+        title = choose_side_title(messages, parent_meta.get("title", ""))
+        searchable = " ".join(
+            (title, *(message["text"] for message in messages), str(cwd), str(parent_meta.get("title", "")))
+        ).lower()
+        message_text = " ".join(message["text"] for message in messages).lower()
+        project_searchable = " ".join(
+            (workspace_label(cwd), project_display_name(cwd), str(cwd))
+        ).lower()
         if normalized_query and normalized_query not in searchable:
             continue
+        if normalized_project and normalized_project not in project_searchable:
+            continue
+        if normalized_phrase and normalized_phrase not in message_text:
+            continue
+        if normalized_title and normalized_title not in title.lower():
+            continue
         confirmed = side_id in registry
+        fork_marker = side_id in historical
+        if evidence.get("first_input_recovery") and not thread_id:
+            continue
+        if not confirmed and not messages:
+            continue
+        substantive_count = sum(is_substantive_message(message["text"]) for message in messages)
+        explicit_side_reference = any(
+            SIDE_REFERENCE_PATTERN.search(compact_text(message["text"])) for message in messages
+        )
+        if confirmed:
+            source_type = "side_chat_confirmed"
+            confidence = "confirmed"
+            confidence_label = "Confirmed Side chat"
+        elif fork_marker:
+            source_type = "side_chat_log_candidate"
+            confidence = "likely"
+            confidence_label = "Likely Side chat"
+        elif substantive_count >= 2 or explicit_side_reference:
+            source_type = "side_chat_likely"
+            confidence = "likely"
+            confidence_label = "Likely Side chat"
+        elif narrowed and substantive_count >= 1:
+            source_type = "side_chat_possible"
+            confidence = "possible"
+            confidence_label = "Possible Side chat"
+        else:
+            continue
+        workspace = workspace_label(cwd)
+        project_label = project_display_name(cwd)
+        query_score = (
+            6 * int(bool(normalized_query and normalized_query in str(cwd).lower()))
+            + 4 * int(bool(normalized_query and normalized_query in title.lower()))
+            + min(3, searchable.count(normalized_query)) if normalized_query else 0
+        )
+        query_score += 4 * int(bool(normalized_title and normalized_title in title.lower()))
+        query_score += 3 * int(bool(normalized_phrase and normalized_phrase in message_text))
+        query_score += 2 * int(bool(normalized_project and normalized_project in project_searchable))
         items.append({
             "thread_id": side_id,
             "parent_thread_id": parent,
-            "source_type": "side_chat_confirmed" if confirmed else "side_chat_log_candidate",
+            "source_type": source_type,
+            "confidence": confidence,
+            "confidence_label": confidence_label,
             "registered_in_tab_state": confirmed,
+            "fork_marker_observed": fork_marker,
             "placement": registry.get(side_id, {}).get("placement", "unknown"),
             "title": title,
             "parent_title": safe_preview(parent_meta.get("title"), 140),
             "cwd": str(cwd),
-            "workspace": workspace_label(cwd),
+            "workspace": workspace,
+            "project_label": project_label,
             "first_observed": display_timestamp(evidence["first"]),
             "last_observed": display_timestamp(evidence["last"]),
             "last_user": safe_preview(last_user, 220),
             "user_messages_observed": len(messages),
+            "substantive_user_messages": substantive_count,
+            "synthetic_messages_excluded": evidence.get("synthetic_messages", 0),
             "log_rows_observed": evidence["log_rows"],
             "sort_epoch": evidence["last"].timestamp() if evidence["last"] else 0,
+            "_query_score": query_score,
         })
     if connection is not None:
         connection.close()
-    items.sort(key=lambda item: (item["sort_epoch"], item["thread_id"]), reverse=True)
-    return items[:limit], {
-        "registered_side_chats": len(registry),
-        "historical_forks_scanned": len(historical),
+    confidence_rank = {"confirmed": 3, "likely": 2, "possible": 1}
+    items.sort(
+        key=lambda item: (
+            item["_query_score"],
+            item["sort_epoch"],
+            confidence_rank[item["confidence"]],
+            item["thread_id"],
+        ),
+        reverse=True,
+    )
+    total_matches = len(items)
+    confidence_counts = {
+        confidence: sum(item["confidence"] == confidence for item in items)
+        for confidence in ("confirmed", "likely", "possible")
     }
+    selected = items[offset : offset + limit]
+    for item in selected:
+        item.pop("_query_score", None)
+    return (
+        selected,
+        {
+            "registered_side_chats": len(registry),
+            "historical_forks_scanned": len(historical),
+            "interactive_log_threads_scanned": len(interactive),
+        },
+        {
+            "total_matches": total_matches,
+            "offset": offset,
+            "limit": limit,
+            "returned": len(selected),
+            "has_more": offset + len(selected) < total_matches,
+            "next_offset": offset + len(selected) if offset + len(selected) < total_matches else None,
+            "confidence_counts": confidence_counts,
+        },
+    )
 
 
 def inspect_side_chat(
-    codex_home: Path, thread_id: str, max_messages: int, max_message_chars: int
+    codex_home: Path,
+    thread_id: str,
+    max_messages: int,
+    max_message_chars: int,
+    confirm_possible: bool = False,
 ) -> dict[str, Any]:
     registry = load_side_registry(codex_home)
     database_by_id, _ = load_database_metadata(codex_home)
@@ -456,12 +728,43 @@ def inspect_side_chat(
         text = item["text"]
         messages.append({**item, "text": text[:max_message_chars], "truncated": len(text) > max_message_chars})
     registered = registry.get(thread_id, {})
+    substantive_count = sum(
+        is_substantive_message(message["text"]) for message in evidence["messages"]
+    )
+    explicit_side_reference = any(
+        SIDE_REFERENCE_PATTERN.search(compact_text(message["text"]))
+        for message in evidence["messages"]
+    )
+    if registered:
+        source_type = "side_chat_confirmed"
+        confidence = "confirmed"
+    elif historical:
+        source_type = "side_chat_log_candidate"
+        confidence = "likely"
+    elif substantive_count >= 2 or explicit_side_reference:
+        source_type = "side_chat_likely"
+        confidence = "likely"
+    else:
+        source_type = "side_chat_possible"
+        confidence = "possible"
+    if confidence == "possible" and not confirm_possible:
+        title = choose_side_title(evidence["messages"])
+        cwd = evidence["cwd"] or "unknown"
+        return {
+            "error": "Possible Side chat requires explicit user confirmation before inspection.",
+            "confirmation_required": True,
+            "candidate": {
+                "title": title,
+                "project_label": project_display_name(cwd),
+                "last_observed": display_timestamp(evidence["last"]),
+                "confidence": confidence,
+            },
+        }
     return {
         "thread_id": thread_id,
         "parent_thread_id": registered.get("parent_thread_id", ""),
-        "source_type": "side_chat_confirmed" if registered else (
-            "side_chat_log_candidate" if historical else "unverified"
-        ),
+        "source_type": source_type,
+        "confidence": confidence,
         "registered_in_tab_state": bool(registered),
         "cwd": evidence["cwd"] or "unknown",
         "first_observed": display_timestamp(evidence["first"]),
@@ -584,6 +887,64 @@ def short_display_title(value: Any) -> str:
     return text or "Untitled archived thread"
 
 
+def is_synthetic_input(value: Any) -> bool:
+    text = compact_text(value)
+    return bool(
+        SYNTHETIC_INPUT_PATTERN.search(text) or INTERNAL_INPUT_PATTERN.search(text)
+    )
+
+
+def is_substantive_message(value: Any) -> bool:
+    text = compact_text(clean_visible_text(value))
+    if not text or is_synthetic_input(text) or SKILL_ONLY_PATTERN.fullmatch(text):
+        return False
+    if GENERIC_MESSAGE_PATTERN.fullmatch(text):
+        return False
+    without_skills = compact_text(SKILL_LINK_PATTERN.sub("", text)).strip(" ,:;.-")
+    if SKILL_LINK_PATTERN.search(text) and len(re.findall(r"[A-Za-z0-9]+", without_skills)) <= 5:
+        return False
+    return len(re.findall(r"[A-Za-z0-9]+", text)) >= 4
+
+
+def title_source(value: Any) -> str:
+    text = compact_text(clean_visible_text(value))
+    text = re.sub(r"^wdyt\?\s*", "", text, flags=re.IGNORECASE)
+    text = re.sub(
+        r"^anything else or more verifications etc needed\?\s*(?:wdyt\?\s*)?",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+    sentence = re.match(r"^([^.!?]+[.!?])\s+(.+)$", text)
+    if sentence:
+        opener_words = re.findall(r"[A-Za-z0-9]+", sentence.group(1))
+        remainder_words = re.findall(r"[A-Za-z0-9]+", sentence.group(2))
+        if len(opener_words) <= 3 and len(remainder_words) >= 4:
+            text = sentence.group(2)
+    return text.strip()
+
+
+def choose_side_title(messages: list[dict[str, Any]], parent_title: Any = "") -> str:
+    """Choose a topic-bearing label instead of a skill invocation or generic reply."""
+
+    for message in messages:
+        text = message.get("text", "")
+        if is_substantive_message(text) and not META_RECOVERY_PATTERN.search(compact_text(text)):
+            source = title_source(text)
+            if source:
+                return short_display_title(source)
+    parent = safe_preview(parent_title, 140)
+    if parent and is_substantive_message(parent):
+        return short_display_title(parent)
+    for message in messages:
+        text = message.get("text", "")
+        if is_substantive_message(text):
+            source = title_source(text)
+            if source:
+                return short_display_title(source)
+    return "Untitled Side chat"
+
+
 def workspace_label(value: Any) -> str:
     """Return a short workspace label without exposing its full path."""
 
@@ -598,6 +959,18 @@ def workspace_label(value: Any) -> str:
     if (label in {".", ".."} or len(label) <= 1) and len(parts) > 1:
         label = parts[-2]
     return label or "workspace"
+
+
+def project_display_name(value: Any) -> str:
+    label = workspace_label(value)
+    if label == "unknown workspace":
+        return "Unknown project"
+    words = re.split(r"[-_\s]+", label)
+    return " ".join(
+        word.upper() if word.lower() in PROJECT_ACRONYMS else word.capitalize()
+        for word in words
+        if word
+    ) or "Unknown project"
 
 
 def index_path(
@@ -745,6 +1118,43 @@ def format_discovery_markdown(items: list[dict[str, Any]], scanned: int) -> str:
                 "",
             ]
         )
+    return "\n".join(lines).rstrip()
+
+
+def format_side_discovery_markdown(
+    items: list[dict[str, Any]],
+    scanned: dict[str, int],
+    pagination: dict[str, Any],
+    query: str = "",
+) -> str:
+    if not items:
+        if pagination["total_matches"]:
+            return "No Side chats remain on this page. Start again from the first page."
+        return "No matching Side-chat state or log evidence was found."
+    start = pagination["offset"] + 1
+    end = pagination["offset"] + pagination["returned"]
+    total = pagination["total_matches"]
+    lines = [f"I found {total} matching Side chats; showing {start}–{end}.", ""]
+    number = start
+    for group in group_side_candidates(items, query):
+        lines.extend([group["project"], ""])
+        for item in group["candidates"]:
+            lines.append(f"{number}. {item['title']}")
+            metadata = (
+                f"   {item['last_observed']} · {item['confidence_label']} · "
+                f"{item['user_messages_observed']} user "
+                f"{'message' if item['user_messages_observed'] == 1 else 'messages'}"
+            )
+            lines.append(metadata)
+            if item["confidence"] == "possible":
+                lines.append("   Confirmation required before recovery")
+            if item.get("parent_title"):
+                lines.append(f"   Parent: {item['parent_title']}")
+            lines.append("")
+            number += 1
+    if pagination["has_more"]:
+        lines.extend(["More matches are available; ask to show more.", ""])
+    lines.append("Reply with the number you want to recover.")
     return "\n".join(lines).rstrip()
 
 
@@ -1071,8 +1481,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     side_list_parser.add_argument("--codex-home", type=str, default=None)
     side_list_parser.add_argument("--limit", type=int, default=DEFAULT_LIMIT)
+    side_list_parser.add_argument("--offset", type=int, default=0)
     side_list_parser.add_argument("--scan-limit", type=int, default=DEFAULT_SCAN_LIMIT)
     side_list_parser.add_argument("--query", type=str, default="")
+    side_list_parser.add_argument("--project", type=str, default="")
+    side_list_parser.add_argument("--phrase", type=str, default="")
+    side_list_parser.add_argument("--title", type=str, default="")
     side_list_parser.add_argument("--thread-id", type=str, default="")
     side_list_parser.add_argument("--format", choices=("markdown", "json"), default="markdown")
 
@@ -1083,6 +1497,7 @@ def build_parser() -> argparse.ArgumentParser:
     side_inspect_parser.add_argument("--thread-id", type=str, required=True)
     side_inspect_parser.add_argument("--max-message-chars", type=int, default=DEFAULT_MAX_MESSAGE_CHARS)
     side_inspect_parser.add_argument("--max-messages", type=int, default=DEFAULT_MAX_MESSAGES)
+    side_inspect_parser.add_argument("--confirm-possible", action="store_true")
     side_inspect_parser.add_argument("--format", choices=("json",), default="json")
 
     list_parser = subparsers.add_parser("list", help="list recent Side-chat archive candidates")
@@ -1121,27 +1536,31 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     if args.command == "side-list":
-        if args.limit < 1 or args.scan_limit < 1:
-            parser.error("--limit and --scan-limit must be positive")
+        if args.limit < 1 or args.scan_limit < 1 or args.offset < 0:
+            parser.error("--limit and --scan-limit must be positive; --offset cannot be negative")
         home = resolve_codex_home(args.codex_home)
-        items, scanned = discover_side_chats(
+        items, scanned, pagination = discover_side_chats(
             home,
             limit=args.limit,
+            offset=args.offset,
             scan_limit=args.scan_limit,
             query=args.query,
+            project=args.project,
+            phrase=args.phrase,
+            title_filter=args.title,
             thread_id=compact_text(args.thread_id),
         )
-        report = {"codex_home": str(home), "sources_scanned": scanned, "candidates": items}
+        report = {
+            "codex_home": str(home),
+            "sources_scanned": scanned,
+            "pagination": pagination,
+            "groups": group_side_candidates(items, args.query),
+            "candidates": items,
+        }
         if args.format == "json":
             print(json.dumps(report, indent=2, ensure_ascii=False))
         else:
-            print("Local Side-chat candidates (read-only):")
-            if not items:
-                print("No matching Side-chat state or log evidence was found.")
-            for number, item in enumerate(items, start=1):
-                confidence = "confirmed" if item["registered_in_tab_state"] else "historical fork candidate"
-                print(f"{number}. {item['title']}")
-                print(f"   {confidence} | {item['workspace']} | last observed: {item['last_observed']}")
+            print(format_side_discovery_markdown(items, scanned, pagination, args.query))
         return 0
     if args.command == "side-inspect":
         if args.max_message_chars < 1 or args.max_messages < 1:
@@ -1151,6 +1570,7 @@ def main(argv: list[str] | None = None) -> int:
             compact_text(args.thread_id),
             args.max_messages,
             args.max_message_chars,
+            args.confirm_possible,
         )
         print(json.dumps(report, indent=2, ensure_ascii=False))
         return 1 if "error" in report else 0

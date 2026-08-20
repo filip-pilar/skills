@@ -16,16 +16,22 @@ Resolve the helper relative to this `SKILL.md` and search the app's persisted Si
 ```sh
 python3 "<skill-directory>/scripts/side_thread_archives.py" side-list \
   --limit 12 \
+  --offset 0 \
   --scan-limit 500 \
   --format json
 ```
 
-The helper uses two distinct evidence classes:
+The helper uses three confidence levels. Strong markers raise confidence; their absence does not by itself exclude recoverable history:
 
 - `side_chat_confirmed`: a `sidechat:<id>` tab registered beneath a parent task in `.codex-global-state.json`. This covers open or expired Side panes still retained in app tab state.
-- `side_chat_log_candidate`: a historical `thread/fork` found in `logs_2.sqlite`, absent from both current Side-tab state and the main task database. This can surface fully closed Side chats, but its source classification is lower confidence.
+- `side_chat_log_candidate` or `side_chat_likely`: log-only history absent from both main-task databases. A historical `thread/fork` marker, multiple substantive human turns, or explicit Side/parent language can make this a likely Side chat even when the app removed its tab mapping.
+- `side_chat_possible`: a weaker log-only match shown only when the user's query or exact ID narrows to it. It needs user confirmation before recovery.
 
-Never expose raw IDs or paths in the candidate menu. Present numbered choices using the content-derived title, parent title when available, short workspace label, last-observed time, and confidence. If the user supplied a topic, title, workspace, or exact ID, pass it as `--query` or `--thread-id` to narrow the same local search instead of demanding more metadata.
+The helper excludes IDs registered as main tasks, synthetic delegation/subagent inputs, and unmatched one-turn log records. It searches all bounded user turns and can recover the workspace from broader telemetry when the submitted turn lacks `cwd`.
+
+Never expose raw IDs or paths in the candidate menu. Group numbered choices by Codex project. Put an exact project match first, order candidates newest-first within each project, and put `Unknown project` last. For each choice show only the topic-bearing title, last-observed time, confidence, user-message count, and the parent title when known. Ignore skill-only invocations and generic turns such as `wdyt?` or `what's next` when choosing a title. End with one request to reply with the candidate number.
+
+Use `pagination.total_matches`, `pagination.has_more`, and `pagination.next_offset` instead of treating the displayed page as the full result set. When the user asks to show more, rerun the same filters with `--offset <next_offset>`; keep the displayed numbering continuous. Narrow by project with `--project`, remembered message text with `--phrase`, generated title with `--title`, exact task ID with `--thread-id`, or broad text with `--query`. Combine filters when useful instead of demanding metadata the user already supplied.
 
 Inspect only the selected candidate:
 
@@ -36,6 +42,8 @@ python3 "<skill-directory>/scripts/side_thread_archives.py" side-inspect \
   --max-messages 24 \
   --format json
 ```
+
+For a possible candidate, do not run inspection until the user confirms it. After confirmation, add `--confirm-possible`; the helper enforces this gate.
 
 Local logs commonly preserve user turns, timestamps, workspace evidence, tool activity metadata, and the Side fork identity. They do not reliably retain assistant prose after expiry. State that coverage gap precisely; do not convert it into a claim that no local history exists.
 
@@ -61,9 +69,9 @@ If the user says the expired pane is still visible and a UI-reading tool is avai
 
 If `side-list` finds nothing, inspect supplied visible evidence. Only then ask for a screenshot, copied text, or any remembered topic/workspace that can narrow another local search. Do not falsely say the skill cannot search automatically.
 
-For an exact ID registered in the main Codex task database, report `Main Codex task (confirmed)` and stop; use native task history instead. A current persisted `sidechat:` mapping is `Side chat (confirmed)`. A closed fork found only in logs remains `Historical Side-chat candidate`, unless the user's context or visible evidence confirms it.
+For an exact ID registered in the main Codex task database, report `Main Codex task (confirmed)` and stop; use native task history instead. A current persisted `sidechat:` mapping is `Side chat (confirmed)`. Log-only multi-turn or fork evidence is `Likely Side chat`; a weaker query-matched record is `Possible Side chat`. Selecting a likely candidate makes it `User-confirmed Side chat`. Before inspecting or recovering a possible candidate, show its non-sensitive title, project, timestamp, and confidence and ask the user to explicitly confirm it is the missing Side chat. Supplying the exact ID while identifying it as the missing Side chat, or supplying visible Side-chat evidence, also provides that confirmation.
 
-Do not scan arbitrary JSONL files and infer Side-chat identity merely because an ID is absent from the main task database. The legacy archive commands are exact-record fallbacks only.
+Do not scan arbitrary JSONL files and infer Side-chat identity merely because an ID is absent from the main task database. Broader fallback discovery must remain bounded to interactive local log records, exclude synthetic inputs, and preserve its honest confidence label. The legacy archive commands are exact-record fallbacks only.
 
 ## 4. Build the evidence card
 
