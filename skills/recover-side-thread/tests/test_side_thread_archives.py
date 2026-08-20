@@ -92,6 +92,66 @@ class SideThreadArchiveScriptTests(unittest.TestCase):
         (active / "active.jsonl").write_text(
             "active thread should not be listed\n", encoding="utf-8"
         )
+        self.side_id = "01aside00-0000-0000-0000-000000000001"
+        self.closed_side_id = "01aside00-0000-0000-0000-000000000002"
+        self.parent_id = "01parent0-0000-0000-0000-000000000001"
+        global_state = {
+            "electron-persisted-atom-state": {
+                f"thread-tab-routes-v1:{self.parent_id}": {
+                    "topology": {
+                        "left": {"tabIds": []},
+                        "right": {"tabIds": [f"sidechat:{self.side_id}"]},
+                        "bottom": {"tabIds": []},
+                    }
+                }
+            }
+        }
+        (self.home / ".codex-global-state.json").write_text(
+            json.dumps(global_state), encoding="utf-8"
+        )
+        logs = sqlite3.connect(self.home / "logs_2.sqlite")
+        logs.execute(
+            """
+            CREATE TABLE logs (
+                id INTEGER PRIMARY KEY, ts INTEGER, ts_nanos INTEGER, level TEXT,
+                target TEXT, feedback_log_body TEXT, module_path TEXT, file TEXT,
+                line INTEGER, thread_id TEXT, process_uuid TEXT, estimated_bytes INTEGER
+            )
+            """
+        )
+        user_body = (
+            'Submission sub=Submission { op: TurnInput { request: TurnInputRequest { '
+            'input: UserInput { content: [Text { text: "Review the stale roadmap and propose Batch 013A.", '
+            'text_elements: [] }], client_id: "test" }, cwd: "/tmp/side-project" } } }'
+        )
+        logs.execute(
+            "INSERT INTO logs (ts, ts_nanos, target, feedback_log_body, thread_id) VALUES (?, 0, ?, ?, ?)",
+            (1785837600, "codex_core::session::handlers", user_body, self.side_id),
+        )
+        logs.execute(
+            "INSERT INTO logs (ts, ts_nanos, target, feedback_log_body, thread_id) VALUES (?, 0, ?, ?, ?)",
+            (1785837601, "codex_core::stream_events_utils", "Output item item_type=message", self.side_id),
+        )
+        logs.execute(
+            "INSERT INTO logs (ts, ts_nanos, target, feedback_log_body, thread_id) VALUES (?, 0, ?, ?, ?)",
+            (
+                1785837500,
+                "codex_core::session::rollout_reconstruction",
+                'app_server.request{otel.name="thread/fork"}: ignored patch',
+                self.closed_side_id,
+            ),
+        )
+        closed_body = (
+            'Submission sub=Submission { op: TurnInput { request: TurnInputRequest { '
+            'input: UserInput { content: [Text { text: "Draft a reply for the parent task.", '
+            'text_elements: [] }], client_id: "test" } } } }'
+        )
+        logs.execute(
+            "INSERT INTO logs (ts, ts_nanos, target, feedback_log_body, thread_id) VALUES (?, 0, ?, ?, ?)",
+            (1785837501, "codex_core::session::handlers", closed_body, self.closed_side_id),
+        )
+        logs.commit()
+        logs.close()
 
     def tearDown(self) -> None:
         self.temp.cleanup()
@@ -127,6 +187,52 @@ class SideThreadArchiveScriptTests(unittest.TestCase):
         self.assertEqual(candidate["path"], str(self.archive_path.resolve()))
         self.assertEqual(candidate["source_type"], "unverified")
         self.assertNotIn("active thread", result.stdout)
+
+    def test_side_list_uses_persisted_tab_state_and_logs(self) -> None:
+        result = self.run_script(
+            "side-list",
+            "--codex-home",
+            str(self.home),
+            "--limit",
+            "10",
+            "--format",
+            "json",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = json.loads(result.stdout)
+        by_id = {item["thread_id"]: item for item in report["candidates"]}
+        registered = by_id[self.side_id]
+        self.assertEqual(registered["source_type"], "side_chat_confirmed")
+        self.assertEqual(registered["parent_thread_id"], self.parent_id)
+        self.assertEqual(registered["workspace"], "side-project")
+        self.assertIn("stale roadmap", registered["title"].lower())
+        self.assertEqual(report["sources_scanned"]["registered_side_chats"], 1)
+
+    def test_side_list_finds_closed_historical_fork_candidate(self) -> None:
+        result = self.run_script(
+            "side-list", "--codex-home", str(self.home), "--limit", "10", "--format", "json"
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        by_id = {item["thread_id"]: item for item in json.loads(result.stdout)["candidates"]}
+        closed = by_id[self.closed_side_id]
+        self.assertEqual(closed["source_type"], "side_chat_log_candidate")
+        self.assertFalse(closed["registered_in_tab_state"])
+        self.assertIn("reply", closed["title"].lower())
+
+    def test_side_inspect_recovers_user_turn_and_marks_assistant_gap(self) -> None:
+        result = self.run_script(
+            "side-inspect",
+            "--codex-home",
+            str(self.home),
+            "--thread-id",
+            self.side_id,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = json.loads(result.stdout)
+        self.assertEqual(report["source_type"], "side_chat_confirmed")
+        self.assertIn("Batch 013A", report["visible_messages"][0]["text"])
+        self.assertFalse(report["coverage"]["assistant_message_bodies_available"])
+        self.assertTrue(report["coverage"]["raw_tool_inputs_and_outputs_excluded"])
 
     def test_classify_returns_metadata_without_message_previews_or_paths(self) -> None:
         result = self.run_script(
@@ -635,10 +741,26 @@ class SideThreadArchiveScriptTests(unittest.TestCase):
         handoff = instructions.split("## 5. Produce the handoff", 1)[1]
 
         self.assertIn("Main Codex task (confirmed)", instructions)
-        self.assertIn("Source type unverified", instructions)
-        self.assertIn("Do not produce a recovery handoff", instructions)
-        self.assertIn("The fenced prompt must include", handoff)
-        self.assertIn("`Type: Side chat`", handoff)
+        self.assertIn("Side chat (confirmed)", instructions)
+        self.assertIn("Historical Side-chat candidate", instructions)
+        self.assertIn("Discover local Side chats first", instructions)
+        self.assertIn("side-list", instructions)
+        self.assertIn("side-inspect", instructions)
+        self.assertIn("legacy archive commands are exact-record fallbacks only", instructions)
+        self.assertIn("Missing title or workspace is a coverage gap", handoff)
+        self.assertIn("Type: Side chat", handoff)
+
+    def test_local_discovery_precedes_visible_supplements(self) -> None:
+        instructions = SKILL.read_text(encoding="utf-8")
+        local = instructions.index("## 1. Discover local Side chats first")
+        visible = instructions.index("## 2. Supplement with visible evidence")
+        absent = instructions.index("## 3. Handle absence and classification honestly")
+
+        self.assertLess(local, visible)
+        self.assertLess(visible, absent)
+        self.assertIn("These are supplements, not a prerequisite for local discovery", instructions)
+        self.assertIn("Do not falsely say the skill cannot search automatically", instructions)
+        self.assertIn("Use partial evidence", instructions)
 
 
 if __name__ == "__main__":

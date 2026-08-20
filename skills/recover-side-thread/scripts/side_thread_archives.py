@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bounded, read-only discovery and extraction for Side-chat archive candidates."""
+"""Bounded, read-only discovery and extraction for local Codex Side-chat evidence."""
 
 from __future__ import annotations
 
@@ -22,6 +22,8 @@ MAX_LINE_BYTES = 8 * 1024 * 1024
 DEFAULT_MAX_MESSAGE_CHARS = 6_000
 DEFAULT_MAX_MESSAGES = 48
 DEFAULT_MAX_OUTPUT_CHARS = 180_000
+SIDE_ROUTE_PREFIX = "thread-tab-routes-v1:"
+SIDE_TAB_PREFIX = "sidechat:"
 
 SECRET_PATTERNS = (
     re.compile(r"(?i)\b(?:sk|rk|ghp|glpat|xox[baprs])-[A-Za-z0-9_-]{12,}\b"),
@@ -222,6 +224,257 @@ def load_database_metadata(codex_home: Path) -> tuple[dict[str, dict[str, Any]],
             if item["rollout_path"]:
                 by_path[item["rollout_path"]] = item
     return by_id, by_path
+
+
+def walk_side_tabs(value: Any, placement: str = "unknown") -> Iterable[tuple[str, str]]:
+    """Yield Side-chat IDs embedded in persisted tab topology."""
+
+    if isinstance(value, str):
+        if value.startswith(SIDE_TAB_PREFIX):
+            yield value.removeprefix(SIDE_TAB_PREFIX), placement
+        return
+    if isinstance(value, list):
+        for item in value:
+            yield from walk_side_tabs(item, placement)
+        return
+    if isinstance(value, dict):
+        for key, item in value.items():
+            child_placement = key if key in {"left", "right", "bottom"} else placement
+            yield from walk_side_tabs(item, child_placement)
+
+
+def load_side_registry(codex_home: Path) -> dict[str, dict[str, str]]:
+    """Read the desktop app's persisted parent-to-Side-chat tab mappings."""
+
+    try:
+        state = json.loads((codex_home / ".codex-global-state.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    atoms = state.get("electron-persisted-atom-state")
+    if not isinstance(atoms, dict):
+        return {}
+    found: dict[str, dict[str, str]] = {}
+    for key, value in atoms.items():
+        if not isinstance(key, str) or not key.startswith(SIDE_ROUTE_PREFIX):
+            continue
+        parent_id = key.removeprefix(SIDE_ROUTE_PREFIX)
+        for side_id, placement in walk_side_tabs(value):
+            if side_id:
+                found[side_id] = {"parent_thread_id": parent_id, "placement": placement}
+    return found
+
+
+def open_logs(codex_home: Path) -> sqlite3.Connection | None:
+    for path in (codex_home / "logs_2.sqlite", codex_home / "logs.sqlite"):
+        if not path.is_file():
+            continue
+        try:
+            return sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+        except sqlite3.Error:
+            continue
+    return None
+
+
+def decode_rust_string(value: str) -> str:
+    try:
+        decoded = json.loads(value)
+    except json.JSONDecodeError:
+        return ""
+    return decoded if isinstance(decoded, str) else ""
+
+
+def user_text_from_log(body: Any) -> str:
+    """Extract only submitted user text, excluding settings and raw tool output."""
+
+    if not isinstance(body, str):
+        return ""
+    matches = (
+        re.search(r"input: UserInput \{ content: \[(.*?)\], client_id:", body, re.DOTALL),
+        re.search(r"op: UserInput \{ items: \[(.*?)\](?:,| \})", body, re.DOTALL),
+    )
+    segment = next((match.group(1) for match in matches if match), "")
+    if not segment:
+        return ""
+    pieces: list[str] = []
+    for match in re.finditer(r"Text \{ text: (\"(?:\\.|[^\"\\])*\")", segment):
+        decoded = decode_rust_string(match.group(1))
+        if decoded:
+            pieces.append(decoded)
+    return clean_visible_text("\n".join(pieces)).strip()
+
+
+def cwd_from_log(body: Any) -> str:
+    if not isinstance(body, str):
+        return ""
+    match = re.search(r"\bcwd: (\"(?:\\.|[^\"\\])*\")", body)
+    if match:
+        return decode_rust_string(match.group(1))
+    match = re.search(r"\bcwd=([^}:]+)", body)
+    return match.group(1).strip() if match else ""
+
+
+def historical_fork_ids(connection: sqlite3.Connection, limit: int) -> list[str]:
+    """Find logged desktop forks that may include already-closed Side chats."""
+
+    try:
+        rows = connection.execute(
+            """
+            SELECT thread_id, MAX(ts) AS latest
+            FROM logs
+            WHERE target = 'codex_core::session::rollout_reconstruction'
+              AND feedback_log_body LIKE '%otel.name="thread/fork"%'
+              AND thread_id IS NOT NULL AND thread_id != ''
+            GROUP BY thread_id
+            ORDER BY latest DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+    except sqlite3.Error:
+        return []
+    return [row[0] for row in rows if isinstance(row[0], str)]
+
+
+def side_log_summary(connection: sqlite3.Connection, thread_id: str) -> dict[str, Any]:
+    try:
+        rows = connection.execute(
+            """
+            SELECT ts, feedback_log_body
+            FROM logs
+            WHERE thread_id = ?
+              AND target = 'codex_core::session::handlers'
+              AND (feedback_log_body LIKE '%op: TurnInput%'
+                   OR feedback_log_body LIKE '%op: UserInput%')
+            ORDER BY ts ASC, ts_nanos ASC
+            """,
+            (thread_id,),
+        ).fetchall()
+        bounds = connection.execute(
+            "SELECT MIN(ts), MAX(ts), COUNT(*) FROM logs WHERE thread_id = ?", (thread_id,)
+        ).fetchone()
+    except sqlite3.Error:
+        return {"messages": [], "cwd": "", "first": None, "last": None, "log_rows": 0}
+    messages: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    cwd = ""
+    for timestamp, body in rows:
+        cwd = cwd or cwd_from_log(body)
+        text = redact_sensitive(user_text_from_log(body)).strip()
+        digest = hashlib.sha256(text.encode("utf-8")).hexdigest() if text else ""
+        if not text or digest in seen:
+            continue
+        seen.add(digest)
+        messages.append({
+            "role": "user",
+            "timestamp": display_timestamp(parse_timestamp(timestamp)),
+            "text": text,
+        })
+    return {
+        "messages": messages,
+        "cwd": cwd,
+        "first": parse_timestamp(bounds[0]) if bounds else None,
+        "last": parse_timestamp(bounds[1]) if bounds else None,
+        "log_rows": int(bounds[2]) if bounds else 0,
+    }
+
+
+def discover_side_chats(
+    codex_home: Path, *, limit: int, scan_limit: int, query: str = "", thread_id: str = ""
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    """Discover confirmed registered Side chats plus historical fork candidates."""
+
+    registry = load_side_registry(codex_home)
+    database_by_id, _ = load_database_metadata(codex_home)
+    connection = open_logs(codex_home)
+    ids = list(registry)
+    historical: list[str] = []
+    if connection is not None:
+        historical = historical_fork_ids(connection, scan_limit)
+        ids.extend(item for item in historical if item not in registry and item not in database_by_id)
+    if thread_id and thread_id not in ids:
+        ids.append(thread_id)
+    normalized_query = compact_text(query).lower()
+    items: list[dict[str, Any]] = []
+    for side_id in ids:
+        if thread_id and side_id != thread_id:
+            continue
+        evidence = side_log_summary(connection, side_id) if connection is not None else {
+            "messages": [], "cwd": "", "first": None, "last": None, "log_rows": 0
+        }
+        messages = evidence["messages"]
+        parent = registry.get(side_id, {}).get("parent_thread_id", "")
+        parent_meta = database_by_id.get(parent, {})
+        cwd = evidence["cwd"] or parent_meta.get("cwd") or "unknown"
+        first_user = messages[0]["text"] if messages else ""
+        last_user = messages[-1]["text"] if messages else ""
+        title = short_display_title(first_user or parent_meta.get("title") or "Untitled Side chat")
+        searchable = " ".join((title, first_user, last_user, str(cwd), str(parent_meta.get("title", "")))).lower()
+        if normalized_query and normalized_query not in searchable:
+            continue
+        confirmed = side_id in registry
+        items.append({
+            "thread_id": side_id,
+            "parent_thread_id": parent,
+            "source_type": "side_chat_confirmed" if confirmed else "side_chat_log_candidate",
+            "registered_in_tab_state": confirmed,
+            "placement": registry.get(side_id, {}).get("placement", "unknown"),
+            "title": title,
+            "parent_title": safe_preview(parent_meta.get("title"), 140),
+            "cwd": str(cwd),
+            "workspace": workspace_label(cwd),
+            "first_observed": display_timestamp(evidence["first"]),
+            "last_observed": display_timestamp(evidence["last"]),
+            "last_user": safe_preview(last_user, 220),
+            "user_messages_observed": len(messages),
+            "log_rows_observed": evidence["log_rows"],
+            "sort_epoch": evidence["last"].timestamp() if evidence["last"] else 0,
+        })
+    if connection is not None:
+        connection.close()
+    items.sort(key=lambda item: (item["sort_epoch"], item["thread_id"]), reverse=True)
+    return items[:limit], {
+        "registered_side_chats": len(registry),
+        "historical_forks_scanned": len(historical),
+    }
+
+
+def inspect_side_chat(
+    codex_home: Path, thread_id: str, max_messages: int, max_message_chars: int
+) -> dict[str, Any]:
+    registry = load_side_registry(codex_home)
+    database_by_id, _ = load_database_metadata(codex_home)
+    if thread_id in database_by_id and thread_id not in registry:
+        return {"error": "The selected ID is registered as a main Codex task."}
+    connection = open_logs(codex_home)
+    if connection is None:
+        return {"error": "No readable local Codex logs database was found."}
+    evidence = side_log_summary(connection, thread_id)
+    historical = thread_id in historical_fork_ids(connection, DEFAULT_SCAN_LIMIT * 10)
+    connection.close()
+    messages = []
+    for item in evidence["messages"]:
+        text = item["text"]
+        messages.append({**item, "text": text[:max_message_chars], "truncated": len(text) > max_message_chars})
+    registered = registry.get(thread_id, {})
+    return {
+        "thread_id": thread_id,
+        "parent_thread_id": registered.get("parent_thread_id", ""),
+        "source_type": "side_chat_confirmed" if registered else (
+            "side_chat_log_candidate" if historical else "unverified"
+        ),
+        "registered_in_tab_state": bool(registered),
+        "cwd": evidence["cwd"] or "unknown",
+        "first_observed": display_timestamp(evidence["first"]),
+        "last_observed": display_timestamp(evidence["last"]),
+        "log_rows_observed": evidence["log_rows"],
+        "visible_messages": take_window(messages, max_messages),
+        "coverage": {
+            "user_turns_from_local_logs": True,
+            "assistant_message_bodies_available": False,
+            "raw_tool_inputs_and_outputs_excluded": True,
+            "note": "Local logs preserve user turns and activity metadata, but not reliable assistant prose after Side-chat expiry.",
+        },
+    }
 
 
 def meta_from_records(records: Iterable[dict[str, Any]]) -> dict[str, Any]:
@@ -813,6 +1066,25 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    side_list_parser = subparsers.add_parser(
+        "side-list", help="discover Side chats from persisted tab state and local logs"
+    )
+    side_list_parser.add_argument("--codex-home", type=str, default=None)
+    side_list_parser.add_argument("--limit", type=int, default=DEFAULT_LIMIT)
+    side_list_parser.add_argument("--scan-limit", type=int, default=DEFAULT_SCAN_LIMIT)
+    side_list_parser.add_argument("--query", type=str, default="")
+    side_list_parser.add_argument("--thread-id", type=str, default="")
+    side_list_parser.add_argument("--format", choices=("markdown", "json"), default="markdown")
+
+    side_inspect_parser = subparsers.add_parser(
+        "side-inspect", help="extract bounded user-turn evidence for one local Side chat"
+    )
+    side_inspect_parser.add_argument("--codex-home", type=str, default=None)
+    side_inspect_parser.add_argument("--thread-id", type=str, required=True)
+    side_inspect_parser.add_argument("--max-message-chars", type=int, default=DEFAULT_MAX_MESSAGE_CHARS)
+    side_inspect_parser.add_argument("--max-messages", type=int, default=DEFAULT_MAX_MESSAGES)
+    side_inspect_parser.add_argument("--format", choices=("json",), default="json")
+
     list_parser = subparsers.add_parser("list", help="list recent Side-chat archive candidates")
     list_parser.add_argument("--codex-home", type=str, default=None)
     list_parser.add_argument("--limit", type=int, default=DEFAULT_LIMIT)
@@ -848,6 +1120,40 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if args.command == "side-list":
+        if args.limit < 1 or args.scan_limit < 1:
+            parser.error("--limit and --scan-limit must be positive")
+        home = resolve_codex_home(args.codex_home)
+        items, scanned = discover_side_chats(
+            home,
+            limit=args.limit,
+            scan_limit=args.scan_limit,
+            query=args.query,
+            thread_id=compact_text(args.thread_id),
+        )
+        report = {"codex_home": str(home), "sources_scanned": scanned, "candidates": items}
+        if args.format == "json":
+            print(json.dumps(report, indent=2, ensure_ascii=False))
+        else:
+            print("Local Side-chat candidates (read-only):")
+            if not items:
+                print("No matching Side-chat state or log evidence was found.")
+            for number, item in enumerate(items, start=1):
+                confidence = "confirmed" if item["registered_in_tab_state"] else "historical fork candidate"
+                print(f"{number}. {item['title']}")
+                print(f"   {confidence} | {item['workspace']} | last observed: {item['last_observed']}")
+        return 0
+    if args.command == "side-inspect":
+        if args.max_message_chars < 1 or args.max_messages < 1:
+            parser.error("inspection bounds must be positive")
+        report = inspect_side_chat(
+            resolve_codex_home(args.codex_home),
+            compact_text(args.thread_id),
+            args.max_messages,
+            args.max_message_chars,
+        )
+        print(json.dumps(report, indent=2, ensure_ascii=False))
+        return 1 if "error" in report else 0
     if args.command == "classify":
         if args.scan_limit < 1:
             parser.error("--scan-limit must be positive")
