@@ -45,7 +45,15 @@ python3 "<skill-directory>/scripts/side_thread_archives.py" side-inspect \
 
 For a possible candidate, do not run inspection until the user confirms it. After confirmation, add `--confirm-possible`; the helper enforces this gate.
 
-Local logs commonly preserve user turns, timestamps, workspace evidence, tool activity metadata, and the Side fork identity. They do not reliably retain assistant prose after expiry. State that coverage gap precisely; do not convert it into a claim that no local history exists.
+`side-inspect` searches a specific source: submitted Side user-input records plus thread timing, workspace, and row-count metadata. Read its source-specific `coverage` fields literally. A source marked `not_inspected` was not searched by that command; never convert that into `not found`, `unavailable`, `ephemeral`, or `unrecoverable locally`. Likewise, `found: false` applies only to the named searched source, not to other local stores. Ordinary Side assistant prose, tool payloads, and downstream parent evidence are separate evidence classes.
+
+Candidate selection and `side-inspect` are intermediate steps, not completion. After inspection, continue through the evidence card and paste-ready handoff unless the selected ID is a confirmed main task or all permitted sources were exhausted without enough evidence for a coherent handoff.
+
+### Optional downstream parent fallback
+
+Use downstream parent evidence only when the selected Side evidence supplies a reliable parent identifier or directly observed parent-directed activity and the Side evidence alone cannot support a coherent handoff. Prefer native read-only task history for that exact parent. If a stable structured route is unavailable, leave the source `not inspected`; do not compensate with a broad telemetry parser, arbitrary JSONL scan, topic match, or workspace-based guess.
+
+Prompts sent from the Side chat to the parent and results returned by the parent can establish consequential downstream work, but they are not the Side transcript or ordinary Side assistant prose. Label each item `downstream parent evidence`, preserve its provenance, and distinguish observed content from inference. Keep raw tool payloads excluded by default. If an available structured source exposes an allowlisted parent interaction, extract only the minimum relevant redacted text and identifiers with the same message and character bounds used for inspection.
 
 ## 2. Supplement with visible evidence
 
@@ -85,6 +93,7 @@ Before drafting, build one private evidence card:
 - Latest request: observed or unresolved
 - Current state: latest non-superseded decisions and progress
 - Artifacts and evidence: exact visible details; distinguish assertions from checks
+- Coverage: source-by-source searched, found, not found, or not inspected
 - Constraints: accepted scope and non-goals
 - Open gaps: cropped, omitted, unavailable, or contradictory evidence
 - Next move: explicit or inferred
@@ -130,7 +139,7 @@ Continue without asking the user to repeat known context. Verify historical stat
 
 Omit irrelevant sections, but keep the source type and available source label. Missing title or workspace is a coverage gap, not a reason to withhold the handoff. Preserve exact filenames, commands, URLs, identifiers, failed approaches, and user wording only when they change the next move.
 
-After the block, state the evidence used, material coverage limits, and uncertainty in one compact note. Do not send the prompt anywhere or act on the recovered work.
+After the block, add one compact provenance note covering each evidence class: Side user turns, ordinary Side assistant prose, tool activity, downstream parent evidence, and other local sources not inspected. For each, say whether it was searched and what was found; never describe an unsearched source as absent or unrecoverable. Do not send the prompt anywhere or act on the recovered work.
 
 For explicitly requested multi-source Side recovery, keep each source separate and classify it independently. Refuse confirmed main tasks and leave unsupported sources unresolved.
 

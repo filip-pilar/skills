@@ -760,6 +760,7 @@ def inspect_side_chat(
                 "confidence": confidence,
             },
         }
+    visible_messages = take_window(messages, max_messages)
     return {
         "thread_id": thread_id,
         "parent_thread_id": registered.get("parent_thread_id", ""),
@@ -770,12 +771,45 @@ def inspect_side_chat(
         "first_observed": display_timestamp(evidence["first"]),
         "last_observed": display_timestamp(evidence["last"]),
         "log_rows_observed": evidence["log_rows"],
-        "visible_messages": take_window(messages, max_messages),
+        "visible_messages": visible_messages,
         "coverage": {
-            "user_turns_from_local_logs": True,
-            "assistant_message_bodies_available": False,
+            "side_user_turns": {
+                "source": "thread-scoped submitted-user-input records in local Codex logs",
+                "searched": True,
+                "found": bool(messages),
+                "observed_count": len(messages),
+                "returned_count": len(visible_messages),
+            },
+            "ordinary_side_assistant_prose": {
+                "source": "assistant-output sources outside submitted-user-input records",
+                "searched": False,
+                "found": None,
+                "status": "not_inspected",
+            },
+            "tool_activity": {
+                "source": "structured and raw tool activity payloads",
+                "searched": False,
+                "found": None,
+                "status": "not_inspected",
+            },
+            "downstream_parent_evidence": {
+                "source": "identified parent task history or parent-directed interactions",
+                "searched": False,
+                "found": None,
+                "status": "not_inspected",
+            },
             "raw_tool_inputs_and_outputs_excluded": True,
-            "note": "Local logs preserve user turns and activity metadata, but not reliable assistant prose after Side-chat expiry.",
+            "sources_not_inspected": [
+                "ordinary Side assistant-output sources",
+                "structured and raw tool activity payloads",
+                "downstream parent task history and parent-directed interactions",
+                "other app support, browser storage, caches, and arbitrary local files",
+            ],
+            "note": (
+                "Coverage is source-specific. A source marked not_inspected was not searched by "
+                "side-inspect; this result does not establish that the evidence is unavailable or "
+                "unrecoverable elsewhere locally."
+            ),
         },
     }
 

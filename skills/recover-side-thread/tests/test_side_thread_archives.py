@@ -135,7 +135,12 @@ class SideThreadArchiveScriptTests(unittest.TestCase):
         )
         logs.execute(
             "INSERT INTO logs (ts, ts_nanos, target, feedback_log_body, thread_id) VALUES (?, 0, ?, ?, ?)",
-            (1785837601, "codex_core::stream_events_utils", "Output item item_type=message", self.side_id),
+            (
+                1785837601,
+                "codex_core::stream_events_utils",
+                "ToolCall: send_message_to_thread parent prompt token=parent-payload-must-stay-excluded",
+                self.side_id,
+            ),
         )
         logs.execute(
             "INSERT INTO logs (ts, ts_nanos, target, feedback_log_body, thread_id) VALUES (?, 0, ?, ?, ?)",
@@ -477,7 +482,7 @@ class SideThreadArchiveScriptTests(unittest.TestCase):
         self.assertIn("Possible Side chat", possible.stdout)
         self.assertIn("Confirmation required before recovery", possible.stdout)
 
-    def test_side_inspect_recovers_user_turn_and_marks_assistant_gap(self) -> None:
+    def test_side_inspect_reports_source_specific_coverage(self) -> None:
         result = self.run_script(
             "side-inspect",
             "--codex-home",
@@ -489,8 +494,17 @@ class SideThreadArchiveScriptTests(unittest.TestCase):
         report = json.loads(result.stdout)
         self.assertEqual(report["source_type"], "side_chat_confirmed")
         self.assertIn("Batch 013A", report["visible_messages"][0]["text"])
-        self.assertFalse(report["coverage"]["assistant_message_bodies_available"])
-        self.assertTrue(report["coverage"]["raw_tool_inputs_and_outputs_excluded"])
+        coverage = report["coverage"]
+        self.assertTrue(coverage["side_user_turns"]["searched"])
+        self.assertTrue(coverage["side_user_turns"]["found"])
+        self.assertEqual(coverage["ordinary_side_assistant_prose"]["status"], "not_inspected")
+        self.assertEqual(coverage["tool_activity"]["status"], "not_inspected")
+        self.assertEqual(coverage["downstream_parent_evidence"]["status"], "not_inspected")
+        self.assertIsNone(coverage["ordinary_side_assistant_prose"]["found"])
+        self.assertTrue(coverage["raw_tool_inputs_and_outputs_excluded"])
+        self.assertNotIn("assistant_message_bodies_available", coverage)
+        self.assertNotIn("parent-payload-must-stay-excluded", result.stdout)
+        self.assertIn("does not establish", coverage["note"])
 
     def test_side_inspect_requires_confirmation_for_possible_candidate(self) -> None:
         blocked = self.run_script(
@@ -1034,8 +1048,11 @@ class SideThreadArchiveScriptTests(unittest.TestCase):
         self.assertIn("side-list", instructions)
         self.assertIn("side-inspect", instructions)
         self.assertIn("legacy archive commands are exact-record fallbacks only", instructions)
+        self.assertIn("Candidate selection and `side-inspect` are intermediate steps, not completion", instructions)
+        self.assertIn("Optional downstream parent fallback", instructions)
         self.assertIn("Missing title or workspace is a coverage gap", handoff)
         self.assertIn("Type: Side chat", handoff)
+        self.assertIn("Side user turns, ordinary Side assistant prose, tool activity, downstream parent evidence", handoff)
 
     def test_local_discovery_precedes_visible_supplements(self) -> None:
         instructions = SKILL.read_text(encoding="utf-8")
