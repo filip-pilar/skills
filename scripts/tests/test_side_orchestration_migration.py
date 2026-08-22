@@ -46,12 +46,16 @@ class SideOrchestrationMigrationTests(unittest.TestCase):
         self.assertIn("ordered steps in one prompt", reply)
         self.assertIn("Preserve a pause when the user explicitly asked", reply)
 
-    def test_supervise_respects_both_plan_only_and_end_to_end_prompts(self):
+    def test_supervise_respects_scope_and_uses_meaningful_stop_conditions(self):
         supervise = self.read_skill("supervise")
 
         self.assertIn("asks only for a plan does not permit implementation", supervise)
         self.assertIn("one\n  continuous job", supervise)
-        self.assertIn("Send at most two corrective follow-ups", supervise)
+        self.assertIn("while it has a concrete reason to\nmake progress", supervise)
+        self.assertIn("Do not stop merely because a fixed\nnumber", supervise)
+        self.assertIn("repeatedly makes no material progress", supervise)
+        self.assertIn("never an exhausted\nattempt count", supervise)
+        self.assertNotIn("at most two corrective follow-ups", supervise)
         self.assertIn("do not retry", supervise)
 
     def test_supervise_final_status_is_compact(self):

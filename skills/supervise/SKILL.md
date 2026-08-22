@@ -1,6 +1,6 @@
 ---
 name: supervise
-description: Send the latest Reply prompt to its linked parent, follow the work, verify the result, and make limited in-scope corrections.
+description: Send the latest Reply prompt to its linked parent, follow the work, verify the result, and continue in-scope corrections while progress remains possible.
 ---
 
 # Supervise
@@ -47,9 +47,16 @@ the parent just added. Check the highest-risk requirement directly when
 reasonable; otherwise say what could not be verified.
 
 If a clearly requested part is missing, send one short follow-up naming that
-gap, then wait again. Send at most two corrective follow-ups. Stop sooner when
-continuing would require a new choice, broader scope, new permission, or a
-repeated ineffective correction.
+gap, then wait again. Reassess the current result after every response and
+continue with another focused correction while it has a concrete reason to
+make progress within the approved scope. Do not stop merely because a fixed
+number of follow-ups has been sent.
+
+Stop only when the request is complete, or when continuing requires a new
+choice, broader scope, new permission, an outside change, or has no reasonable
+path forward because the parent repeatedly makes no material progress on the
+same gap. Report the concrete completion or impediment, never an exhausted
+attempt count.
 
 ## Report plainly
 
