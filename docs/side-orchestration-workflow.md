@@ -12,7 +12,8 @@ The workflow has three manual steps:
    revise it.
 3. **`$supervise` — send and follow through.** When `Current reply` is exactly
    what should be sent, Supervise sends it once, follows the parent, checks the
-   result, and may request up to two corrections that stay inside the prompt.
+   result, continues justified corrections inside the prompt, and delivers an
+   accurate completion handoff.
 
 These skills depend on a Codex Side task and its exact linked parent. They are
 not general chat workflows and cannot be invoked automatically.
@@ -27,6 +28,8 @@ not general chat workflows and cannot be invoked automatically.
 | Preserve or omit a review pause according to the user's decision | Reply |
 | Approve the current prompt and send it once | Supervise |
 | Wait, verify, and request limited in-scope corrections | Supervise |
+| Report completion type, verification, open issues, and next action | Supervise |
+| Start a later discussion cycle about the completed result | Sidekick, only when the user chooses |
 | Decide new scope, permissions, or tradeoffs | User |
 
 A Side suggestion is not a user decision. Displaying `Current reply` is not
@@ -72,11 +75,29 @@ validation steps without returning for an invented approval.
 
 It checks important claims directly when reasonable. If a requested part is
 missing and no new decision or permission is needed, it may send a short
-correction. It stops after two unsuccessful corrections or as soon as the work
-requires a new user choice.
+correction. It continues while another correction has a concrete in-scope path
+to progress, and stops when the work is complete, requires a new user choice or
+permission, depends on an outside change, or repeatedly makes no material
+progress on the same gap.
 
-The final report begins with `Done`, `Partly done`, `Blocked`, or
-`Delivery uncertain` and includes only information the user needs.
+After the parent finishes, Supervise re-reads the newest completed response when
+possible and treats its final report as a completion handoff rather than a
+receipt. The first line begins with `Done`, `Partly done`, `Blocked`, or
+`Delivery uncertain` and names the actual work type: implementation,
+investigation, diagnosis, review, planning, or recommendation.
+
+The handoff preserves material findings, unresolved problems, risks,
+uncertainty, boundaries, explicit deferrals, verification gaps,
+recommendations, next steps, and genuine user decisions. It compresses routine
+logs and repetition. A routine success without a meaningful caveat remains one
+concise line; complex work receives only the conditional sections needed to
+keep its meaning intact.
+
+Supervise performs a final semantic check: if its summary would leave the user
+with a materially different picture from the parent's full response, it
+restores the missing context. It does not invoke Sidekick or create another
+discussion automatically. `$sidekick` remains an optional later cycle when the
+user wants to explore the completed result.
 
 ## Behavioral checks
 
@@ -92,6 +113,11 @@ Release evaluation covers these cases:
 - An uncertain send is not retried.
 - Missing work can receive a limited correction, while new scope returns to the
   user.
+- A design assessment with no implementation preserves its systemic findings,
+  incompatibilities, and staged recommendation without sounding implemented.
+- A successful multi-part cleanup still reports a material unresolved mismatch,
+  unsafe repair boundary, recommended escalation, and explicit deferrals.
+- A trivial verified change still produces a one-line completion.
 
 Scenario outputs and live-provider logs stay outside the repository. The
 repository keeps only the contracts and deterministic package checks.

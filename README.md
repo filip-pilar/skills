@@ -49,13 +49,13 @@ orchestration skills are manual-only and are intended to be invoked in order:
 
 1. **`$sidekick` — understand and discuss.**
 2. **`$reply` — draft the exact parent prompt without sending.**
-3. **`$supervise` — send, follow, verify, and correct.**
+3. **`$supervise` — send, follow, verify, correct, and hand off accurately.**
 
 | Skill | Best for |
 | --- | --- |
 | [`sidekick`](skills/sidekick/) | Explaining a linked parent task in plain language and showing what, if anything, the user needs to decide. |
 | [`reply`](skills/reply/) | Turning settled Side discussion into one clear parent prompt in the user's voice without sending it. |
-| [`supervise`](skills/supervise/) | Sending the latest Reply prompt, following and verifying the work, and continuing in-scope corrections while progress remains possible. |
+| [`supervise`](skills/supervise/) | Sending the latest Reply prompt, following and verifying the work, continuing in-scope corrections, and preserving decision-critical meaning in the completion handoff. |
 | [`recover-side-thread`](skills/recover-side-thread/) | Finding and reconstructing an expired or closed Side chat from local Side-tab state and logs, supplemented by visible evidence, while refusing normal Codex tasks. |
 | [`tldr`](skills/tldr/) | Producing an ultra-concise digest of the complete available parent-task state. |
 

@@ -128,6 +128,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$skills_dir/recover-s
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$skills_dir/skill-builder/tests" -p 'test_*.py'
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$skills_dir/skill-usage-auditor/tests" -p 'test_*.py'
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$skills_dir/socket-audit/tests" -p 'test_*.py'
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$skills_dir/supervise/tests" -p 'test_*.py'
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$skills_dir/wdyt/tests" -p 'test_*.py'
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$skills_dir/web-traffic-inspector/tests" -p 'test_scaffold_prototype.py'
 

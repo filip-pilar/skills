@@ -58,7 +58,7 @@ class SideOrchestrationMigrationTests(unittest.TestCase):
         self.assertNotIn("at most two corrective follow-ups", supervise)
         self.assertIn("do not retry", supervise)
 
-    def test_supervise_final_status_is_compact(self):
+    def test_supervise_final_status_is_semantically_calibrated(self):
         supervise = self.read_skill("supervise")
 
         for label in (
@@ -68,7 +68,12 @@ class SideOrchestrationMigrationTests(unittest.TestCase):
             "`**Delivery uncertain:**`",
         ):
             self.assertIn(label, supervise)
-        self.assertIn("A routine success ends after that line", supervise)
+        self.assertIn("re-read the parent's newest\ncompleted response", supervise)
+        self.assertIn("Make that line type-accurate", supervise)
+        self.assertIn("materially change the user's\nunderstanding", supervise)
+        self.assertIn("A genuinely routine success", supervise)
+        self.assertIn("materially\ndifferent picture", supervise)
+        self.assertIn("Do not invoke Sidekick", supervise)
 
     def test_retired_packages_are_archived_without_public_shims(self):
         for name in ("co-prompt", "side-mode", "side-draft", "side-run"):

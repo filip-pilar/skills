@@ -1,6 +1,6 @@
 ---
 name: supervise
-description: Send the latest Reply prompt to its linked parent, follow the work, verify the result, and continue in-scope corrections while progress remains possible.
+description: Send the latest Reply prompt to its linked parent, follow and verify the work, continue in-scope corrections, and deliver an accurate completion handoff.
 ---
 
 # Supervise
@@ -58,17 +58,49 @@ path forward because the parent repeatedly makes no material progress on the
 same gap. Report the concrete completion or impediment, never an exhausted
 attempt count.
 
-## Report plainly
+## Build the completion handoff
 
-Begin the final response with exactly one bold status label and the practical
-result on the same line. Use `Done` only when the available checks support it:
+After following, correcting, and verifying the work, re-read the parent's newest
+completed response when possible. Use the final response as a concise but
+meaningful handoff, not merely a receipt that the parent stopped working.
 
-- `**Done:**` — the approved request is complete.
+Begin with exactly one bold status label and the practical result on the same
+line. Make that line type-accurate: say whether the parent implemented,
+investigated, diagnosed, reviewed, planned, or recommended work. Do not make an
+assessment or plan sound implemented, and do not make successful mutations
+sound wholly complete when a material requested result remains unresolved.
+
+Use `Done` only when the available checks support the approved request's actual
+kind of completion:
+
+- `**Done:**` — the approved request is complete for the work type requested.
 - `**Partly done:**` — useful work finished, but a requested part remains.
 - `**Blocked:**` — progress needs new information, permission, or an outside
   change.
 - `**Delivery uncertain:**` — it is unclear whether the prompt was delivered.
 
-A routine success ends after that line. Add `**Checked:**`, `**Still open:**`,
-or `**Needs from you:**` only when it adds information the user needs. Use
-ordinary language and do not reproduce logs, checklists, or routine process.
+Preserve every fact whose omission could materially change the user's
+understanding, confidence, decision, or next action. This includes material
+findings, unresolved problems, risks, uncertainty, scope boundaries, explicit
+deferrals, meaningful verification or verification gaps, recommendations, next
+steps, and genuine decisions or permissions needed from the user. Preserve the
+scale and relationship of those facts: do not reduce a systemic redesign to one
+example bug or bury an unresolved blocker beneath successful mutations.
+
+Compress routine detail, logs, repetition, and secondary background instead of
+compressing decision-critical meaning. Use conditional sections such as
+`**Checked:**`, `**Still open:**`, `**Recommended next step:**`, or
+`**Needs from you:**` only when useful; do not force every heading into every
+response. A genuinely routine success with no material caveat, open issue,
+recommendation, or user decision ends after one concise status line.
+
+Before sending the handoff, compare its likely meaning with the parent's full
+newest response: would the summary cause the user to form a materially
+different picture of what happened, what was verified, what remains, or what
+to do next? If so, restore the missing context. Use ordinary language and do
+not reproduce logs, checklists, or routine process.
+
+Supervise owns delivery, completion status, correction-loop results,
+verification, and this final handoff. Do not invoke Sidekick or start a separate
+Sidekick discussion automatically. A later `$sidekick` remains an optional new
+discussion cycle when the completed result gives the user something to explore.
