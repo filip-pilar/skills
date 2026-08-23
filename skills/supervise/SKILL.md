@@ -58,21 +58,36 @@ path forward because the parent repeatedly makes no material progress on the
 same gap. Report the concrete completion or impediment, never an exhausted
 attempt count.
 
-## Build the completion handoff
+## Reconcile and deliver the completion handoff
 
 After following, correcting, and verifying the work, re-read the parent's newest
-completed response when possible. Base the handoff on the current material
-result across the whole supervised run: reconcile the approved `Current reply`,
-material results and corrections observed while supervising, your independent
+completed response when possible. First establish the current material result
+across the whole supervised run from the approved `Current reply`, material
+results and corrections observed while supervising, your independent
 verification, the parent's newest completed response, and the exact reason
-supervision stopped. Prefer the latest settled evidence. Keep earlier context
-only while it remains materially relevant; do not revive findings, failures, or
-blockers that were later corrected or superseded. Use the handoff as a concise
-but meaningful completion report, not merely a receipt that the parent stopped
-working.
+supervision stopped.
 
-Begin with exactly one bold status label and the practical result on the same
-line. Make that line type-accurate: say whether the parent implemented,
+Identify the supported practical result and every settled fact that materially
+qualifies that result, the confidence it deserves, the user's decision, or the
+user's next action. A qualifier is material when omitting it could leave the
+user with a materially different picture of what completed, what remains, what
+was verified, why supervision stopped, or what to do next. It remains material
+when it is outside the approved scope; this does not authorize Supervise to do
+that work. Include only qualifiers supported by the supervised run, not
+hypothetical readiness concerns.
+
+Preserve the scale and relationship of material results. Do not replace several
+independently useful outcomes with a generic success claim, reduce a systemic
+result to one example, or bury an unresolved condition beneath completed work.
+
+Prefer the latest settled evidence. Keep earlier context only while it remains
+materially relevant; do not revive findings, failures, or blockers that were
+later corrected or superseded. Fix this material content before choosing a
+status or shortening the response. Formatting and compression may change its
+wording, but must not remove or weaken any of it.
+
+Then begin with exactly one bold status label and the practical result on the
+same line. Make that line type-accurate: say whether the parent implemented,
 investigated, diagnosed, reviewed, planned, or recommended work. Do not make an
 assessment or plan sound implemented, and do not make successful mutations
 sound wholly complete when a material requested result remains unresolved.
@@ -86,31 +101,23 @@ kind of completion:
   change.
 - `**Delivery uncertain:**` — it is unclear whether the prompt was delivered.
 
-Preserve every fact whose omission could materially change the user's
-understanding, confidence, decision, or next action. This includes material
-findings, unresolved problems, risks, uncertainty, scope boundaries, explicit
-deferrals, meaningful verification or verification gaps, recommendations, next
-steps, and genuine decisions or permissions needed from the user. Preserve the
-scale and relationship of those facts: do not reduce a systemic redesign to one
-example bug or bury an unresolved blocker beneath successful mutations.
-
-When completed work reaches a new approval or permission boundary, stop without
-granting it. State what completed, what you verified, what has not happened,
-why supervision stopped, and the exact approval or decision needed from the
-user.
+When a material qualifier remains, make it skimmable in the status line or an
+immediately following explicit section. State what is not complete, true, or
+verified, its practical consequence, and the next responsible action or
+decision when the evidence establishes one. If that action needs new approval
+or permission, stop without granting it.
 
 Compress routine detail, logs, repetition, and secondary background instead of
 compressing decision-critical meaning. Use conditional sections such as
 `**Checked:**`, `**Still open:**`, `**Recommended next step:**`, or
 `**Needs from you:**` only when useful; do not force every heading into every
-response. A genuinely routine success with no material caveat, open issue,
-recommendation, or user decision ends after one concise status line.
+response. A genuinely routine success ends after one concise status line only
+when the reconciled material content contains no qualifier.
 
-Before sending the handoff, compare its likely meaning with the current material
-result across the supervised run: would the summary cause the user to form a
-materially different picture of what happened, what was verified, what remains,
-why supervision stopped, or what to do next? If so, restore the missing context.
-Use ordinary language and do not reproduce logs, checklists, or routine process.
+Before sending, compare the handoff's likely meaning with the fixed material
+content. If status selection or compression changed that meaning, restore the
+missing context. Use ordinary language and do not reproduce logs, checklists,
+or routine process.
 
 Supervise owns delivery, completion status, correction-loop results,
 verification, and this final handoff. Do not invoke Sidekick or start a separate

@@ -97,16 +97,25 @@ possible and treats its final report as a completion handoff rather than a
 receipt. It reconciles the approved prompt, material results and corrections
 across the run, its own verification, the newest response, and the reason it
 stopped. Latest settled evidence wins, so corrected or superseded failures do
-not reappear. The first line begins with `Done`, `Partly done`, `Blocked`, or
-`Delivery uncertain` and names the actual work type: implementation,
-investigation, diagnosis, review, planning, or recommendation.
+not reappear.
 
-The handoff preserves material findings, unresolved problems, risks,
-uncertainty, boundaries, explicit deferrals, verification gaps,
-recommendations, next steps, and genuine user decisions. It compresses routine
-logs and repetition. A routine success without a meaningful caveat remains one
-concise line; complex work receives only the conditional sections needed to
-keep its meaning intact.
+Supervise fixes the supported practical result and its material qualifiers
+before choosing a status or compressing the response. A qualifier remains
+material when it affects confidence or the user's next action even if the work
+it describes was intentionally outside scope; unsupported readiness concerns
+are not added. Several independently useful outcomes retain their scale rather
+than collapsing into a generic success claim. Status and compression may
+shorten wording but cannot remove or weaken that settled content. The first
+line begins with `Done`, `Partly done`, `Blocked`, or `Delivery uncertain` and
+names the actual work type: implementation, investigation, diagnosis, review,
+planning, or recommendation.
+
+The handoff makes every material qualifier skimmable in the status line or an
+immediately following section, including what is not complete or verified, its
+practical consequence, and the next responsible action when established. It
+compresses routine logs and repetition. A routine success without a material
+qualifier remains one concise line; complex work receives only the conditional
+sections needed to keep its meaning intact.
 
 If completed work reaches a new approval boundary, Supervise does not grant the
 permission. Its handoff says what completed and was verified, what has not
@@ -150,6 +159,9 @@ Release evaluation covers these cases:
 - A corrected validation failure stays superseded when completed implementation
   reaches a deployment approval boundary; the handoff preserves the completed
   work and checks while identifying the undeployed state and exact approval.
+- Completed repository work still surfaces a settled external condition, its
+  practical consequence, and the responsible next action without claiming that
+  the external change was authorized or performed.
 
 Scenario outputs and live-provider logs stay outside the repository. The
 repository keeps only the contracts and deterministic package checks.
