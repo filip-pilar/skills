@@ -58,6 +58,26 @@ TRIVIAL_SUCCESS = ReportingScenario(
 )
 
 
+APPROVAL_BOUNDARY = ReportingScenario(
+    required_concepts={
+        "completed implementation": (r"implement(?:ed|ation).{0,80}(?:complete|finished)",),
+        "successful validation": (r"(?:validat|test).{0,50}(?:pass|succeed)",),
+        "deployment has not occurred": (
+            r"deploy(?:ment)? .{0,30}(?:has not|hasn't|not yet|did not)",
+            r"(?:has not|hasn't|not yet|did not).{0,30}deploy",
+        ),
+        "exact production deployment approval": (
+            r"approv(?:al|e).{0,50}(?:production|deploy)",
+            r"(?:production|deploy).{0,50}approv(?:al|e)",
+        ),
+        "stopped at approval boundary": (
+            r"(?:stopped|blocked|waiting).{0,80}approv",
+            r"approv.{0,80}(?:stopped|blocked|waiting)",
+        ),
+    }
+)
+
+
 class SuperviseReportingSemanticsTests(unittest.TestCase):
     def assert_semantically_complete(self, report: str, scenario: ReportingScenario) -> None:
         self.assertEqual([], missing_concepts(report, scenario))
@@ -96,6 +116,21 @@ class SuperviseReportingSemanticsTests(unittest.TestCase):
         self.assert_semantically_complete(handoff, TRIVIAL_SUCCESS)
         self.assertNotIn("\n", handoff)
         self.assertLess(len(handoff), 100)
+
+    def test_corrected_failure_is_not_revived_at_deployment_approval_boundary(self):
+        superseded_failure = "The first validation failed because the fixture was stale."
+        newest_parent_response = "May I deploy this to production?"
+        underreported = "**Blocked:** " + newest_parent_response
+        self.assertGreaterEqual(len(missing_concepts(underreported, APPROVAL_BOUNDARY)), 4)
+
+        handoff = (
+            "**Blocked:** The implementation is complete and the corrected validation "
+            "passes. Deployment has not occurred; supervision stopped at the approval "
+            "boundary. **Needs from you:** Approve deployment to production."
+        )
+        self.assert_semantically_complete(handoff, APPROVAL_BOUNDARY)
+        self.assertNotIn(superseded_failure.lower(), handoff.lower())
+        self.assertNotRegex(handoff.lower(), r"validation (?:failed|failure)")
 
 
 if __name__ == "__main__":

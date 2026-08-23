@@ -72,7 +72,10 @@ class SideOrchestrationMigrationTests(unittest.TestCase):
         self.assertIn("Make that line type-accurate", supervise)
         self.assertIn("materially change the user's\nunderstanding", supervise)
         self.assertIn("A genuinely routine success", supervise)
-        self.assertIn("materially\ndifferent picture", supervise)
+        self.assertIn("current material\nresult across the whole supervised run", supervise)
+        self.assertIn("do not revive findings, failures, or\nblockers", supervise)
+        self.assertIn("stop without\ngranting it", supervise)
+        self.assertIn("materially different picture", supervise)
         self.assertIn("Do not invoke Sidekick", supervise)
 
     def test_retired_packages_are_archived_without_public_shims(self):

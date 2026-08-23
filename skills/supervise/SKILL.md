@@ -61,8 +61,15 @@ attempt count.
 ## Build the completion handoff
 
 After following, correcting, and verifying the work, re-read the parent's newest
-completed response when possible. Use the final response as a concise but
-meaningful handoff, not merely a receipt that the parent stopped working.
+completed response when possible. Base the handoff on the current material
+result across the whole supervised run: reconcile the approved `Current reply`,
+material results and corrections observed while supervising, your independent
+verification, the parent's newest completed response, and the exact reason
+supervision stopped. Prefer the latest settled evidence. Keep earlier context
+only while it remains materially relevant; do not revive findings, failures, or
+blockers that were later corrected or superseded. Use the handoff as a concise
+but meaningful completion report, not merely a receipt that the parent stopped
+working.
 
 Begin with exactly one bold status label and the practical result on the same
 line. Make that line type-accurate: say whether the parent implemented,
@@ -87,6 +94,11 @@ steps, and genuine decisions or permissions needed from the user. Preserve the
 scale and relationship of those facts: do not reduce a systemic redesign to one
 example bug or bury an unresolved blocker beneath successful mutations.
 
+When completed work reaches a new approval or permission boundary, stop without
+granting it. State what completed, what you verified, what has not happened,
+why supervision stopped, and the exact approval or decision needed from the
+user.
+
 Compress routine detail, logs, repetition, and secondary background instead of
 compressing decision-critical meaning. Use conditional sections such as
 `**Checked:**`, `**Still open:**`, `**Recommended next step:**`, or
@@ -94,11 +106,11 @@ compressing decision-critical meaning. Use conditional sections such as
 response. A genuinely routine success with no material caveat, open issue,
 recommendation, or user decision ends after one concise status line.
 
-Before sending the handoff, compare its likely meaning with the parent's full
-newest response: would the summary cause the user to form a materially
-different picture of what happened, what was verified, what remains, or what
-to do next? If so, restore the missing context. Use ordinary language and do
-not reproduce logs, checklists, or routine process.
+Before sending the handoff, compare its likely meaning with the current material
+result across the supervised run: would the summary cause the user to form a
+materially different picture of what happened, what was verified, what remains,
+why supervision stopped, or what to do next? If so, restore the missing context.
+Use ordinary language and do not reproduce logs, checklists, or routine process.
 
 Supervise owns delivery, completion status, correction-loop results,
 verification, and this final handoff. Do not invoke Sidekick or start a separate

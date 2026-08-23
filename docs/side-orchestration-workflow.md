@@ -82,7 +82,10 @@ progress on the same gap.
 
 After the parent finishes, Supervise re-reads the newest completed response when
 possible and treats its final report as a completion handoff rather than a
-receipt. The first line begins with `Done`, `Partly done`, `Blocked`, or
+receipt. It reconciles the approved prompt, material results and corrections
+across the run, its own verification, the newest response, and the reason it
+stopped. Latest settled evidence wins, so corrected or superseded failures do
+not reappear. The first line begins with `Done`, `Partly done`, `Blocked`, or
 `Delivery uncertain` and names the actual work type: implementation,
 investigation, diagnosis, review, planning, or recommendation.
 
@@ -92,6 +95,10 @@ recommendations, next steps, and genuine user decisions. It compresses routine
 logs and repetition. A routine success without a meaningful caveat remains one
 concise line; complex work receives only the conditional sections needed to
 keep its meaning intact.
+
+If completed work reaches a new approval boundary, Supervise does not grant the
+permission. Its handoff says what completed and was verified, what has not
+happened, why it stopped, and the exact approval or decision the user must make.
 
 Supervise performs a final semantic check: if its summary would leave the user
 with a materially different picture from the parent's full response, it
@@ -118,6 +125,9 @@ Release evaluation covers these cases:
 - A successful multi-part cleanup still reports a material unresolved mismatch,
   unsafe repair boundary, recommended escalation, and explicit deferrals.
 - A trivial verified change still produces a one-line completion.
+- A corrected validation failure stays superseded when completed implementation
+  reaches a deployment approval boundary; the handoff preserves the completed
+  work and checks while identifying the undeployed state and exact approval.
 
 Scenario outputs and live-provider logs stay outside the repository. The
 repository keeps only the contracts and deterministic package checks.
