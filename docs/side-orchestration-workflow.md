@@ -22,8 +22,8 @@ not general chat workflows and cannot be invoked automatically.
 
 | Work | Skill |
 | --- | --- |
-| Explain parent state and discuss choices | Sidekick |
-| Decide what, if anything, the user must answer | Sidekick |
+| Explain what the parent completed, what remains, and discuss choices | Sidekick |
+| Distinguish a current blocker from a later continuation decision | Sidekick |
 | Turn settled decisions into one parent prompt | Reply |
 | Preserve or omit a review pause according to the user's decision | Reply |
 | Approve the current prompt and send it once | Supervise |
@@ -44,14 +44,21 @@ user requests a refresh, it reads the newest completed parent response when
 possible.
 
 Its initial explanation and summaries of materially new completed parent state
-begin with `Bottom line` and `Needs from you`. An unchanged refresh receives a
-brief status instead of restarting that template. Ordinary follow-up discussion
-answers the user's message naturally; the labels return only for new-state
-summaries or when a genuine blocker needs a user decision. A backlog or
-implementation detail is not presented as a decision unless the parent truly
-needs the user to choose. Long reports are summarized in plain language instead
-of copied as checklists. Sidekick recommendations remain clearly attributable,
-but `My take` is optional when a heading would not improve scanning.
+begin with `Bottom line`, naming the actual work type and boundary. An active,
+unblocked parent is still working; an active blocker uses `Needs from you`; a
+completed request with meaningful follow-up uses `To continue`; and a genuinely
+finished situation needs no extra heading. An unchanged refresh receives a
+brief status instead of restarting the template. Ordinary follow-up discussion
+answers the user's message naturally.
+
+Sidekick does not turn each backlog item into an approval. When completed
+analysis reaches a new scope boundary, it surfaces one continuation decision
+without implying authorization, and keeps its recommended starting point
+clearly attributable. Long reports are compressed without changing finding
+counts, priority tiers, independently actionable work, or recommended order.
+Before responding, Sidekick checks that its summary would not leave the user
+with a materially different picture of what completed, what remains, what
+matters most, or what to do next.
 
 ### Reply
 
@@ -115,6 +122,16 @@ user wants to explore the completed result.
 
 Release evaluation covers these cases:
 
+- Active, unblocked work does not sound complete or ask for unnecessary input.
+- A trivial completed task with no caveat or next work stays concise.
+- Completed analysis preserves material findings and priority while surfacing
+  one user-owned continuation decision rather than many approvals.
+- One real blocker remains explicit and easy to answer.
+- Completed implementation preserves material deferrals and verification gaps.
+- A long backlog is compressed without changing its count, tiers, independent
+  work, or recommended order.
+- A user correction receives a direct natural response without restarting the
+  summary template.
 - A long proposed backlog is not turned into a list of user approvals.
 - One genuine parent decision remains clear and easy to answer.
 - Reply keeps `plan first, then implement` as ordered work rather than a human
@@ -144,9 +161,9 @@ Previous testing covered first-use Side context, parent refreshes, Reply
 revision, single-send behavior, interrupted runs, limited corrections, and
 direct checks that caught a safety bug missed by parent-authored tests.
 
-The latest plain-language rewrite must pass isolated runs for the behavioral
-cases above plus the repository's structural checks. A fresh real linked-parent
-run remains the strongest final integration check.
+The latest Sidekick state and continuation repair must pass isolated runs for
+the behavioral cases above plus the repository's structural checks. A fresh
+real linked-parent run remains the strongest final integration check.
 
 Known limits:
 
