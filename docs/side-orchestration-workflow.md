@@ -43,10 +43,15 @@ Sidekick starts from the inherited parent snapshot. On later uses, or when the
 user requests a refresh, it reads the newest completed parent response when
 possible.
 
-It begins with `Bottom line` and `Needs from you`. A backlog or implementation
-detail is not presented as a decision unless the parent truly needs the user to
-choose. Long reports are summarized in plain language instead of copied as
-checklists.
+Its initial explanation and summaries of materially new completed parent state
+begin with `Bottom line` and `Needs from you`. An unchanged refresh receives a
+brief status instead of restarting that template. Ordinary follow-up discussion
+answers the user's message naturally; the labels return only for new-state
+summaries or when a genuine blocker needs a user decision. A backlog or
+implementation detail is not presented as a decision unless the parent truly
+needs the user to choose. Long reports are summarized in plain language instead
+of copied as checklists. Sidekick recommendations remain clearly attributable,
+but `My take` is optional when a heading would not improve scanning.
 
 ### Reply
 

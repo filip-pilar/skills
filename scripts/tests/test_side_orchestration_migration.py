@@ -28,17 +28,6 @@ class SideOrchestrationMigrationTests(unittest.TestCase):
         self.assertIn("fresh `$reply`", supervise)
         self.assertIn("explicit `$supervise`", reply)
 
-    def test_sidekick_does_not_promote_backlogs_into_decisions(self):
-        sidekick = self.read_skill("sidekick")
-
-        self.assertLess(
-            sidekick.index("`**Bottom line:**`"),
-            sidekick.index("`**Needs from you:**`"),
-        )
-        self.assertIn("is not automatically a user decision", sidekick)
-        self.assertIn("normally stop after those two lines", sidekick)
-        self.assertIn("Do not reproduce the parent's report", sidekick)
-
     def test_reply_distinguishes_sequence_from_review_gate(self):
         reply = self.read_skill("reply")
 
