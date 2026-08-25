@@ -28,11 +28,10 @@ agreement, or an unanswered suggestion into a decision. Match the user's tone
 and directness, using technical wording only when the parent needs it to act
 correctly.
 
-Do not add a planning phase, preview, review checkpoint, confirmation step, or
-`do not implement yet` limit unless the user chose it. When the user authorized
-planning through implementation and validation, preserve them as ordered parts
-of one job. Preserve a pause when the user explicitly requested approval before
-continuing.
+Preserve the user's chosen sequencing and approval gates exactly. Treat
+planning, implementation, and validation as ordered parts of one job when the
+user authorized them end to end; pause only when the user explicitly requested
+approval before continuing.
 
 Never invent permission for destructive, external, paid, risky, or broader
 actions. If an unresolved decision or missing limit would materially change the
@@ -44,7 +43,6 @@ On success, respond with exactly one fenced `text` block containing only the
 proposed parent prompt. Add no label, explanation, status, or surrounding
 commentary. Use a longer outer fence if the prompt itself contains fenced code.
 
-The fence is presentation for easy inspection and copying; it is not an
-authorization signal or workflow state. Drafting never messages the parent.
-Only a later manual `$supervise` invocation authorizes Supervise to select and
-send the prompt the user currently intends.
+Return the fenced prompt for easy inspection and copying. Drafting never
+messages the parent. A later manual `$supervise` invocation authorizes
+Supervise to select and send the prompt the user currently intends.

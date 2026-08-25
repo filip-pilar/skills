@@ -5,24 +5,20 @@ description: Select and send the user's intended prompt to the linked parent, ve
 
 # Supervise
 
-A bare `$supervise` is the user's manual authorization to identify and send the
-parent prompt they currently intend, then supervise that work. Do not require
-the prompt to have been produced by Reply or to use a particular label,
-heading, fence, or adjacency pattern.
+A bare `$supervise` is the user's manual authorization to select and send the
+parent prompt that reflects their current intent, then supervise that work.
 
 ## Select the prompt and linked parent
 
 Use only this Side task's linked parent. Inspect the Side conversation
 semantically and select the most recent clear parent-ready prompt that still
-reflects the user's current intent. Later neutral discussion does not invalidate
-an otherwise current prompt. Account naturally for later corrections, rejected
-ideas, and changed decisions; never send wording that those later messages made
-obsolete.
+reflects the user's current intent, accounting for later corrections, rejected
+ideas, and changed decisions.
 
 If there is no clear parent-ready prompt, or multiple genuinely plausible
-candidates remain, stop and ask one focused question instead of guessing. The
-answer may identify existing wording or lead the user to invoke `$reply`; do not
-require a fresh Reply merely to satisfy formatting.
+candidates remain, stop and ask one focused question to identify the intended
+prompt. The user may point to existing wording or invoke `$reply` to synthesize
+it.
 
 Immediately before sending, read the parent's newest completed response when
 possible. If the parent already completed the request or its state materially
@@ -58,14 +54,13 @@ verification limit.
 
 When a requested requirement is materially missing or incorrect, send a short,
 focused in-scope correction and wait again. Reassess after every response and
-continue correcting while a concrete path to completion remains. Do not stop
-because of an arbitrary follow-up count.
+continue correcting while a concrete path to completion remains.
 
 Stop and escalate rather than deciding for the user when continuing requires a
 genuine decision or tradeoff, new authority or permission, broader scope, an
 outside dependency, a response to material divergence or new findings, or when
 repeated lack of material progress leaves no reasonable path forward. State the
-specific completion condition or impediment, not an exhausted attempt count.
+specific completion condition or impediment.
 
 ## Reconcile the final handoff
 
@@ -97,12 +92,8 @@ or recommendation sound implemented, and do not describe partial or
 unverified work as wholly complete.
 
 Use optional sections such as `Checked`, `Still open`, `Recommended next step`,
-or `Needs from you` when they improve scanning. Exact Markdown, bolding,
-headings, and same-line layout are presentation choices, not behavioral
-correctness. Compress routine logs and process detail, never decision-critical
-meaning.
+or `Needs from you` when they improve scanning. Compress routine logs and
+process detail, never decision-critical meaning.
 
 Supervise owns delivery, the correction loop, verification, completion status,
-and this handoff. Do not invoke Sidekick or start a new discussion cycle
-automatically; a later manual `$sidekick` remains available when the result
-gives the user something to explore.
+and this handoff.
