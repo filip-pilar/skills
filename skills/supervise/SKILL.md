@@ -1,125 +1,108 @@
 ---
 name: supervise
-description: Send the latest Reply prompt to its linked parent, follow and verify the work, continue in-scope corrections, and deliver an accurate completion handoff.
+description: Select and send the user's intended prompt to the linked parent, verify and correct the work, and deliver an accurate completion handoff.
 ---
 
 # Supervise
 
-A bare `$supervise` approves only the latest eligible `Current reply`.
+A bare `$supervise` is the user's manual authorization to identify and send the
+parent prompt they currently intend, then supervise that work. Do not require
+the prompt to have been produced by Reply or to use a particular label,
+heading, fence, or adjacency pattern.
 
-## Choose the prompt and parent
+## Select the prompt and linked parent
 
-Use the newest earlier assistant response labeled `Current reply` that contains
-exactly one fenced `text` block. Send the block's contents, without the fence.
-If it is missing or unclear, or if a later user message changed or rejected it,
-request a fresh `$reply`.
+Use only this Side task's linked parent. Inspect the Side conversation
+semantically and select the most recent clear parent-ready prompt that still
+reflects the user's current intent. Later neutral discussion does not invalidate
+an otherwise current prompt. Account naturally for later corrections, rejected
+ideas, and changed decisions; never send wording that those later messages made
+obsolete.
 
-Use only this Side task's linked parent. Immediately before sending, read the
-parent's newest completed response when possible. Request a fresh `$reply` if
-the parent has already completed the request or changed something that affects
-it. If current state cannot be established and could change what should be
-sent, stop and explain the problem.
+If there is no clear parent-ready prompt, or multiple genuinely plausible
+candidates remain, stop and ask one focused question instead of guessing. The
+answer may identify existing wording or lead the user to invoke `$reply`; do not
+require a fresh Reply merely to satisfy formatting.
+
+Immediately before sending, read the parent's newest completed response when
+possible. If the parent already completed the request or its state materially
+changes what should be sent, stop and explain the concrete issue or ask the one
+decision now needed. If current state cannot be established and could change
+the intended prompt, do not send.
 
 ## Send once and follow the work
 
-Send the approved prompt once. After the send is accepted, never send that
-prompt again during the same run. If the send errors, times out, or leaves
-delivery unclear, do not retry; report `Delivery uncertain` so the user can
-check without risking a duplicate.
+Send the selected prompt once. After the send is accepted, never send it again
+during the same run. If the send errors, times out, or leaves delivery unclear,
+do not retry; stop with a clear `Delivery uncertain` result so the user can
+check without risking a duplicate. After any interruption, inspect the parent
+before acting; if delivery cannot be established, do not resend.
 
 Wait only on the linked parent. Reuse the wait cursor so the same response is
-not handled twice. Continue only with a response that clearly follows the sent
-prompt. After an interruption, inspect the parent before acting. If you cannot
-tell whether the prompt was sent, do not resend it.
+not handled twice, and follow only responses belonging to this supervised run.
 
-## Check and correct
+## Verify and correct
 
-Judge the result against the approved prompt. Supervise follows that scope
-exactly:
+Judge the result against the selected prompt and its actual acceptance
+criteria. Preserve its scope exactly:
 
-- A prompt that asks only for a plan does not permit implementation.
-- A prompt that authorizes planning, implementation, and validation is one
-  continuous job; do not pause between those steps unless the prompt says to.
+- A prompt asking only for a plan does not authorize implementation.
+- A prompt authorizing planning, implementation, and validation is one
+  continuous job unless the prompt requires a pause.
 
-The parent does the work. You may inspect files or run safe focused checks to
-verify important claims. Do not rely only on the parent's summary or on tests
-the parent just added. Check the highest-risk requirement directly when
-reasonable; otherwise say what could not be verified.
+The parent performs the requested work. Independently inspect files, state, or
+safe focused checks when proportionate to verify important claims. Do not rely
+entirely on the parent's summary or on tests the parent just added. Check the
+highest-risk requirement directly when reasonable; otherwise state the
+verification limit.
 
-If a clearly requested part is missing, send one short follow-up naming that
-gap, then wait again. Reassess the current result after every response and
-continue with another focused correction while it has a concrete reason to
-make progress within the approved scope. Do not stop merely because a fixed
-number of follow-ups has been sent.
+When a requested requirement is materially missing or incorrect, send a short,
+focused in-scope correction and wait again. Reassess after every response and
+continue correcting while a concrete path to completion remains. Do not stop
+because of an arbitrary follow-up count.
 
-Stop only when the request is complete, or when continuing requires a new
-choice, broader scope, new permission, an outside change, or has no reasonable
-path forward because the parent repeatedly makes no material progress on the
-same gap. Report the concrete completion or impediment, never an exhausted
-attempt count.
+Stop and escalate rather than deciding for the user when continuing requires a
+genuine decision or tradeoff, new authority or permission, broader scope, an
+outside dependency, a response to material divergence or new findings, or when
+repeated lack of material progress leaves no reasonable path forward. State the
+specific completion condition or impediment, not an exhausted attempt count.
 
-## Reconcile and deliver the completion handoff
+## Reconcile the final handoff
 
-After following, correcting, and verifying the work, re-read the parent's newest
-completed response when possible. First establish the current material result
-across the whole supervised run from the approved `Current reply`, material
-results and corrections observed while supervising, your independent
-verification, the parent's newest completed response, and the exact reason
-supervision stopped.
+Before handing off, re-read the parent's newest completed response when
+possible and reconcile the whole supervised run: the prompt sent, material
+results and corrections, independent verification, the latest parent response,
+and why supervision stopped.
 
-Identify the supported practical result and every settled fact that materially
-qualifies that result, the confidence it deserves, the user's decision, or the
-user's next action. A qualifier is material when omitting it could leave the
-user with a materially different picture of what completed, what remains, what
-was verified, why supervision stopped, or what to do next. It remains material
-when it is outside the approved scope; this does not authorize Supervise to do
-that work. Include only qualifiers supported by the supervised run, not
-hypothetical readiness concerns.
+Communicate every settled fact whose omission could materially change the
+user's understanding, confidence, decision, or next action. Include:
 
-Preserve the scale and relationship of material results. Do not replace several
-independently useful outcomes with a generic success claim, reduce a systemic
-result to one example, or bury an unresolved condition beneath completed work.
+- what changed or otherwise completed, stated with the correct work type;
+- what was verified and any meaningful verification limit;
+- unresolved, incomplete, or explicitly deferred work;
+- material new findings, including findings outside the sent prompt's scope;
+- why supervision stopped; and
+- any decision, permission, or action genuinely needed from the user.
 
-Prefer the latest settled evidence. Keep earlier context only while it remains
-materially relevant; do not revive findings, failures, or blockers that were
-later corrected or superseded. Fix this material content before choosing a
-status or shortening the response. Formatting and compression may change its
-wording, but must not remove or weaken any of it.
+Including an out-of-scope finding does not authorize work on it. Prefer the
+latest settled evidence and do not revive failures or blockers later corrected.
+Preserve the scale and relationship of independently useful outcomes instead of
+reducing them to a generic success statement.
 
-Then begin with exactly one bold status label and the practical result on the
-same line. Make that line type-accurate: say whether the parent implemented,
-investigated, diagnosed, reviewed, planned, or recommended work. Do not make an
-assessment or plan sound implemented, and do not make successful mutations
-sound wholly complete when a material requested result remains unresolved.
+Open with a clear completion state and practical result. Keep the meaningful
+distinctions represented by `Done`, `Partly done`, `Blocked`, and
+`Delivery uncertain`, but choose any concise wording or layout that communicates
+the state accurately. Do not make investigation, planning, review, diagnosis,
+or recommendation sound implemented, and do not describe partial or
+unverified work as wholly complete.
 
-Use `Done` only when the available checks support the approved request's actual
-kind of completion:
+Use optional sections such as `Checked`, `Still open`, `Recommended next step`,
+or `Needs from you` when they improve scanning. Exact Markdown, bolding,
+headings, and same-line layout are presentation choices, not behavioral
+correctness. Compress routine logs and process detail, never decision-critical
+meaning.
 
-- `**Done:**` — the approved request is complete for the work type requested.
-- `**Partly done:**` — useful work finished, but a requested part remains.
-- `**Blocked:**` — progress needs new information, permission, or an outside
-  change.
-- `**Delivery uncertain:**` — it is unclear whether the prompt was delivered.
-
-When a material qualifier remains, make it skimmable in the status line or an
-immediately following explicit section. State what is not complete, true, or
-verified, its practical consequence, and the next responsible action or
-decision when the evidence establishes one. If that action needs new approval
-or permission, stop without granting it.
-
-Compress routine detail, logs, repetition, and secondary background instead of
-compressing decision-critical meaning. Use conditional sections such as
-`**Checked:**`, `**Still open:**`, `**Recommended next step:**`, or
-`**Needs from you:**` only when useful; do not force every heading into every
-response. A genuinely routine success ends after one concise status line only
-when the reconciled material content contains no qualifier.
-
-Before sending, compare the handoff's likely meaning with the fixed material
-content. If status selection or compression changed that meaning, restore the
-missing context. Use ordinary language and do not reproduce logs, checklists,
-or routine process.
-
-Supervise owns delivery, completion status, correction-loop results,
-verification, and this final handoff. Do not invoke Sidekick or start a separate
-Sidekick discussion automatically. A later `$sidekick` remains an optional new
-discussion cycle when the completed result gives the user something to explore.
+Supervise owns delivery, the correction loop, verification, completion status,
+and this handoff. Do not invoke Sidekick or start a new discussion cycle
+automatically; a later manual `$sidekick` remains available when the result
+gives the user something to explore.

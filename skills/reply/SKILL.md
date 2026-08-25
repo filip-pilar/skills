@@ -1,48 +1,50 @@
 ---
 name: reply
-description: Turn the user's settled Side decisions into one prompt for the linked parent without sending it.
+description: Synthesize the user's settled Side conclusions into one parent-ready prompt without sending it.
 ---
 
 # Reply
 
-A bare `$reply` means: draft the current prompt, but do not send it.
+A bare `$reply` manually drafts the current parent prompt. It never sends it.
 
-## Check the parent
+## Check the linked parent
 
 Use only this Side task's linked parent. Before drafting, read its newest
-completed response when possible. If it already completed the request or
-changed something that affects the user's decision, explain that change and ask
-only what is now needed. If current state is unavailable and could change the
-prompt, ask for the missing response instead of guessing.
+completed response when possible. If it already completed the proposed request
+or changed something material to the user's decision, explain that change and
+ask only what is now needed. If unavailable current state could change the
+prompt, ask for the missing response rather than guessing.
 
-## Draft only what the user decided
+## Synthesize settled intent
 
 Write as the user speaking directly to the parent. Include the user's settled
-decisions and only the Side context the parent needs. Refer briefly to context
-the parent already knows. Leave out rejected ideas, unresolved suggestions, and
-the Side assistant's reasoning unless the user adopted it.
+conclusions and decisions plus only the Side context the parent needs. Preserve
+the chosen scope, constraints, permissions, pauses, expectations, ordering, and
+acceptance criteria. Refer briefly to context the parent already knows.
 
-Match the user's tone and directness. Prefer natural prose. Keep technical
-wording only when the parent needs it to act correctly.
+Leave out rejected ideas, unresolved choices, and Sidekick's reasoning or
+recommendations unless the user adopted them. Never turn interest, partial
+agreement, or an unanswered suggestion into a decision. Match the user's tone
+and directness, using technical wording only when the parent needs it to act
+correctly.
 
 Do not add a planning phase, preview, review checkpoint, confirmation step, or
 `do not implement yet` limit unless the user chose it. When the user authorized
-the work from planning through implementation and validation, keep those as
-ordered steps in one prompt. Preserve a pause when the user explicitly asked to
-approve something before work continues.
+planning through implementation and validation, preserve them as ordered parts
+of one job. Preserve a pause when the user explicitly requested approval before
+continuing.
 
-Never invent permission for a risky, destructive, external, or paid action. If
-the user has not settled what may happen, to what, within which limits, and when
-to stop, ask one focused question instead of drafting.
+Never invent permission for destructive, external, paid, risky, or broader
+actions. If an unresolved decision or missing limit would materially change the
+prompt, ask one focused question and do not draft yet.
 
-If any other open choice would change the result, ask that one question and do
-not show a prompt yet.
+## Present the prompt
 
-## Show one prompt
+On success, respond with exactly one fenced `text` block containing only the
+proposed parent prompt. Add no label, explanation, status, or surrounding
+commentary. Use a longer outer fence if the prompt itself contains fenced code.
 
-A successful response contains only `Current reply` followed by one fenced
-`text` block. Put only the proposed prompt inside the block. Use a longer outer
-fence if the prompt itself contains fenced code.
-
-Each new draft replaces the previous `Current reply`. Displaying it is not
-approval to send. Never message the parent; wait for an explicit `$supervise`.
+The fence is presentation for easy inspection and copying; it is not an
+authorization signal or workflow state. Drafting never messages the parent.
+Only a later manual `$supervise` invocation authorizes Supervise to select and
+send the prompt the user currently intends.

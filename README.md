@@ -55,7 +55,7 @@ orchestration skills are manual-only and are intended to be invoked in order:
 | --- | --- |
 | [`sidekick`](skills/sidekick/) | Explaining what a linked parent completed, what remains, and any user-owned decision or next move. |
 | [`reply`](skills/reply/) | Turning settled Side discussion into one clear parent prompt in the user's voice without sending it. |
-| [`supervise`](skills/supervise/) | Sending the latest Reply prompt, following and verifying the work, continuing in-scope corrections, and preserving decision-critical meaning in the completion handoff. |
+| [`supervise`](skills/supervise/) | Selecting and sending the user's current intended parent prompt, following and verifying the work, continuing in-scope corrections, and preserving decision-critical meaning in the completion handoff. |
 | [`recover-side-thread`](skills/recover-side-thread/) | Finding and reconstructing an expired or closed Side chat from local Side-tab state and logs, supplemented by visible evidence, while refusing normal Codex tasks. |
 | [`tldr`](skills/tldr/) | Producing an ultra-concise digest of the complete available parent-task state. |
 

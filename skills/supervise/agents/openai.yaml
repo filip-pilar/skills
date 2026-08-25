@@ -1,7 +1,7 @@
 interface:
   display_name: "Supervise"
-  short_description: "Send, verify, correct, and hand off parent work"
-  default_prompt: "Use $supervise to send the latest Current reply to its linked parent, follow and verify the work, continue in-scope corrections while progress remains possible, and deliver an accurate completion handoff."
+  short_description: "Select, send, verify, correct, and hand off parent work"
+  default_prompt: "Use $supervise to identify and send my intended prompt to the linked parent, follow and verify the work, continue focused in-scope corrections while progress remains possible, and deliver an accurate completion handoff."
 
 policy:
   allow_implicit_invocation: false
