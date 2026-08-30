@@ -114,6 +114,18 @@ class SideThreadArchiveScriptTests(unittest.TestCase):
         (self.home / ".codex-global-state.json").write_text(
             json.dumps(global_state), encoding="utf-8"
         )
+        state = sqlite3.connect(self.home / "state_5.sqlite")
+        state.execute(
+            """
+            CREATE TABLE threads (
+                id TEXT PRIMARY KEY, title TEXT, archived INTEGER,
+                archived_at INTEGER, updated_at_ms INTEGER, cwd TEXT,
+                thread_source TEXT, git_branch TEXT, rollout_path TEXT
+            )
+            """
+        )
+        state.commit()
+        state.close()
         logs = sqlite3.connect(self.home / "logs_2.sqlite")
         logs.execute(
             """
@@ -240,6 +252,67 @@ class SideThreadArchiveScriptTests(unittest.TestCase):
             check=False,
         )
 
+    def side_list(self, *args: str) -> dict:
+        result = self.run_script(
+            "side-list", "--codex-home", str(self.home), *args, "--format", "json"
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads(result.stdout)
+
+    def side_inspect(self, thread_id: str, *args: str, expected: int = 0) -> dict:
+        result = self.run_script(
+            "side-inspect", "--codex-home", str(self.home), "--thread-id", thread_id, *args
+        )
+        self.assertEqual(result.returncode, expected, result.stderr)
+        return json.loads(result.stdout)
+
+    def add_user_turn(
+        self, thread_id: str, timestamp: int, message: str, cwd: str = "/tmp/reliability-lab",
+        *, nanos: int = 0,
+    ) -> str:
+        body = (
+            'Submission sub=Submission { op: TurnInput { request: TurnInputRequest { '
+            f'input: UserInput {{ content: [Text {{ text: {json.dumps(message)}, '
+            f'text_elements: [] }}], client_id: "test" }}, cwd: {json.dumps(cwd)} }} }} }}'
+        )
+        connection = sqlite3.connect(self.home / "logs_2.sqlite")
+        connection.execute(
+            "INSERT INTO logs (ts, ts_nanos, target, feedback_log_body, thread_id) VALUES (?, ?, ?, ?, ?)",
+            (timestamp, nanos, "codex_core::session::handlers", body, thread_id),
+        )
+        connection.commit()
+        connection.close()
+        return body
+
+    def add_state_task(self, thread_id: str, source: str = "user", title: str = "Parent task") -> None:
+        connection = sqlite3.connect(self.home / "state_5.sqlite")
+        connection.execute(
+            """
+            INSERT INTO threads (
+                id, title, archived, archived_at, updated_at_ms, cwd,
+                thread_source, git_branch, rollout_path
+            ) VALUES (?, ?, 0, NULL, 1785837600000, '/tmp/reliability-lab', ?, '', '')
+            """,
+            (thread_id, title, source),
+        )
+        connection.commit()
+        connection.close()
+
+    def add_parent_tool_call(
+        self, side_id: str, parent_id: str, timestamp: int, prompt: str
+    ) -> None:
+        body = (
+            'ToolCall: send_message_to_thread arguments='
+            + json.dumps({"threadId": parent_id, "prompt": prompt})
+        )
+        connection = sqlite3.connect(self.home / "logs_2.sqlite")
+        connection.execute(
+            "INSERT INTO logs (ts, ts_nanos, target, feedback_log_body, thread_id) VALUES (?, 0, ?, ?, ?)",
+            (timestamp, "codex_core::tools::parallel", body, side_id),
+        )
+        connection.commit()
+        connection.close()
+
     def test_list_uses_archive_only_and_exposes_selection_path(self) -> None:
         result = self.run_script(
             "list",
@@ -265,17 +338,7 @@ class SideThreadArchiveScriptTests(unittest.TestCase):
         self.assertNotIn("active thread", result.stdout)
 
     def test_side_list_uses_persisted_tab_state_and_logs(self) -> None:
-        result = self.run_script(
-            "side-list",
-            "--codex-home",
-            str(self.home),
-            "--limit",
-            "10",
-            "--format",
-            "json",
-        )
-        self.assertEqual(result.returncode, 0, result.stderr)
-        report = json.loads(result.stdout)
+        report = self.side_list("--limit", "10")
         by_id = {item["thread_id"]: item for item in report["candidates"]}
         registered = by_id[self.side_id]
         self.assertEqual(registered["source_type"], "side_chat_confirmed")
@@ -285,30 +348,14 @@ class SideThreadArchiveScriptTests(unittest.TestCase):
         self.assertEqual(report["sources_scanned"]["registered_side_chats"], 1)
 
     def test_side_list_finds_closed_historical_fork_candidate(self) -> None:
-        result = self.run_script(
-            "side-list", "--codex-home", str(self.home), "--limit", "10", "--format", "json"
-        )
-        self.assertEqual(result.returncode, 0, result.stderr)
-        by_id = {item["thread_id"]: item for item in json.loads(result.stdout)["candidates"]}
+        by_id = {item["thread_id"]: item for item in self.side_list("--limit", "10")["candidates"]}
         closed = by_id[self.closed_side_id]
         self.assertEqual(closed["source_type"], "side_chat_log_candidate")
         self.assertFalse(closed["registered_in_tab_state"])
         self.assertIn("reply", closed["title"].lower())
 
     def test_side_list_finds_likely_chat_without_fork_marker(self) -> None:
-        result = self.run_script(
-            "side-list",
-            "--codex-home",
-            str(self.home),
-            "--limit",
-            "10",
-            "--scan-limit",
-            "20",
-            "--format",
-            "json",
-        )
-        self.assertEqual(result.returncode, 0, result.stderr)
-        report = json.loads(result.stdout)
+        report = self.side_list("--limit", "10", "--scan-limit", "20")
         by_id = {item["thread_id"]: item for item in report["candidates"]}
         self.assertEqual(report["candidates"][0]["thread_id"], self.likely_side_id)
         self.assertEqual(report["groups"][-1]["project"], "Unknown project")
@@ -318,63 +365,33 @@ class SideThreadArchiveScriptTests(unittest.TestCase):
         self.assertFalse(likely["fork_marker_observed"])
         self.assertEqual(likely["workspace"], "linq-chat-sdk")
         self.assertEqual(likely["project_label"], "Linq Chat SDK")
-        self.assertIn("live webhook testing", likely["title"].lower())
+        self.assertIn("signed-webhook replay", likely["title"].lower())
         self.assertNotIn("recover-side-thread", likely["title"])
+        self.assertEqual(likely["latest_message_at"], "2026-08-04 10:01 UTC")
+        self.assertRegex(likely["latest_message_age"], r"^(?:just now|\d+(?:m|h|d|w|mo|y) ago)$")
+        self.assertEqual(likely["sort_epoch"], 1785837703.0)
         self.assertEqual(report["sources_scanned"]["interactive_log_threads_scanned"], 7)
 
     def test_side_list_excludes_synthetic_and_unmatched_single_turn_threads(self) -> None:
-        broad = self.run_script(
-            "side-list",
-            "--codex-home",
-            str(self.home),
-            "--limit",
-            "20",
-            "--scan-limit",
-            "20",
-            "--format",
-            "json",
-        )
-        self.assertEqual(broad.returncode, 0, broad.stderr)
-        broad_ids = {item["thread_id"] for item in json.loads(broad.stdout)["candidates"]}
+        broad_ids = {
+            item["thread_id"]
+            for item in self.side_list("--limit", "20", "--scan-limit", "20")["candidates"]
+        }
         self.assertNotIn(self.synthetic_thread_id, broad_ids)
         self.assertNotIn(self.internal_thread_id, broad_ids)
         self.assertNotIn(self.recovery_meta_id, broad_ids)
         self.assertNotIn(self.possible_side_id, broad_ids)
 
-        narrowed = self.run_script(
-            "side-list",
-            "--codex-home",
-            str(self.home),
-            "--query",
-            "rare adapter edge case",
-            "--limit",
-            "20",
-            "--scan-limit",
-            "20",
-            "--format",
-            "json",
-        )
-        self.assertEqual(narrowed.returncode, 0, narrowed.stderr)
-        candidates = json.loads(narrowed.stdout)["candidates"]
+        candidates = self.side_list(
+            "--query", "rare adapter edge case", "--limit", "20", "--scan-limit", "20"
+        )["candidates"]
         self.assertEqual([item["thread_id"] for item in candidates], [self.possible_side_id])
         self.assertEqual(candidates[0]["confidence"], "possible")
 
     def test_side_list_query_searches_all_turns_and_groups_by_project(self) -> None:
-        result = self.run_script(
-            "side-list",
-            "--codex-home",
-            str(self.home),
-            "--query",
-            "signed-webhook replay",
-            "--limit",
-            "20",
-            "--scan-limit",
-            "20",
-            "--format",
-            "json",
+        report = self.side_list(
+            "--query", "signed-webhook replay", "--limit", "20", "--scan-limit", "20"
         )
-        self.assertEqual(result.returncode, 0, result.stderr)
-        report = json.loads(result.stdout)
         self.assertEqual(
             [item["thread_id"] for item in report["candidates"]],
             [self.likely_side_id],
@@ -394,28 +411,18 @@ class SideThreadArchiveScriptTests(unittest.TestCase):
             "markdown",
         )
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("I found 3 matching Side chats; showing 1–3.", result.stdout)
+        self.assertIn("I found 3 matching Side-chat candidates in the searched stages; showing 1–3.", result.stdout)
         self.assertIn("Linq Chat SDK\n", result.stdout)
         self.assertIn("Confirmed Side chat", result.stdout)
         self.assertIn("Likely Side chat", result.stdout)
+        self.assertIn("Latest message ", result.stdout)
+        self.assertNotIn("2026-08-04 10:01 UTC", result.stdout)
         self.assertIn("Reply with the number you want to recover.", result.stdout)
         self.assertNotIn("/tmp/", result.stdout)
         self.assertNotIn(self.likely_side_id, result.stdout)
 
     def test_side_list_reports_totals_and_supports_show_more_pagination(self) -> None:
-        first = self.run_script(
-            "side-list",
-            "--codex-home",
-            str(self.home),
-            "--limit",
-            "1",
-            "--scan-limit",
-            "20",
-            "--format",
-            "json",
-        )
-        self.assertEqual(first.returncode, 0, first.stderr)
-        first_report = json.loads(first.stdout)
+        first_report = self.side_list("--limit", "1", "--scan-limit", "20")
         self.assertEqual(first_report["pagination"]["total_matches"], 3)
         self.assertEqual(first_report["pagination"]["returned"], 1)
         self.assertTrue(first_report["pagination"]["has_more"])
@@ -447,26 +454,14 @@ class SideThreadArchiveScriptTests(unittest.TestCase):
         filter_cases = (
             ("--project", "linq chat sdk", self.likely_side_id),
             ("--phrase", "signed-webhook replay", self.likely_side_id),
-            ("--title", "live webhook testing", self.likely_side_id),
+            ("--title", "signed-webhook replay", self.likely_side_id),
             ("--thread-id", self.possible_side_id, self.possible_side_id),
         )
         for flag, value, expected_id in filter_cases:
             with self.subTest(flag=flag):
-                result = self.run_script(
-                    "side-list",
-                    "--codex-home",
-                    str(self.home),
-                    flag,
-                    value,
-                    "--limit",
-                    "20",
-                    "--scan-limit",
-                    "20",
-                    "--format",
-                    "json",
-                )
-                self.assertEqual(result.returncode, 0, result.stderr)
-                candidates = json.loads(result.stdout)["candidates"]
+                candidates = self.side_list(
+                    flag, value, "--limit", "20", "--scan-limit", "20"
+                )["candidates"]
                 self.assertEqual([item["thread_id"] for item in candidates], [expected_id])
 
         possible = self.run_script(
@@ -482,54 +477,259 @@ class SideThreadArchiveScriptTests(unittest.TestCase):
         self.assertIn("Possible Side chat", possible.stdout)
         self.assertIn("Confirmation required before recovery", possible.stdout)
 
-    def test_side_inspect_reports_source_specific_coverage(self) -> None:
-        result = self.run_script(
-            "side-inspect",
-            "--codex-home",
-            str(self.home),
-            "--thread-id",
-            self.side_id,
+    def test_html_lab_regression_matches_terms_split_across_turns_beyond_compact_horizon(self) -> None:
+        html_side = "01ahtml00-0000-0000-0000-000000000001"
+        self.add_user_turn(html_side, 1785800000, "Locky should only review the implementation approach.")
+        self.add_user_turn(html_side, 1785800001, "The landing page needs a cleaner visual hierarchy.")
+        self.add_user_turn(html_side, 1785800002, "Please create a new HTML experiment.")
+        self.add_user_turn(html_side, 1785800003, "Use the lab workspace for the final comparison.")
+
+        report = self.side_list(
+            "--query", "landing page html lab", "--scan-limit", "2", "--limit", "12"
         )
-        self.assertEqual(result.returncode, 0, result.stderr)
-        report = json.loads(result.stdout)
+        self.assertEqual([item["thread_id"] for item in report["candidates"]], [html_side])
+        candidate = report["candidates"][0]
+        self.assertEqual(candidate["recovery_stage"], "full_readable_log_horizon")
+        self.assertEqual(candidate["matched_evidence"], "submitted_user_turns")
+        self.assertIn("lab workspace", candidate["title"].lower())
+        self.assertTrue(report["coverage"]["candidate_horizon"]["full_horizon_searched"])
+        self.assertGreater(report["coverage"]["candidate_horizon"]["interactive_threads_in_readable_horizon"], 2)
+
+    def test_recovery_audit_and_delegation_records_cannot_match_or_outrank_real_topic(self) -> None:
+        real_side = "01areal00-0000-0000-0000-000000000001"
+        audit_side = "01aaudit0-0000-0000-0000-000000000001"
+        parent_id = "01aaudit0-0000-0000-0000-000000000002"
+        audit_prompt = (
+            "Please deeply investigate and brainstorm how to make recover-side-thread substantially "
+            "more reliable before implementing the landing page HTML lab regression."
+        )
+        self.add_user_turn(real_side, 1785798000, "Compare the landing page composition.")
+        self.add_user_turn(real_side, 1785798001, "Build the HTML alternative next.")
+        self.add_user_turn(real_side, 1785798002, "Keep the result in the lab workspace.")
+        self.add_user_turn(real_side, 1785799000, audit_prompt)
+
+        self.add_state_task(parent_id, title="Reliability parent")
+        self.add_user_turn(audit_side, 1785799500, "Review the evidence carefully before responding.")
+        self.add_user_turn(
+            audit_side,
+            1785799600,
+            f"<codex_delegation>{audit_prompt}</codex_delegation>",
+        )
+        self.add_user_turn(audit_side, 1785799700, audit_prompt)
+        self.add_parent_tool_call(audit_side, parent_id, 1785799800, audit_prompt)
+
+        report = self.side_list(
+            "--query", "landing page html lab", "--scan-limit", "1", "--limit", "20"
+        )
+        self.assertEqual([item["thread_id"] for item in report["candidates"]], [real_side])
+        real = report["candidates"][0]
+        self.assertEqual(real["user_messages_observed"], 3)
+        self.assertEqual(real["recovery_meta_messages_excluded"], 1)
+        self.assertEqual(real["sort_epoch"], 1785798002.0)
+        self.assertNotIn("deeply investigate", real["title"].lower())
+        self.assertNotIn("deeply investigate", real["matched_message_snippet"].lower())
+
+        audit = self.side_list("--thread-id", audit_side, "--limit", "20")["candidates"][0]
+        self.assertEqual(audit["user_messages_observed"], 1)
+        self.assertEqual(audit["synthetic_messages_excluded"], 1)
+        self.assertEqual(audit["recovery_meta_messages_excluded"], 1)
+        self.assertEqual(audit["sort_epoch"], 1785799500.0)
+        self.assertEqual(audit["parent_relationship_source"], "unresolved")
+        self.assertNotIn("landing page", audit["title"].lower())
+
+    def test_repeated_and_redaction_colliding_submissions_keep_count_and_latest_message(self) -> None:
+        side_id = "01arepeat-0000-0000-0000-000000000001"
+        first_body = self.add_user_turn(
+            side_id, 1785900000, "Compare token=sk-abcdefghijklmnop for the release checklist."
+        )
+        self.add_user_turn(
+            side_id, 1785900600, "Compare token=sk-qrstuvwxyzabcdef for the release checklist."
+        )
+        legacy_dir = self.home / "sqlite"
+        legacy_dir.mkdir(exist_ok=True)
+        legacy = sqlite3.connect(legacy_dir / "logs_2.sqlite")
+        legacy.execute(
+            """
+            CREATE TABLE logs (
+                id INTEGER PRIMARY KEY, ts INTEGER, ts_nanos INTEGER, level TEXT,
+                target TEXT, feedback_log_body TEXT, module_path TEXT, file TEXT,
+                line INTEGER, thread_id TEXT, process_uuid TEXT, estimated_bytes INTEGER
+            )
+            """
+        )
+        legacy.execute(
+            "INSERT INTO logs (ts, ts_nanos, target, feedback_log_body, thread_id) VALUES (?, 0, ?, ?, ?)",
+            (1785900000, "codex_core::session::handlers", first_body, side_id),
+        )
+        legacy.commit()
+        legacy.close()
+
+        report = self.side_list(
+            "--query", "release checklist", "--scan-limit", "2", "--limit", "20"
+        )
+        candidate = next(item for item in report["candidates"] if item["thread_id"] == side_id)
+        self.assertEqual(candidate["user_messages_observed"], 2)
+        self.assertEqual(candidate["latest_message_at"], "2026-08-05 03:30 UTC")
+        serialized = json.dumps(report)
+        self.assertNotIn("sk-abcdefghijklmnop", serialized)
+        self.assertNotIn("sk-qrstuvwxyzabcdef", serialized)
+
+    def test_parent_directed_topic_recovers_lost_mapping_and_exact_parent_history(self) -> None:
+        side_id = "01aparent-0000-0000-0000-000000000001"
+        parent_id = "01aparent-0000-0000-0000-000000000002"
+        self.add_state_task(parent_id, title="Unrelated parent title")
+        self.add_user_turn(side_id, 1785920000, "Please review the latest option before we continue.")
+        self.add_parent_tool_call(
+            side_id, parent_id, 1785920001,
+            "Assess the landing page HTML lab and report the strongest layout.",
+        )
+        history = sqlite3.connect(self.home / "thread_history_1.sqlite")
+        history.execute(
+            """
+            CREATE TABLE thread_items (
+                thread_id TEXT, turn_id TEXT, item_id TEXT, rollout_ordinal INTEGER,
+                created_at_ms INTEGER, item_json TEXT, item_type TEXT,
+                updated_at_ordinal INTEGER DEFAULT 0
+            )
+            """
+        )
+        history.execute(
+            "INSERT INTO thread_items VALUES (?, 'turn-1', 'item-1', 1, ?, ?, 'agentMessage', 0)",
+            (
+                parent_id,
+                1785920002000,
+                json.dumps({"type": "agentMessage", "text": "The downstream comparison selected layout B."}),
+            ),
+        )
+        history.commit()
+        history.close()
+
+        candidate = self.side_list(
+            "--query", "landing page html lab", "--scan-limit", "2", "--limit", "20"
+        )["candidates"][0]
+        self.assertEqual(candidate["thread_id"], side_id)
+        self.assertEqual(candidate["confidence"], "possible")
+        self.assertEqual(candidate["recovery_stage"], "parent_directed_evidence")
+        self.assertEqual(candidate["parent_thread_id"], parent_id)
+        self.assertEqual(candidate["parent_relationship_source"], "allowlisted_parent_directed_tool_call")
+
+        inspected = self.side_inspect(side_id, "--confirm-possible")
+        self.assertEqual(inspected["parent_thread_id"], parent_id)
+        self.assertEqual(
+            inspected["downstream_parent_evidence"][0]["evidence_type"],
+            "downstream_parent_evidence",
+        )
+        self.assertIn("layout B", inspected["downstream_parent_evidence"][0]["text"])
+        self.assertTrue(inspected["coverage"]["downstream_parent_evidence"]["bounded_to_exact_parent"])
+
+    def test_parent_conflicts_remain_unresolved_and_do_not_inspect_history(self) -> None:
+        side_id = "01aconfl0-0000-0000-0000-000000000001"
+        first_parent = "01aconfl0-0000-0000-0000-000000000002"
+        second_parent = "01aconfl0-0000-0000-0000-000000000003"
+        self.add_state_task(first_parent, title="First parent")
+        self.add_state_task(second_parent, title="Second parent")
+        self.add_user_turn(side_id, 1785930000, "Investigate the conflicting parent relationship evidence.")
+        self.add_parent_tool_call(side_id, first_parent, 1785930001, "First parent prompt")
+        self.add_parent_tool_call(side_id, second_parent, 1785930002, "Second parent prompt")
+
+        candidate = self.side_list(
+            "--query", "conflicting parent relationship", "--limit", "20"
+        )["candidates"][0]
+        self.assertEqual(candidate["parent_thread_id"], "")
+        self.assertEqual(candidate["parent_relationship_conflicts"], [first_parent, second_parent])
+
+        report = self.side_inspect(side_id, "--confirm-possible")
+        self.assertEqual(report["downstream_parent_evidence"], [])
+        self.assertEqual(
+            report["coverage"]["downstream_parent_evidence"]["status"],
+            "not_inspected_parent_unresolved_or_conflicted",
+        )
+
+    def test_schema_failure_degrades_classification_and_suppresses_log_only_records(self) -> None:
+        connection = sqlite3.connect(self.home / "state_5.sqlite")
+        connection.execute("DROP TABLE threads")
+        connection.execute("CREATE TABLE threads (id TEXT PRIMARY KEY, title TEXT)")
+        connection.commit()
+        connection.close()
+
+        report = self.side_list("--query", "signed webhook replay", "--limit", "20")
+        self.assertEqual(report["candidates"], [])
+        self.assertEqual(report["coverage"]["classification"]["status"], "degraded")
+        self.assertTrue(report["coverage"]["classification"]["fail_safe_log_only_exclusion"])
+
+        inspection = self.side_inspect(self.likely_side_id, expected=1)
+        self.assertIn("classification coverage is degraded", inspection["error"])
+
+    def test_partial_log_schema_failure_is_reported_without_hiding_readable_sources(self) -> None:
+        legacy_dir = self.home / "sqlite"
+        legacy_dir.mkdir(exist_ok=True)
+        legacy = sqlite3.connect(legacy_dir / "logs_2.sqlite")
+        legacy.execute("CREATE TABLE logs (thread_id TEXT, ts INTEGER)")
+        legacy.commit()
+        legacy.close()
+
+        report = self.side_list("--query", "signed webhook replay", "--limit", "20")
+        self.assertEqual(report["candidates"][0]["thread_id"], self.likely_side_id)
+        legacy_coverage = next(
+            item for item in report["coverage"]["log_sources"]
+            if item["source"] == "legacy logs_2.sqlite"
+        )
+        self.assertEqual(legacy_coverage["status"], "schema_mismatch")
+        self.assertIn("legacy logs_2.sqlite", report["coverage"]["sources"]["unavailable"])
+
+    def test_database_registered_non_side_sources_never_enter_candidate_pool(self) -> None:
+        excluded = {
+            "01aexclude-0000-0000-0000-000000000001": "subagent",
+            "01aexclude-0000-0000-0000-000000000002": "guardian",
+            "01aexclude-0000-0000-0000-000000000003": "automation",
+            "01aexclude-0000-0000-0000-000000000004": "user",
+        }
+        for index, (thread_id, source) in enumerate(excluded.items()):
+            self.add_state_task(thread_id, source=source, title=f"{source} task")
+            self.add_user_turn(thread_id, 1785940000 + index, "Unique forbidden topic candidate text.")
+        report = self.side_list("--query", "forbidden topic candidate", "--limit", "20")
+        self.assertEqual(report["candidates"], [])
+
+    def test_narrowed_pagination_is_stable_and_reports_hidden_weak_matches(self) -> None:
+        for index in range(3):
+            self.add_user_turn(
+                f"01aweak00-0000-0000-0000-00000000000{index}",
+                1785950000 + index,
+                f"Inspect stable pagination marker {index}.",
+            )
+        args = (
+            "--query", "stable pagination marker", "--scan-limit", "1", "--limit", "1",
+        )
+        first = self.side_list(*args)
+        repeated = self.side_list(*args)
+        self.assertEqual(first["candidates"][0]["thread_id"], repeated["candidates"][0]["thread_id"])
+        self.assertEqual(first["pagination"], repeated["pagination"])
+        self.assertEqual(first["pagination"]["confidence_counts"]["possible"], 3)
+        self.assertEqual(first["coverage"]["weak_candidates"]["not_displayed_on_page"], 2)
+
+    def test_side_inspect_reports_source_specific_coverage(self) -> None:
+        report = self.side_inspect(self.side_id)
         self.assertEqual(report["source_type"], "side_chat_confirmed")
         self.assertIn("Batch 013A", report["visible_messages"][0]["text"])
         coverage = report["coverage"]
         self.assertTrue(coverage["side_user_turns"]["searched"])
         self.assertTrue(coverage["side_user_turns"]["found"])
-        self.assertEqual(coverage["ordinary_side_assistant_prose"]["status"], "not_inspected")
-        self.assertEqual(coverage["tool_activity"]["status"], "not_inspected")
-        self.assertEqual(coverage["downstream_parent_evidence"]["status"], "not_inspected")
+        self.assertEqual(coverage["ordinary_side_assistant_prose"]["status"], "unavailable_body_markers_only")
+        self.assertEqual(coverage["tool_activity"]["status"], "allowlisted_only")
+        self.assertEqual(coverage["downstream_parent_evidence"]["status"], "not_present")
         self.assertIsNone(coverage["ordinary_side_assistant_prose"]["found"])
         self.assertTrue(coverage["raw_tool_inputs_and_outputs_excluded"])
         self.assertNotIn("assistant_message_bodies_available", coverage)
-        self.assertNotIn("parent-payload-must-stay-excluded", result.stdout)
+        self.assertNotIn("parent-payload-must-stay-excluded", json.dumps(report))
         self.assertIn("does not establish", coverage["note"])
 
     def test_side_inspect_requires_confirmation_for_possible_candidate(self) -> None:
-        blocked = self.run_script(
-            "side-inspect",
-            "--codex-home",
-            str(self.home),
-            "--thread-id",
-            self.possible_side_id,
-        )
-        self.assertEqual(blocked.returncode, 1)
-        blocked_report = json.loads(blocked.stdout)
+        blocked_report = self.side_inspect(self.possible_side_id, expected=1)
         self.assertTrue(blocked_report["confirmation_required"])
         self.assertEqual(blocked_report["candidate"]["confidence"], "possible")
         self.assertNotIn("visible_messages", blocked_report)
 
-        confirmed = self.run_script(
-            "side-inspect",
-            "--codex-home",
-            str(self.home),
-            "--thread-id",
-            self.possible_side_id,
-            "--confirm-possible",
-        )
-        self.assertEqual(confirmed.returncode, 0, confirmed.stderr)
-        confirmed_report = json.loads(confirmed.stdout)
+        confirmed_report = self.side_inspect(self.possible_side_id, "--confirm-possible")
         self.assertEqual(confirmed_report["confidence"], "possible")
         self.assertIn("rare adapter edge case", confirmed_report["visible_messages"][0]["text"])
 
@@ -553,21 +753,6 @@ class SideThreadArchiveScriptTests(unittest.TestCase):
     def register_main_task(self) -> None:
         database = self.home / "state_5.sqlite"
         connection = sqlite3.connect(database)
-        connection.execute(
-            """
-            CREATE TABLE threads (
-                id TEXT PRIMARY KEY,
-                title TEXT,
-                archived INTEGER,
-                archived_at INTEGER,
-                updated_at_ms INTEGER,
-                cwd TEXT,
-                thread_source TEXT,
-                git_branch TEXT,
-                rollout_path TEXT
-            )
-            """
-        )
         connection.execute(
             """
             INSERT INTO threads (
@@ -1044,12 +1229,13 @@ class SideThreadArchiveScriptTests(unittest.TestCase):
         self.assertIn("Likely Side chat", instructions)
         self.assertIn("Possible Side chat", instructions)
         self.assertIn("Group numbered choices by Codex project", instructions)
+        self.assertIn("relative age of its latest actual user message", instructions)
         self.assertIn("Discover local Side chats first", instructions)
         self.assertIn("side-list", instructions)
         self.assertIn("side-inspect", instructions)
         self.assertIn("legacy archive commands are exact-record fallbacks only", instructions)
         self.assertIn("Candidate selection and `side-inspect` are intermediate steps, not completion", instructions)
-        self.assertIn("Optional downstream parent fallback", instructions)
+        self.assertIn("Bounded downstream parent evidence", instructions)
         self.assertIn("Missing title or workspace is a coverage gap", handoff)
         self.assertIn("Type: Side chat", handoff)
         self.assertIn("Side user turns, ordinary Side assistant prose, tool activity, downstream parent evidence", handoff)
