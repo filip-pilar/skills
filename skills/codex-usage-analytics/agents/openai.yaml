@@ -1,0 +1,7 @@
+interface:
+  display_name: "Codex Usage Analytics"
+  short_description: "Report private Codex skill and plugin usage safely"
+  default_prompt: "Use $codex-usage-analytics to fetch and interpret my Codex skill and plugin invocation history."
+
+policy:
+  allow_implicit_invocation: false
