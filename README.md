@@ -37,7 +37,7 @@ npx skills add filip-pilar/skills --list
 
 | Skill | Best for |
 | --- | --- |
-| [`codex-usage-analytics`](skills/codex-usage-analytics/) | Cross-referencing current Codex skills with daily skill and plugin invocation analytics from the authenticated private ChatGPT backend. |
+| [`codex-skill-usage-analytics`](skills/codex-skill-usage-analytics/) | Cross-referencing current Codex skills with daily skill and plugin invocation analytics from the authenticated private ChatGPT backend. |
 | [`dr-react`](skills/dr-react/) | Raising a React Doctor score through small fixes and regression checks. |
 | [`setup-cli-proxy-gateway`](skills/setup-cli-proxy-gateway/) | Configuring and validating CLIProxyAPI routes for Codex CLI or Claude Code. |
 | [`socket-audit`](skills/socket-audit/) | Auditing supply-chain indicators and managing supported install-time protections. |
@@ -139,7 +139,7 @@ Review a skill and its bundled scripts before installing it. Pay particular atte
 
 | Skill | Additional requirements or effects |
 | --- | --- |
-| `codex-usage-analytics` | An authenticated local Codex installation; performs credential-safe GET requests to undocumented ChatGPT analytics endpoints that may change. |
+| `codex-skill-usage-analytics` | An authenticated local Codex installation; performs credential-safe GET requests to undocumented ChatGPT analytics endpoints that may change. |
 | `dr-react` | Node.js, a package manager, repository access, and potentially networked `npx` execution. |
 | `gitprep` | Git and repository access; intentionally never pushes. |
 | `setup-cli-proxy-gateway` | macOS/Linux shell and provider authentication; may change listeners, services, credentials, and agent configuration. |

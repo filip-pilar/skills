@@ -1,0 +1,7 @@
+interface:
+  display_name: "Codex Skill Usage Analytics"
+  short_description: "Report daily, inventory-aware Codex skill usage safely"
+  default_prompt: "Use $codex-skill-usage-analytics to cross-reference my current Codex skill inventory with daily skill and plugin invocation history."
+
+policy:
+  allow_implicit_invocation: false

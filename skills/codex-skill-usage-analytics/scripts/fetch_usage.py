@@ -29,6 +29,9 @@ MAX_WINDOW_DAYS = 365
 ITEM_LIMIT = 1000
 MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 SCHEMA_VERSION = 2
+KNOWN_SKILL_RENAMES = {
+    "codex-skill-usage-analytics": ("codex-usage-analytics",),
+}
 VIEWS = (
     "all",
     "daily",
@@ -161,7 +164,7 @@ class ApiClient:
                 "Accept": "application/json",
                 "Authorization": f"Bearer {self._auth.access_token}",
                 "ChatGPT-Account-Id": self._auth.account_id,
-                "User-Agent": "codex-usage-analytics/2",
+                "User-Agent": "codex-skill-usage-analytics/2",
             },
         )
         try:
@@ -881,15 +884,32 @@ def merge_skill_inventory(
     for inventory_item in current_items:
         if inventory_item["name"] in observed_by_name:
             continue
-        candidates = [
-            {
+        candidates_by_name = {
+            historical["name"]: {
                 "name": historical["name"],
                 "evidence": "same_normalized_base_name",
             }
             for historical in historical_by_normalized.get(
                 _normalized_base_name(inventory_item["base_name"]), []
             )
-        ]
+        }
+        for old_name in KNOWN_SKILL_RENAMES.get(inventory_item["name"], ()):
+            historical = observed_by_name.get(old_name)
+            if historical is None or old_name in current_by_name:
+                continue
+            candidates_by_name[old_name] = {
+                "name": old_name,
+                "evidence": "declared_package_rename",
+            }
+            successor = {
+                "name": inventory_item["name"],
+                "evidence": "declared_package_rename",
+            }
+            if successor not in historical["possible_renames"]:
+                historical["possible_renames"].append(successor)
+            if "declared_renamed_successor" not in historical["identity_flags"]:
+                historical["identity_flags"].append("declared_renamed_successor")
+        candidates = sorted(candidates_by_name.values(), key=lambda item: item["name"])
         metric["items"].append(_empty_inventory_item(inventory_item, candidates))
 
     metric["items"].sort(key=lambda item: (-item["count"], item["name"].casefold()))

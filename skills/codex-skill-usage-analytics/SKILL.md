@@ -1,9 +1,9 @@
 ---
-name: codex-usage-analytics
+name: codex-skill-usage-analytics
 description: Fetch and interpret inventory-aware Codex skill and plugin invocation analytics, including daily history and current-versus-historical skills, from the authenticated undocumented ChatGPT backend without exposing credentials or overstating coverage.
 ---
 
-# Codex Usage Analytics
+# Codex Skill Usage Analytics
 
 Use the authenticated Codex installation to produce a read-only, inventory-aware
 skill and plugin usage report. Treat the endpoints as unstable private product
@@ -100,6 +100,11 @@ Names with the same normalized base or a shared telemetry ID may be flagged as
 possible rename or identity-change evidence. Treat these as leads, not proof.
 The available data cannot reliably distinguish an update, rename, reinstall,
 fork, or unrelated collision.
+
+This package was renamed from `codex-usage-analytics` to
+`codex-skill-usage-analytics`. The collector keeps that declared predecessor
+link so earlier telemetry remains visible without merging the two name-level
+counts or claiming that the backend preserved one stable identity.
 
 ## Interpret time and zeroes precisely
 

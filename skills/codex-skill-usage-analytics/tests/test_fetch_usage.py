@@ -11,7 +11,7 @@ from pathlib import Path
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "fetch_usage.py"
-SPEC = importlib.util.spec_from_file_location("fetch_usage", SCRIPT)
+SPEC = importlib.util.spec_from_file_location("codex_skill_usage_analytics", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
 fetch_usage = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = fetch_usage
@@ -329,6 +329,46 @@ enabled = false
         )
         self.assertEqual(by_name["old:tool"]["inventory_status"], "historical")
         self.assertEqual(metric["inventory_summary"]["current_unobserved_count"], 2)
+
+    def test_inventory_merge_preserves_declared_package_rename(self):
+        client = FakeClient(
+            {
+                fetch_usage.SKILL_PATH: {
+                    "data": [
+                        skill_day(
+                            "2026-09-02",
+                            skill_overview("codex-usage-analytics", 4, "old-id"),
+                        )
+                    ]
+                }
+            }
+        )
+        metric = fetch_usage.collect_metric(
+            client, "skills", dt.date(2026, 9, 1), dt.date(2026, 9, 2)
+        )
+        renamed = inventory_item(
+            "codex-skill-usage-analytics", ["/renamed"]
+        )
+        fetch_usage.merge_skill_inventory(metric, inventory(renamed))
+        by_name = {item["name"]: item for item in metric["items"]}
+        self.assertEqual(
+            by_name["codex-skill-usage-analytics"]["possible_renames"],
+            [
+                {
+                    "name": "codex-usage-analytics",
+                    "evidence": "declared_package_rename",
+                }
+            ],
+        )
+        self.assertEqual(
+            by_name["codex-usage-analytics"]["possible_renames"],
+            [
+                {
+                    "name": "codex-skill-usage-analytics",
+                    "evidence": "declared_package_rename",
+                }
+            ],
+        )
 
     def test_all_available_uses_profile_activity_start(self):
         profile = empty_profile("2026-02-23")
