@@ -37,7 +37,7 @@ npx skills add filip-pilar/skills --list
 
 | Skill | Best for |
 | --- | --- |
-| [`codex-usage-analytics`](skills/codex-usage-analytics/) | Fetching and interpreting personal Codex skill and plugin invocation analytics from the authenticated private ChatGPT backend. |
+| [`codex-usage-analytics`](skills/codex-usage-analytics/) | Cross-referencing current Codex skills with daily skill and plugin invocation analytics from the authenticated private ChatGPT backend. |
 | [`dr-react`](skills/dr-react/) | Raising a React Doctor score through small fixes and regression checks. |
 | [`setup-cli-proxy-gateway`](skills/setup-cli-proxy-gateway/) | Configuring and validating CLIProxyAPI routes for Codex CLI or Claude Code. |
 | [`socket-audit`](skills/socket-audit/) | Auditing supply-chain indicators and managing supported install-time protections. |

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetch sanitized Codex skill and plugin analytics from ChatGPT's private API."""
+"""Fetch sanitized, inventory-aware Codex skill and plugin usage analytics."""
 
 from __future__ import annotations
 
@@ -8,10 +8,13 @@ import dataclasses
 import datetime as dt
 import json
 import os
+import re
 import sys
+import tomllib
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections import defaultdict
 from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any
@@ -25,7 +28,26 @@ ALLOWED_PATHS = frozenset((PROFILE_PATH, SKILL_PATH, PLUGIN_PATH))
 MAX_WINDOW_DAYS = 365
 ITEM_LIMIT = 1000
 MAX_RESPONSE_BYTES = 8 * 1024 * 1024
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+VIEWS = (
+    "all",
+    "daily",
+    "weekly",
+    "monthly",
+    "recent",
+    "unobserved",
+    "historical",
+    "duplicates",
+    "possible-renames",
+)
+SORTS = (
+    "most-used",
+    "least-used",
+    "most-recent",
+    "least-recent",
+    "first-observed",
+    "name",
+)
 
 
 class UsageAnalyticsError(RuntimeError):
@@ -74,10 +96,13 @@ def date_windows(start: dt.date, end: dt.date) -> list[tuple[dt.date, dt.date]]:
     return windows
 
 
+def default_codex_home() -> Path:
+    configured = os.environ.get("CODEX_HOME")
+    return Path(configured).expanduser() if configured else Path.home() / ".codex"
+
+
 def default_auth_path() -> Path:
-    codex_home = os.environ.get("CODEX_HOME")
-    root = Path(codex_home).expanduser() if codex_home else Path.home() / ".codex"
-    return root / "auth.json"
+    return default_codex_home() / "auth.json"
 
 
 def load_auth(path: Path) -> Auth:
@@ -136,7 +161,7 @@ class ApiClient:
                 "Accept": "application/json",
                 "Authorization": f"Bearer {self._auth.access_token}",
                 "ChatGPT-Account-Id": self._auth.account_id,
-                "User-Agent": "codex-usage-analytics/1",
+                "User-Agent": "codex-usage-analytics/2",
             },
         )
         try:
@@ -219,12 +244,398 @@ def project_profile(payload: Any) -> dict[str, Any]:
     }
 
 
+def _read_json(path: Path) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise UsageAnalyticsError(f"could not read inventory metadata from {path}") from exc
+    return require_dict(payload, f"inventory metadata {path}")
+
+
+def _read_config(path: Path, warnings: list[str]) -> dict[str, Any]:
+    if not path.is_file():
+        return {}
+    try:
+        return tomllib.loads(path.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError):
+        warnings.append(
+            f"Could not parse Codex configuration at {path}; inventory may include disabled skills."
+        )
+        return {}
+
+
+def _frontmatter_name(path: Path) -> str | None:
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    if not lines or lines[0].strip() != "---":
+        return None
+    for line in lines[1:]:
+        if line.strip() == "---":
+            break
+        match = re.match(r"^name:\s*(.+?)\s*$", line)
+        if match:
+            value = match.group(1).strip()
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+                value = value[1:-1]
+            return value or None
+    return None
+
+
+def _skill_config_entries(config: dict[str, Any]) -> list[dict[str, Any]]:
+    skills = config.get("skills", {})
+    if not isinstance(skills, dict):
+        return []
+    entries = skills.get("config", [])
+    if not isinstance(entries, list):
+        return []
+    return [entry for entry in entries if isinstance(entry, dict)]
+
+
+def _skill_enabled(
+    canonical_name: str,
+    path: Path,
+    entries: list[dict[str, Any]],
+) -> bool:
+    enabled = True
+    resolved = path.expanduser().resolve()
+    for entry in entries:
+        matches_name = entry.get("name") == canonical_name
+        configured_path = entry.get("path")
+        matches_path = False
+        if isinstance(configured_path, str):
+            try:
+                matches_path = Path(configured_path).expanduser().resolve() == resolved
+            except OSError:
+                matches_path = False
+        if (matches_name or matches_path) and isinstance(entry.get("enabled"), bool):
+            enabled = entry["enabled"]
+    return enabled
+
+
+def _version_key(value: str) -> tuple[tuple[int, str], ...]:
+    parts = re.split(r"([0-9]+)", value.casefold())
+    return tuple(
+        (1, f"{int(part):020d}") if part.isdigit() else (0, part)
+        for part in parts
+    )
+
+
+def _select_plugin_manifest(root: Path) -> Path | None:
+    candidates = list(root.glob("*/.codex-plugin/plugin.json"))
+    direct = root / ".codex-plugin" / "plugin.json"
+    if direct.is_file():
+        candidates.append(direct)
+    if not candidates:
+        return None
+    return max(
+        candidates,
+        key=lambda path: (_version_key(path.parent.parent.name), str(path)),
+    )
+
+
+def _plugin_roots(
+    codex_home: Path,
+    config: dict[str, Any],
+) -> list[tuple[Path, str, str | None]]:
+    cache = codex_home / "plugins" / "cache"
+    configured: dict[str, bool] = {}
+    plugins = config.get("plugins", {})
+    if isinstance(plugins, dict):
+        for key, value in plugins.items():
+            if isinstance(value, dict) and isinstance(value.get("enabled"), bool):
+                configured[key] = value["enabled"]
+
+    roots: dict[Path, tuple[str, str | None]] = {}
+    for key, enabled in configured.items():
+        if not enabled or "@" not in key:
+            continue
+        plugin_name, marketplace = key.rsplit("@", 1)
+        root = cache / marketplace / plugin_name
+        roots[root] = (marketplace, key)
+
+    if cache.is_dir():
+        for marker in cache.glob("*/*/.codex-remote-plugin-install.json"):
+            root = marker.parent
+            marketplace = root.parent.name
+            plugin_name = root.name
+            key = f"{plugin_name}@{marketplace}"
+            if configured.get(key) is False:
+                continue
+            remote_id = None
+            try:
+                marker_payload = _read_json(marker)
+                value = marker_payload.get("remote_plugin_id")
+                if isinstance(value, str):
+                    remote_id = value
+            except UsageAnalyticsError:
+                pass
+            roots.setdefault(root, (marketplace, remote_id or key))
+
+    return [
+        (root, metadata[0], metadata[1])
+        for root, metadata in sorted(roots.items(), key=lambda item: str(item[0]))
+    ]
+
+
+def _installation(
+    *,
+    name: str,
+    base_name: str,
+    namespace: str | None,
+    source: str,
+    path: Path,
+    marketplace: str | None = None,
+    plugin_identifier: str | None = None,
+    version: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "name": name,
+        "base_name": base_name,
+        "namespace": namespace,
+        "source": source,
+        "path": str(path),
+        "marketplace": marketplace,
+        "plugin_identifier": plugin_identifier,
+        "version": version,
+    }
+
+
+def discover_inventory(
+    *,
+    codex_home: Path | None = None,
+    agents_skills_dir: Path | None = None,
+    config_path: Path | None = None,
+) -> dict[str, Any]:
+    """Discover current skills without treating arbitrary cache entries as active."""
+
+    resolved_home = (codex_home or default_codex_home()).expanduser()
+    resolved_agents = (
+        agents_skills_dir.expanduser()
+        if agents_skills_dir is not None
+        else Path.home() / ".agents" / "skills"
+    )
+    resolved_config = (
+        config_path.expanduser()
+        if config_path is not None
+        else resolved_home / "config.toml"
+    )
+    warnings: list[str] = []
+    config = _read_config(resolved_config, warnings)
+    skill_entries = _skill_config_entries(config)
+    installations: list[dict[str, Any]] = []
+
+    roots = ((resolved_agents, "user"), (resolved_home / "skills", "user"))
+    seen_paths: set[Path] = set()
+    for root, default_source in roots:
+        if not root.is_dir():
+            continue
+        for path in sorted(root.rglob("SKILL.md")):
+            try:
+                resolved_path = path.resolve()
+            except OSError:
+                resolved_path = path
+            if resolved_path in seen_paths:
+                continue
+            seen_paths.add(resolved_path)
+            base_name = _frontmatter_name(path)
+            if not base_name or not _skill_enabled(base_name, path, skill_entries):
+                continue
+            source = "system" if ".system" in path.parts else default_source
+            installations.append(
+                _installation(
+                    name=base_name,
+                    base_name=base_name,
+                    namespace=None,
+                    source=source,
+                    path=path,
+                )
+            )
+
+    for root, marketplace, plugin_identifier in _plugin_roots(resolved_home, config):
+        manifest_path = _select_plugin_manifest(root)
+        if manifest_path is None:
+            warnings.append(
+                f"Enabled or installed plugin at {root} has no readable package manifest."
+            )
+            continue
+        try:
+            manifest = _read_json(manifest_path)
+        except UsageAnalyticsError as exc:
+            warnings.append(str(exc))
+            continue
+        plugin_name = manifest.get("name")
+        if not isinstance(plugin_name, str) or not plugin_name:
+            warnings.append(f"Plugin manifest at {manifest_path} has no name.")
+            continue
+        version = (
+            manifest.get("version")
+            if isinstance(manifest.get("version"), str)
+            else None
+        )
+        skills_value = manifest.get("skills")
+        skill_roots: list[Path] = []
+        if isinstance(skills_value, str):
+            skill_roots.append(manifest_path.parent.parent / skills_value)
+        elif isinstance(skills_value, list):
+            skill_roots.extend(
+                manifest_path.parent.parent / value
+                for value in skills_value
+                if isinstance(value, str)
+            )
+        for skill_root in skill_roots:
+            if not skill_root.is_dir():
+                continue
+            for path in sorted(skill_root.rglob("SKILL.md")):
+                base_name = _frontmatter_name(path)
+                if not base_name:
+                    continue
+                canonical_name = f"{plugin_name}:{base_name}"
+                if not _skill_enabled(canonical_name, path, skill_entries):
+                    continue
+                installations.append(
+                    _installation(
+                        name=canonical_name,
+                        base_name=base_name,
+                        namespace=plugin_name,
+                        source="plugin",
+                        path=path,
+                        marketplace=marketplace,
+                        plugin_identifier=plugin_identifier,
+                        version=version,
+                    )
+                )
+
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for item in installations:
+        grouped[item["name"]].append(item)
+    current_skills: list[dict[str, Any]] = []
+    for name, grouped_installations in grouped.items():
+        sources = sorted({item["source"] for item in grouped_installations})
+        namespaces = sorted(
+            {item["namespace"] for item in grouped_installations if item["namespace"]}
+        )
+        current_skills.append(
+            {
+                "name": name,
+                "base_name": grouped_installations[0]["base_name"],
+                "namespace": namespaces[0] if len(namespaces) == 1 else None,
+                "source": sources[0] if len(sources) == 1 else "multiple",
+                "sources": sources,
+                "installation_count": len(grouped_installations),
+                "duplicate_installation": len(grouped_installations) > 1,
+                "installations": sorted(
+                    grouped_installations,
+                    key=lambda item: (item["source"], item["path"]),
+                ),
+            }
+        )
+    current_skills.sort(key=lambda item: item["name"].casefold())
+    duplicates = [item for item in current_skills if item["duplicate_installation"]]
+    return {
+        "enabled": True,
+        "codex_home": str(resolved_home),
+        "config_path": str(resolved_config),
+        "current_skill_count": len(current_skills),
+        "installation_count": len(installations),
+        "current_skills": current_skills,
+        "duplicate_installations": duplicates,
+        "warnings": warnings,
+    }
+
+
 def metric_config(kind: str) -> tuple[str, str, str]:
     if kind == "skills":
         return SKILL_PATH, "top_skill_limit", "skill_usage_overviews"
     if kind == "plugins":
         return PLUGIN_PATH, "top_plugin_limit", "plugin_usage_overviews"
     raise UsageAnalyticsError(f"unsupported metric kind {kind!r}")
+
+
+def _round_rate(value: float) -> float:
+    return round(value, 4)
+
+
+def _recent_count(daily: list[dict[str, Any]], end: dt.date, days: int) -> int:
+    threshold = end - dt.timedelta(days=days - 1)
+    return sum(
+        row["count"]
+        for row in daily
+        if threshold <= dt.date.fromisoformat(row["date"]) <= end
+    )
+
+
+def _finalize_record(record: dict[str, Any], end: dt.date) -> dict[str, Any] | None:
+    daily: list[dict[str, Any]] = []
+    for date_value, raw in sorted(record["daily"].items()):
+        if raw["count"] <= 0:
+            continue
+        daily.append(
+            {
+                "date": date_value,
+                "count": raw["count"],
+                "identifiers": sorted(raw["identifiers"]),
+            }
+        )
+    if not daily:
+        return None
+    total = sum(row["count"] for row in daily)
+    first_observed = daily[0]["date"]
+    last_observed = daily[-1]["date"]
+    first_date = dt.date.fromisoformat(first_observed)
+    last_date = dt.date.fromisoformat(last_observed)
+    elapsed_weeks = ((end - first_date).days + 1) / 7
+    active_days = len(daily)
+    identifiers = sorted(record["identifiers"])
+    item = {
+        "name": record["name"],
+        "count": total,
+        "first_observed": first_observed,
+        "last_observed": last_observed,
+        "last_used": last_observed,
+        "identifiers": identifiers,
+        "display_names": sorted(record["display_names"]),
+        "marketplaces": sorted(record["marketplaces"]),
+        "active_days": active_days,
+        "days_since_last_use": (end - last_date).days,
+        "uses_per_active_day": _round_rate(total / active_days),
+        "uses_per_week_since_first_observed": _round_rate(total / elapsed_weeks),
+        "uses_last_7_days": _recent_count(daily, end, 7),
+        "uses_last_30_days": _recent_count(daily, end, 30),
+        "uses_last_90_days": _recent_count(daily, end, 90),
+        "daily": daily,
+        "identity_flags": [],
+        "possible_renames": [],
+    }
+    if len(identifiers) > 1:
+        item["identity_flags"].append("multiple_identifiers_for_name")
+    return item
+
+
+def _analyze_identifier_names(items: list[dict[str, Any]]) -> None:
+    names_by_identifier: dict[str, set[str]] = defaultdict(set)
+    for item in items:
+        for identifier in item.get("identifiers", []):
+            names_by_identifier[identifier].add(item["name"])
+    for identifier, names in names_by_identifier.items():
+        if len(names) < 2:
+            continue
+        for item in items:
+            if identifier not in item.get("identifiers", []):
+                continue
+            if "identifier_observed_with_multiple_names" not in item["identity_flags"]:
+                item["identity_flags"].append(
+                    "identifier_observed_with_multiple_names"
+                )
+            for other_name in sorted(names - {item["name"]}):
+                candidate = {
+                    "name": other_name,
+                    "evidence": "shared_telemetry_identifier",
+                    "identifier": identifier,
+                }
+                if candidate not in item["possible_renames"]:
+                    item["possible_renames"].append(candidate)
 
 
 def collect_metric(
@@ -237,6 +648,7 @@ def collect_metric(
     records: dict[tuple[str, str], dict[str, Any]] = {}
     freshness_values: list[str] = []
     active_dates: set[str] = set()
+    returned_dates: set[str] = set()
 
     for window_start, window_end in date_windows(start, end):
         payload = require_dict(
@@ -261,9 +673,18 @@ def collect_metric(
             date_value = day.get("date")
             if not isinstance(date_value, str):
                 raise UsageAnalyticsError(f"unexpected private API schema at {kind} date")
+            try:
+                parsed_date = dt.date.fromisoformat(date_value)
+            except ValueError as exc:
+                raise UsageAnalyticsError(
+                    f"unexpected private API schema at {kind} date"
+                ) from exc
+            if not start <= parsed_date <= end:
+                raise UsageAnalyticsError(
+                    f"private API returned {kind} date outside the requested range"
+                )
+            returned_dates.add(date_value)
             overviews = require_list(day.get(overview_field), f"{kind} overviews")
-            if overviews:
-                active_dates.add(date_value)
             for raw_overview in overviews:
                 overview = require_dict(raw_overview, f"{kind} overview")
                 count = overview.get("invocation_counts")
@@ -275,6 +696,7 @@ def collect_metric(
                     name = overview.get("skill_name")
                     stable_id = name
                     identifiers = overview.get("skill_ids", [])
+                    marketplace = None
                 else:
                     name = overview.get("display_name")
                     stable_id = (
@@ -283,62 +705,220 @@ def collect_metric(
                         or name
                     )
                     identifiers = [overview.get("plugin_id")]
+                    marketplace = overview.get("marketplace")
                 if not isinstance(name, str) or not name:
                     raise UsageAnalyticsError(
                         f"unexpected private API schema at {kind} name"
                     )
                 if not isinstance(stable_id, str) or not stable_id:
                     stable_id = name
+                identifier_values = (
+                    {
+                        value
+                        for value in identifiers
+                        if isinstance(value, str) and value
+                    }
+                    if isinstance(identifiers, list)
+                    else set()
+                )
                 key = (stable_id, name)
-                aggregate = records.setdefault(
+                record = records.setdefault(
                     key,
                     {
                         "name": name,
-                        "count": 0,
-                        "first_observed": date_value,
-                        "last_observed": date_value,
                         "identifiers": set(),
+                        "display_names": set(),
+                        "marketplaces": set(),
+                        "daily": {},
                     },
                 )
-                aggregate["count"] += count
-                aggregate["first_observed"] = min(
-                    aggregate["first_observed"], date_value
+                record["identifiers"].update(identifier_values)
+                display_name = overview.get("display_name")
+                if isinstance(display_name, str) and display_name:
+                    record["display_names"].add(display_name)
+                if isinstance(marketplace, str) and marketplace:
+                    record["marketplaces"].add(marketplace)
+                daily = record["daily"].setdefault(
+                    date_value, {"count": 0, "identifiers": set()}
                 )
-                aggregate["last_observed"] = max(
-                    aggregate["last_observed"], date_value
-                )
-                if isinstance(identifiers, list):
-                    aggregate["identifiers"].update(
-                        value for value in identifiers if isinstance(value, str) and value
-                    )
+                daily["count"] += count
+                daily["identifiers"].update(identifier_values)
+                if count > 0:
+                    active_dates.add(date_value)
 
     items = [
-        {
-            **{key: value for key, value in record.items() if key != "identifiers"},
-            "identifiers": sorted(record["identifiers"]),
-        }
+        finalized
         for record in records.values()
+        if (finalized := _finalize_record(record, end)) is not None
     ]
+    _analyze_identifier_names(items)
     items.sort(key=lambda item: (-item["count"], item["name"].casefold()))
-    other_count = sum(
-        item["count"] for item in items if item["name"].casefold() == "other"
-    )
+    other_items = [item for item in items if item["name"].casefold() == "other"]
+    other_count = sum(item["count"] for item in other_items)
     named_items = [item for item in items if item["name"].casefold() != "other"]
-    observed_dates = [
-        value
-        for item in items
-        for value in (item["first_observed"], item["last_observed"])
-    ]
+    observed_dates = [row["date"] for item in items for row in item["daily"]]
     return {
         "total_invocations": sum(item["count"] for item in items),
         "active_days": len(active_dates),
         "distinct_items": len(named_items),
         "first_recorded_date": min(observed_dates) if observed_dates else None,
         "last_recorded_date": max(observed_dates) if observed_dates else None,
+        "returned_start_date": min(returned_dates) if returned_dates else None,
+        "returned_end_date": max(returned_dates) if returned_dates else None,
+        "returned_day_count": len(returned_dates),
         "data_freshness": max(freshness_values) if freshness_values else None,
         "complete_for_returned_days": other_count == 0,
         "other_invocations": other_count,
+        "other_daily": [row for item in other_items for row in item["daily"]],
         "items": named_items,
+    }
+
+
+def _normalized_base_name(name: str) -> str:
+    base = name.rsplit(":", 1)[-1]
+    return re.sub(r"[^a-z0-9]+", "", base.casefold())
+
+
+def _empty_inventory_item(
+    inventory_item: dict[str, Any],
+    possible_predecessors: list[dict[str, Any]],
+) -> dict[str, Any]:
+    status = (
+        "not_observed_under_current_name"
+        if possible_predecessors
+        else "no_invocation_returned_during_coverage"
+    )
+    flags = ["possible_renamed_predecessor"] if possible_predecessors else []
+    if inventory_item["duplicate_installation"]:
+        flags.append("duplicate_current_installation")
+    marketplaces = sorted(
+        {
+            installation["marketplace"]
+            for installation in inventory_item["installations"]
+            if installation.get("marketplace")
+        }
+    )
+    return {
+        "name": inventory_item["name"],
+        "count": 0,
+        "first_observed": None,
+        "last_observed": None,
+        "last_used": None,
+        "identifiers": [],
+        "display_names": [],
+        "marketplaces": marketplaces,
+        "active_days": 0,
+        "days_since_last_use": None,
+        "uses_per_active_day": None,
+        "uses_per_week_since_first_observed": None,
+        "uses_last_7_days": 0,
+        "uses_last_30_days": 0,
+        "uses_last_90_days": 0,
+        "daily": [],
+        "identity_flags": flags,
+        "possible_renames": possible_predecessors,
+        "current_available": True,
+        "inventory_status": "current_unobserved",
+        "observation_status": status,
+        "source": inventory_item["source"],
+        "sources": inventory_item["sources"],
+        "namespace": inventory_item["namespace"],
+        "base_name": inventory_item["base_name"],
+        "installation_count": inventory_item["installation_count"],
+        "duplicate_installation": inventory_item["duplicate_installation"],
+        "installations": inventory_item["installations"],
+    }
+
+
+def merge_skill_inventory(
+    metric: dict[str, Any],
+    inventory: dict[str, Any],
+) -> None:
+    current_items = inventory.get("current_skills", []) if inventory.get("enabled") else []
+    current_by_name = {item["name"]: item for item in current_items}
+    observed_by_name = {item["name"]: item for item in metric["items"]}
+    historical_by_normalized: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for item in metric["items"]:
+        if item["name"] not in current_by_name:
+            historical_by_normalized[_normalized_base_name(item["name"])].append(item)
+
+    for item in metric["items"]:
+        inventory_item = current_by_name.get(item["name"])
+        if inventory_item is None:
+            is_plugin = ":" in item["name"]
+            item.update(
+                {
+                    "current_available": False,
+                    "inventory_status": "historical",
+                    "observation_status": "historical_skill_not_currently_available",
+                    "source": "plugin" if is_plugin else "unknown",
+                    "sources": ["plugin"] if is_plugin else ["unknown"],
+                    "namespace": item["name"].split(":", 1)[0] if is_plugin else None,
+                    "base_name": item["name"].rsplit(":", 1)[-1],
+                    "installation_count": 0,
+                    "duplicate_installation": False,
+                    "installations": [],
+                }
+            )
+            continue
+        item.update(
+            {
+                "current_available": True,
+                "inventory_status": "current_observed",
+                "observation_status": "observed_during_coverage",
+                "source": inventory_item["source"],
+                "sources": inventory_item["sources"],
+                "namespace": inventory_item["namespace"],
+                "base_name": inventory_item["base_name"],
+                "installation_count": inventory_item["installation_count"],
+                "duplicate_installation": inventory_item["duplicate_installation"],
+                "installations": inventory_item["installations"],
+            }
+        )
+        if inventory_item["duplicate_installation"]:
+            item["identity_flags"].append("duplicate_current_installation")
+
+    for inventory_item in current_items:
+        if inventory_item["name"] in observed_by_name:
+            continue
+        candidates = [
+            {
+                "name": historical["name"],
+                "evidence": "same_normalized_base_name",
+            }
+            for historical in historical_by_normalized.get(
+                _normalized_base_name(inventory_item["base_name"]), []
+            )
+        ]
+        metric["items"].append(_empty_inventory_item(inventory_item, candidates))
+
+    metric["items"].sort(key=lambda item: (-item["count"], item["name"].casefold()))
+    metric["inventory_summary"] = {
+        "current_skill_count": len(current_items),
+        "current_observed_count": sum(
+            item["inventory_status"] == "current_observed" for item in metric["items"]
+        ),
+        "current_unobserved_count": sum(
+            item["inventory_status"] == "current_unobserved" for item in metric["items"]
+        ),
+        "historical_skill_count": sum(
+            item["inventory_status"] == "historical" for item in metric["items"]
+        ),
+        "duplicate_name_count": len(inventory.get("duplicate_installations", [])),
+        "possible_rename_count": sum(
+            bool(item.get("possible_renames")) for item in metric["items"]
+        ),
+    }
+
+
+def _inventory_disabled() -> dict[str, Any]:
+    return {
+        "enabled": False,
+        "current_skill_count": 0,
+        "installation_count": 0,
+        "current_skills": [],
+        "duplicate_installations": [],
+        "warnings": [],
     }
 
 
@@ -346,10 +926,14 @@ def build_warnings(
     profile: dict[str, Any],
     start: dt.date,
     metrics: dict[str, dict[str, Any]],
+    end: dt.date | None = None,
+    inventory: dict[str, Any] | None = None,
 ) -> list[str]:
+    resolved_end = end or start
     warnings = [
         "The endpoints are undocumented private ChatGPT infrastructure and may change.",
-        "Invocation counts measure recorded use, not task success or skill value.",
+        "First observed is the earliest invocation visible in returned telemetry, not an installation date.",
+        "Invocation counts do not expose exact timestamps, task or thread associations, explicit versus automatic activation, or result quality.",
         "Skill and plugin totals may overlap and must not be added together.",
     ]
     activity_start = profile.get("activity_start")
@@ -364,9 +948,19 @@ def build_warnings(
     ]
     if isinstance(activity_start, str) and first_dates and activity_start < min(first_dates):
         warnings.append(
-            "Profile activity predates the first returned analytics record; "
-            "the report is not proven lifetime-complete."
+            "Profile activity predates the first returned analytics invocation; the report is not proven lifetime-complete."
         )
+    for kind, metric in metrics.items():
+        returned_start = metric.get("returned_start_date")
+        returned_end = metric.get("returned_end_date")
+        if returned_start is None:
+            warnings.append(
+                f"The {kind} endpoint returned no dated rows for the requested range."
+            )
+        elif returned_start > start.isoformat() or returned_end < resolved_end.isoformat():
+            warnings.append(
+                f"Returned {kind} rows span {returned_start} through {returned_end} within the requested range; absent rows outside that span do not prove zero activity or complete history."
+            )
     if any(not metric["complete_for_returned_days"] for metric in metrics.values()):
         warnings.append(
             "At least one response retained an Other bucket, so named-item counts are truncated."
@@ -379,9 +973,10 @@ def build_warnings(
         and profile_skill_total != skill_metric["total_invocations"]
     ):
         warnings.append(
-            "Profile total skill usage differs from the detailed daily analytics total; "
-            "treat them as separate aggregates rather than reconciling either away."
+            "Profile total skill usage differs from the detailed daily analytics total; treat them as separate aggregates rather than reconciling either away."
         )
+    if inventory:
+        warnings.extend(inventory.get("warnings", []))
     return warnings
 
 
@@ -393,6 +988,9 @@ def build_report(
     end: dt.date,
     days: int | None,
     all_available: bool,
+    inventory: dict[str, Any] | None = None,
+    inventory_enabled: bool = True,
+    report_options: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     profile = project_profile(client.get(PROFILE_PATH))
     if all_available:
@@ -417,12 +1015,19 @@ def build_report(
     if resolved_start > end:
         raise UsageAnalyticsError("start date must not be after end date")
 
+    resolved_inventory = inventory
+    if resolved_inventory is None:
+        resolved_inventory = (
+            discover_inventory() if inventory_enabled else _inventory_disabled()
+        )
     kinds: Iterable[str] = ("skills", "plugins") if kind == "both" else (kind,)
     metrics = {
         metric_kind: collect_metric(client, metric_kind, resolved_start, end)
         for metric_kind in kinds
     }
-    return {
+    if "skills" in metrics and resolved_inventory.get("enabled"):
+        merge_skill_inventory(metrics["skills"], resolved_inventory)
+    report = {
         "schema_version": SCHEMA_VERSION,
         "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         "source": {
@@ -435,13 +1040,158 @@ def build_report(
             "end": end.isoformat(),
             "windows": len(date_windows(resolved_start, end)),
         },
+        "report_options": report_options
+        or {"view": "all", "sort": "most-used", "recent_days": 30},
         "profile_cross_check": profile,
+        "inventory": resolved_inventory,
         "metrics": metrics,
-        "warnings": build_warnings(profile, resolved_start, metrics),
+        "warnings": build_warnings(
+            profile, resolved_start, metrics, end, resolved_inventory
+        ),
     }
+    report["selected_view"] = _selected_view_payload(report)
+    return report
 
 
-def markdown_report(report: dict[str, Any]) -> str:
+def _sort_items(items: list[dict[str, Any]], sort: str) -> list[dict[str, Any]]:
+    if sort == "name":
+        key = lambda item: (item["name"].casefold(),)
+    elif sort == "least-used":
+        key = lambda item: (item["count"], item["name"].casefold())
+    elif sort == "most-recent":
+        key = lambda item: (
+            item["last_used"] is None,
+            -dt.date.fromisoformat(item["last_used"]).toordinal()
+            if item["last_used"]
+            else 0,
+            item["name"].casefold(),
+        )
+    elif sort == "least-recent":
+        key = lambda item: (
+            item["last_used"] is not None,
+            item["last_used"] or "",
+            item["name"].casefold(),
+        )
+    elif sort == "first-observed":
+        key = lambda item: (
+            item["first_observed"] is None,
+            item["first_observed"] or "",
+            item["name"].casefold(),
+        )
+    else:
+        key = lambda item: (-item["count"], item["name"].casefold())
+    return sorted(items, key=key)
+
+
+def _view_items(
+    items: list[dict[str, Any]],
+    view: str,
+    recent_days: int,
+    end: dt.date,
+) -> list[dict[str, Any]]:
+    if view == "unobserved":
+        return [
+            item for item in items if item.get("current_available") and item["count"] == 0
+        ]
+    if view == "historical":
+        return [item for item in items if item.get("inventory_status") == "historical"]
+    if view == "duplicates":
+        return [item for item in items if item.get("duplicate_installation")]
+    if view == "possible-renames":
+        return [item for item in items if item.get("possible_renames")]
+    if view == "recent":
+        return [
+            item for item in items if _recent_count(item["daily"], end, recent_days) > 0
+        ]
+    return items
+
+
+def _period_label(date_value: str, view: str) -> str:
+    parsed = dt.date.fromisoformat(date_value)
+    if view == "monthly":
+        return parsed.strftime("%Y-%m")
+    if view == "weekly":
+        iso = parsed.isocalendar()
+        return f"{iso.year}-W{iso.week:02d}"
+    return date_value
+
+
+def _timeline_rows(
+    items: list[dict[str, Any]], view: str
+) -> list[tuple[str, str, int]]:
+    totals: dict[tuple[str, str], int] = defaultdict(int)
+    for item in items:
+        for row in item["daily"]:
+            totals[(_period_label(row["date"], view), item["name"])] += row["count"]
+    return [
+        (period, name, count)
+        for (period, name), count in sorted(
+            totals.items(), key=lambda entry: (entry[0][0], entry[0][1].casefold())
+        )
+    ]
+
+
+def _selected_view_payload(report: dict[str, Any]) -> dict[str, Any]:
+    options = report["report_options"]
+    view = options["view"]
+    sort = options["sort"]
+    recent_days = options["recent_days"]
+    end = dt.date.fromisoformat(report["requested_range"]["end"])
+    selected: dict[str, Any] = {
+        "view": view,
+        "sort": sort,
+        "recent_days": recent_days,
+        "metrics": {},
+    }
+    for kind, metric in report["metrics"].items():
+        items = _sort_items(
+            _view_items(metric["items"], view, recent_days, end), sort
+        )
+        if view in ("daily", "weekly", "monthly"):
+            rows = [
+                {"period": period, "name": name, "count": count}
+                for period, name, count in _timeline_rows(items, view)
+            ]
+            selected["metrics"][kind] = {"row_count": len(rows), "rows": rows}
+        else:
+            names = [item["name"] for item in items]
+            selected["metrics"][kind] = {
+                "item_count": len(names),
+                "item_names": names,
+            }
+    return selected
+
+
+def _display_status(value: str | None) -> str:
+    labels = {
+        "observed_during_coverage": "observed during coverage",
+        "no_invocation_returned_during_coverage": "no invocation returned during coverage",
+        "not_observed_under_current_name": "not observed under current name",
+        "historical_skill_not_currently_available": "historical; not currently available",
+    }
+    return labels.get(value, value or "observed")
+
+
+def _format_number(value: Any) -> str:
+    if value is None:
+        return "—"
+    if isinstance(value, float):
+        return f"{value:.4f}".rstrip("0").rstrip(".")
+    return str(value)
+
+
+def markdown_report(
+    report: dict[str, Any],
+    *,
+    view: str | None = None,
+    sort: str | None = None,
+    recent_days: int | None = None,
+) -> str:
+    options = report.get("report_options", {})
+    selected_view = view or options.get("view", "all")
+    selected_sort = sort or options.get("sort", "most-used")
+    selected_recent_days = recent_days or options.get("recent_days", 30)
+    end = dt.date.fromisoformat(report["requested_range"]["end"])
     lines = [
         "# Codex usage analytics",
         "",
@@ -449,59 +1199,96 @@ def markdown_report(report: dict[str, Any]) -> str:
         f"{report['requested_range']['end']} "
         f"({report['requested_range']['windows']} request window(s)).",
         "",
+        "First observed means the earliest invocation visible in returned telemetry. It is not an installation date.",
+        "",
+        "## Coverage and limitations",
+        "",
     ]
+    lines.extend(f"- {warning}" for warning in report["warnings"])
+    lines.append("")
+
     for kind, metric in report["metrics"].items():
         lines.extend(
             [
                 f"## {kind.title()}",
                 "",
-                f"Recorded coverage: {metric['first_recorded_date'] or 'none'} through "
-                f"{metric['last_recorded_date'] or 'none'}; "
-                f"{metric['total_invocations']} invocations across "
-                f"{metric['distinct_items']} named items on "
-                f"{metric['active_days']} active days.",
+                f"Returned dated rows: {metric['returned_start_date'] or 'none'} through "
+                f"{metric['returned_end_date'] or 'none'} ({metric['returned_day_count']} day(s)); "
+                f"recorded invocations: {metric['first_recorded_date'] or 'none'} through "
+                f"{metric['last_recorded_date'] or 'none'}; freshness: "
+                f"{metric['data_freshness'] or 'not supplied'}.",
                 "",
-                "| Name | Invocations | First observed | Last observed |",
-                "| --- | ---: | --- | --- |",
+                f"Directly returned total: {metric['total_invocations']} invocations across "
+                f"{metric['distinct_items']} named items on {metric['active_days']} active days.",
+                "",
             ]
         )
-        for item in metric["items"]:
-            safe_name = item["name"].replace("|", "\\|")
-            lines.append(
-                f"| {safe_name} | {item['count']} | "
-                f"{item['first_observed']} | {item['last_observed']} |"
+        items = _view_items(metric["items"], selected_view, selected_recent_days, end)
+        items = _sort_items(items, selected_sort)
+        if selected_view in ("daily", "weekly", "monthly"):
+            lines.extend(["| Period | Name | Uses |", "| --- | --- | ---: |"])
+            for period, name, count in _timeline_rows(items, selected_view):
+                safe_name = name.replace("|", "\\|")
+                lines.append(f"| {period} | {safe_name} | {count} |")
+        else:
+            lines.extend(
+                [
+                    "| Name | Source | Status | Uses | Active days | First observed | Last used | Days since | 7d | 30d | 90d | Uses/active day | Uses/week since first observed |",
+                    "| --- | --- | --- | ---: | ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+                ]
             )
+            for item in items:
+                source = (
+                    item.get("source")
+                    or ", ".join(item.get("marketplaces", []))
+                    or "API"
+                )
+                safe_name = item["name"].replace("|", "\\|")
+                lines.append(
+                    f"| {safe_name} | {source} | {_display_status(item.get('observation_status'))} | "
+                    f"{item['count']} | {item['active_days']} | {_format_number(item['first_observed'])} | "
+                    f"{_format_number(item['last_used'])} | {_format_number(item['days_since_last_use'])} | "
+                    f"{item['uses_last_7_days']} | {item['uses_last_30_days']} | {item['uses_last_90_days']} | "
+                    f"{_format_number(item['uses_per_active_day'])} | "
+                    f"{_format_number(item['uses_per_week_since_first_observed'])} |"
+                )
         lines.append("")
         if not metric["complete_for_returned_days"]:
             lines.extend(
                 [
-                    f"Named rows are incomplete: {metric['other_invocations']} "
-                    "invocations remained in Other.",
+                    f"Named rows are incomplete: {metric['other_invocations']} invocations remained in Other.",
                     "",
                 ]
             )
-
-    lines.extend(["## Warnings", ""])
-    lines.extend(f"- {warning}" for warning in report["warnings"])
-    return "\n".join(lines) + "\n"
+    return "\n".join(lines)
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Fetch sanitized skill and plugin usage from Codex's private "
-            "ChatGPT analytics endpoints."
+            "Fetch sanitized, inventory-aware skill and plugin usage from "
+            "Codex's private ChatGPT analytics endpoints."
         )
     )
     range_group = parser.add_mutually_exclusive_group()
     range_group.add_argument("--start", type=parse_date)
     range_group.add_argument("--days", type=int)
     range_group.add_argument("--all-available", action="store_true")
-    parser.add_argument("--end", type=parse_date, default=dt.datetime.now(dt.timezone.utc).date())
+    parser.add_argument(
+        "--end",
+        type=parse_date,
+        default=dt.datetime.now(dt.timezone.utc).date(),
+    )
     parser.add_argument(
         "--kind", choices=("skills", "plugins", "both"), default="both"
     )
-    parser.add_argument("--format", choices=("json", "markdown"), default="markdown")
+    parser.add_argument(
+        "--format", choices=("json", "markdown"), default="markdown"
+    )
+    parser.add_argument("--view", choices=VIEWS, default="all")
+    parser.add_argument("--sort", choices=SORTS, default="most-used")
+    parser.add_argument("--recent-days", type=int, default=30)
+    parser.add_argument("--no-inventory", action="store_true")
     parser.add_argument("--auth-file", type=Path, default=default_auth_path())
     parser.add_argument("--timeout", type=float, default=30.0)
     return parser.parse_args(argv)
@@ -509,6 +1296,14 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv if argv is not None else sys.argv[1:])
+    if args.recent_days < 1:
+        print("ERROR: --recent-days must be at least 1", file=sys.stderr)
+        return 1
+    options = {
+        "view": args.view,
+        "sort": args.sort,
+        "recent_days": args.recent_days,
+    }
     try:
         auth = load_auth(args.auth_file.expanduser())
         client = ApiClient(auth, timeout=args.timeout)
@@ -519,6 +1314,8 @@ def main(argv: list[str] | None = None) -> int:
             end=args.end,
             days=args.days,
             all_available=args.all_available,
+            inventory_enabled=not args.no_inventory,
+            report_options=options,
         )
     except UsageAnalyticsError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
@@ -528,7 +1325,14 @@ def main(argv: list[str] | None = None) -> int:
         json.dump(report, sys.stdout, indent=2, sort_keys=True)
         sys.stdout.write("\n")
     else:
-        sys.stdout.write(markdown_report(report))
+        sys.stdout.write(
+            markdown_report(
+                report,
+                view=args.view,
+                sort=args.sort,
+                recent_days=args.recent_days,
+            )
+        )
     return 0
 
 
