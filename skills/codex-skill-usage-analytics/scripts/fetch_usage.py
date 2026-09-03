@@ -423,6 +423,10 @@ def _installation(
     path: Path,
     marketplace: str | None = None,
     plugin_identifier: str | None = None,
+    plugin_display_name: str | None = None,
+    plugin_author: str | None = None,
+    plugin_repository: str | None = None,
+    plugin_website: str | None = None,
     version: str | None = None,
 ) -> dict[str, Any]:
     invocation_mode = _invocation_mode(path)
@@ -435,6 +439,10 @@ def _installation(
         "source_path": str(path),
         "marketplace": marketplace,
         "plugin_identifier": plugin_identifier,
+        "plugin_display_name": plugin_display_name,
+        "plugin_author": plugin_author,
+        "plugin_repository": plugin_repository,
+        "plugin_website": plugin_website,
         "version": version,
         "distribution": _distribution(source, marketplace),
         "invocation_mode": invocation_mode,
@@ -514,6 +522,37 @@ def discover_inventory(
             if isinstance(manifest.get("version"), str)
             else None
         )
+        interface = (
+            manifest.get("interface")
+            if isinstance(manifest.get("interface"), dict)
+            else {}
+        )
+        author = (
+            manifest.get("author")
+            if isinstance(manifest.get("author"), dict)
+            else {}
+        )
+        plugin_display_name = (
+            interface.get("displayName")
+            if isinstance(interface.get("displayName"), str)
+            else None
+        )
+        plugin_author = (
+            author.get("name") if isinstance(author.get("name"), str) else None
+        )
+        plugin_repository = (
+            manifest.get("repository")
+            if isinstance(manifest.get("repository"), str)
+            else None
+        )
+        plugin_website = next(
+            (
+                value
+                for value in (manifest.get("homepage"), interface.get("websiteURL"))
+                if isinstance(value, str) and value
+            ),
+            None,
+        )
         skills_value = manifest.get("skills")
         skill_roots: list[Path] = []
         if isinstance(skills_value, str):
@@ -543,6 +582,10 @@ def discover_inventory(
                         path=path,
                         marketplace=marketplace,
                         plugin_identifier=plugin_identifier,
+                        plugin_display_name=plugin_display_name,
+                        plugin_author=plugin_author,
+                        plugin_repository=plugin_repository,
+                        plugin_website=plugin_website,
                         version=version,
                     )
                 )
@@ -1245,6 +1288,138 @@ def _format_number(value: Any) -> str:
     return str(value)
 
 
+def _invocation_label(item: dict[str, Any]) -> str:
+    return {
+        "automatic_or_manual": "auto + manual",
+        "manual_only": "manual only",
+        "mixed": "mixed",
+    }.get(item.get("invocation_mode"), "—")
+
+
+def _installation_values(item: dict[str, Any], field: str) -> list[str]:
+    return sorted(
+        {
+            value
+            for installation in item.get("installations", [])
+            if isinstance((value := installation.get(field)), str) and value
+        }
+    )
+
+
+def _plugin_group(item: dict[str, Any]) -> tuple[str, str, str, str, str]:
+    identifiers = _installation_values(item, "plugin_identifier")
+    marketplaces = _installation_values(item, "marketplace")
+    display_names = _installation_values(item, "plugin_display_name")
+    authors = _installation_values(item, "plugin_author")
+    repositories = _installation_values(item, "plugin_repository")
+    websites = _installation_values(item, "plugin_website")
+    identifier = identifiers[0] if len(identifiers) == 1 else " + ".join(identifiers)
+    marketplace = (
+        marketplaces[0] if len(marketplaces) == 1 else " + ".join(marketplaces)
+    )
+    if display_names:
+        label = display_names[0]
+    elif "@" in identifier:
+        label = identifier.split("@", 1)[0]
+    else:
+        label = item.get("namespace") or identifier or "unknown plugin"
+    key = identifier or item.get("namespace") or item["name"]
+    origin = repositories[0] if repositories else (websites[0] if websites else "")
+    author = authors[0] if authors else ""
+    return key, label, marketplace or "unknown marketplace", author, origin
+
+
+def _append_skill_table(lines: list[str], items: list[dict[str, Any]]) -> None:
+    lines.extend(
+        [
+            "| Skill | Uses | Active days | Last used | 30d | Mode |",
+            "| --- | ---: | ---: | --- | ---: | --- |",
+        ]
+    )
+    for item in items:
+        safe_name = item["name"].replace("|", "\\|")
+        last_used = (
+            "0 in range" if item["count"] == 0 else _format_number(item["last_used"])
+        )
+        lines.append(
+            f"| {safe_name} | {item['count']} | {item['active_days']} | "
+            f"{last_used} | {item['uses_last_30_days']} | "
+            f"{_invocation_label(item)} |"
+        )
+    lines.append("")
+
+
+def _append_grouped_skill_tables(
+    lines: list[str], items: list[dict[str, Any]]
+) -> None:
+    categories = [
+        ("standalone_user", "Custom / user-installed", "local user installation"),
+        ("system", "OpenAI system", "OpenAI system installation"),
+    ]
+    for distribution, heading, provenance in categories:
+        grouped_items = [
+            item for item in items if item.get("distribution") == distribution
+        ]
+        if not grouped_items:
+            continue
+        lines.extend([f"### {heading}", "", f"Installed via: {provenance}.", ""])
+        _append_skill_table(lines, grouped_items)
+
+    plugin_categories = [
+        ("runtime_plugin", "OpenAI runtime plugins"),
+        ("bundled_plugin", "Bundled plugins"),
+        ("remote_plugin", "Remote marketplace plugins"),
+        ("configured_plugin", "Configured plugins"),
+    ]
+    for distribution, heading in plugin_categories:
+        plugin_items = [
+            item for item in items if item.get("distribution") == distribution
+        ]
+        if not plugin_items:
+            continue
+        lines.extend([f"### {heading}", ""])
+        groups: dict[str, tuple[str, str, str, str, list[dict[str, Any]]]] = {}
+        for item in plugin_items:
+            key, label, marketplace, author, origin = _plugin_group(item)
+            groups.setdefault(key, (label, marketplace, author, origin, []))[4].append(
+                item
+            )
+        for key in sorted(groups, key=str.casefold):
+            label, marketplace, author, origin, grouped_items = groups[key]
+            provenance_parts = [f"Installed via: `{marketplace}`"]
+            if author:
+                provenance_parts.append(f"Developer: {author}")
+            if origin:
+                provenance_parts.append(f"Origin: [{origin}]({origin})")
+            provenance = " · ".join(provenance_parts)
+            lines.extend(
+                [
+                    f"#### {label}",
+                    "",
+                    provenance,
+                    "",
+                ]
+            )
+            _append_skill_table(lines, grouped_items)
+
+    remaining = [
+        item
+        for item in items
+        if item.get("distribution")
+        not in {
+            "standalone_user",
+            "system",
+            "runtime_plugin",
+            "bundled_plugin",
+            "remote_plugin",
+            "configured_plugin",
+        }
+    ]
+    if remaining:
+        lines.extend(["### Historical or multiple installations", ""])
+        _append_skill_table(lines, remaining)
+
+
 def markdown_report(
     report: dict[str, Any],
     *,
@@ -1291,33 +1466,21 @@ def markdown_report(
             for period, name, count in _timeline_rows(items, selected_view):
                 safe_name = name.replace("|", "\\|")
                 lines.append(f"| {period} | {safe_name} | {count} |")
+        elif kind == "skills":
+            _append_grouped_skill_tables(lines, items)
         else:
             lines.extend(
                 [
-                    "| Name | Source | Uses | Active days | Last used | 30d | Invocation | Source path |",
-                    "| --- | --- | ---: | ---: | --- | ---: | --- | --- |",
+                    "| Name | Uses | Active days | Last used | 30d |",
+                    "| --- | ---: | ---: | --- | ---: |",
                 ]
             )
             for item in items:
-                source = (
-                    item.get("source")
-                    or ", ".join(item.get("marketplaces", []))
-                    or "API"
-                )
                 safe_name = item["name"].replace("|", "\\|")
-                invocation = {
-                    "automatic_or_manual": "auto + manual",
-                    "manual_only": "manual only",
-                    "mixed": "mixed",
-                }.get(item.get("invocation_mode"), "—")
-                source_paths = "<br>".join(
-                    path.replace("|", "\\|")
-                    for path in item.get("source_paths", [])
-                ) or "—"
                 lines.append(
-                    f"| {safe_name} | {source} | {item['count']} | "
+                    f"| {safe_name} | {item['count']} | "
                     f"{item['active_days']} | {_format_number(item['last_used'])} | "
-                    f"{item['uses_last_30_days']} | {invocation} | {source_paths} |"
+                    f"{item['uses_last_30_days']} |"
                 )
         lines.append("")
     if len(report["metrics"]) > 1:

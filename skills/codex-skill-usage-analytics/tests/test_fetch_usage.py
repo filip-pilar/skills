@@ -106,7 +106,19 @@ def write_plugin(root: Path, name: str, version: str, skill_names):
     manifest = package / ".codex-plugin" / "plugin.json"
     manifest.parent.mkdir(parents=True, exist_ok=True)
     manifest.write_text(
-        json.dumps({"name": name, "version": version, "skills": "./skills"}),
+        json.dumps(
+            {
+                "name": name,
+                "version": version,
+                "skills": "./skills",
+                "author": {"name": "Example Developer"},
+                "interface": {
+                    "displayName": f"{name.title()} Display",
+                    "websiteURL": f"https://example.test/{name}",
+                },
+                "repository": f"https://example.test/{name}/repository",
+            }
+        ),
         encoding="utf-8",
     )
     for skill_name in skill_names:
@@ -301,6 +313,13 @@ enabled = false
         self.assertEqual(
             by_name["active:tool-new"]["distribution"], "configured_plugin"
         )
+        active_installation = by_name["active:tool-new"]["installations"][0]
+        self.assertEqual(active_installation["plugin_display_name"], "Active Display")
+        self.assertEqual(active_installation["plugin_author"], "Example Developer")
+        self.assertEqual(
+            active_installation["plugin_repository"],
+            "https://example.test/active/repository",
+        )
 
     def test_inventory_merge_adds_zero_historical_duplicate_and_possible_predecessor(self):
         client = FakeClient(
@@ -427,7 +446,7 @@ enabled = false
         self.assertTrue(any("no dated rows" in warning for warning in warnings))
         self.assertTrue(any("truncated" in warning for warning in warnings))
 
-    def test_markdown_default_is_current_compact_and_excludes_historical(self):
+    def test_markdown_default_groups_by_provenance_without_source_paths(self):
         client = FakeClient(
             {
                 fetch_usage.PROFILE_PATH: empty_profile(total=1),
@@ -448,10 +467,63 @@ enabled = false
         markdown = fetch_usage.markdown_report(report)
         self.assertIn("| unobserved |", markdown)
         self.assertNotIn("| historical |", markdown)
-        self.assertIn("| Name | Source | Uses | Active days | Last used | 30d | Invocation | Source path |", markdown)
+        self.assertIn("### Custom / user-installed", markdown)
+        self.assertIn("Installed via: local user installation.", markdown)
+        self.assertIn("| Skill | Uses | Active days | Last used | 30d | Mode |", markdown)
+        self.assertIn("| unobserved | 0 | 0 | 0 in range |", markdown)
+        self.assertNotIn("Source path", markdown)
+        self.assertNotIn("/unused", markdown)
         self.assertNotIn("Coverage and limitations", markdown)
         all_markdown = fetch_usage.markdown_report(report, view="all")
         self.assertIn("| historical |", all_markdown)
+
+    def test_markdown_separates_plugin_packages_and_shows_marketplace(self):
+        def plugin_item(name, plugin_identifier, marketplace):
+            item = inventory_item(name, [f"/{name}"], "plugin", name.split(":")[0])
+            item["distribution"] = "bundled_plugin"
+            item["installations"][0]["distribution"] = "bundled_plugin"
+            item["installations"][0]["plugin_identifier"] = plugin_identifier
+            item["installations"][0]["marketplace"] = marketplace
+            item["installations"][0]["plugin_display_name"] = name.split(":")[0].title()
+            item["installations"][0]["plugin_author"] = "Example Developer"
+            item["installations"][0]["plugin_repository"] = "https://example.test/repo"
+            return item
+
+        client = FakeClient(
+            {
+                fetch_usage.PROFILE_PATH: empty_profile(total=2),
+                fetch_usage.SKILL_PATH: {
+                    "data": [
+                        skill_day(
+                            "2026-09-02",
+                            skill_overview("sites:build", 1),
+                            skill_overview("browser:control", 1),
+                        )
+                    ]
+                },
+            }
+        )
+        report = fetch_usage.build_report(
+            client,
+            kind="skills",
+            start=dt.date(2026, 9, 1),
+            end=dt.date(2026, 9, 2),
+            days=None,
+            all_available=False,
+            inventory=inventory(
+                plugin_item("sites:build", "sites@openai-bundled", "openai-bundled"),
+                plugin_item("browser:control", "browser@openai-bundled", "openai-bundled"),
+            ),
+        )
+        markdown = fetch_usage.markdown_report(report)
+        self.assertIn("### Bundled plugins", markdown)
+        self.assertIn("#### Browser", markdown)
+        self.assertIn("#### Sites", markdown)
+        self.assertIn("Installed via: `openai-bundled`", markdown)
+        self.assertIn("Developer: Example Developer", markdown)
+        self.assertIn("Origin: [https://example.test/repo]", markdown)
+        self.assertNotIn("sites@openai-bundled", markdown)
+        self.assertNotIn("/sites:build", markdown)
 
     def test_timeline_views_aggregate_daily_weekly_and_monthly(self):
         items = [

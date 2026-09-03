@@ -1,7 +1,7 @@
 interface:
   display_name: "Codex Skill Usage Analytics"
-  short_description: "Audit current skill usage, sources, and invocation modes"
-  default_prompt: "Use $codex-skill-usage-analytics to show my current skills, usage, recency, invocation mode, and source path."
+  short_description: "Audit skill usage, provenance, and invocation modes"
+  default_prompt: "Use $codex-skill-usage-analytics to group my current skills by installation provenance and show usage, recency, and invocation mode."
 
 policy:
   allow_implicit_invocation: false
