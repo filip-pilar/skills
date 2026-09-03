@@ -1,216 +1,108 @@
 ---
 name: codex-skill-usage-analytics
-description: Fetch and interpret inventory-aware Codex skill and plugin invocation analytics, including daily history and current-versus-historical skills, from the authenticated undocumented ChatGPT backend without exposing credentials or overstating coverage.
+description: Fetch and interpret current Codex skill and plugin invocation analytics, including usage, recency, installation source, invocation policy, and cleanup signals, from the authenticated ChatGPT backend.
 ---
 
 # Codex Skill Usage Analytics
 
-Use the authenticated Codex installation to produce a read-only, inventory-aware
-skill and plugin usage report. Treat the endpoints as unstable private product
-infrastructure, not a supported integration contract.
+Produce a read-only usage report from the current Codex installation. Optimize
+for the user's decision, not for exhaustively explaining the telemetry.
 
-## Establish the report scope
+## Default report
 
-Resolve:
+Unless the user asks for something else:
 
-- the requested date range, defaulting to the last 365 days;
-- whether the user wants skills, plugins, or both;
-- whether the default all-skills report or a named optional view is wanted;
-- whether the result is for inventory, cleanup, adoption, recency, identity
-  investigation, or another stated purpose.
+- report current skills for the last 365 days;
+- sort by most used;
+- include uses, active days, last used, 30-day uses, invocation mode, and source
+  path;
+- show one compact coverage line before the table; and
+- mention only anomalies that affect the requested decision.
 
-The default report contains every current and historical skill returned by the
-inventory/analytics cross-reference. Do not invent usage thresholds,
-classifications, or removal recommendations that the user did not request.
-
-Use `--all-available` when the user asks for lifetime or all-time usage. The
-script derives the earliest visible Profile activity date and splits the request
-into endpoint-safe windows. Do not describe the result as lifetime-complete
-unless the returned coverage establishes that.
-
-## Run the bundled collector
-
-Resolve the script relative to this `SKILL.md`:
+Run:
 
 ```bash
+python3 <skill-dir>/scripts/fetch_usage.py --format json
+```
+
+Resolve the script relative to this `SKILL.md`. The collector writes only to
+stdout.
+
+## Choose the right scope
+
+Use the smallest scope that answers the request:
+
+```bash
+# Current installed skills (default)
+python3 <skill-dir>/scripts/fetch_usage.py --view current --format json
+
+# Standalone user-installed skills only
+python3 <skill-dir>/scripts/fetch_usage.py --view user --format json
+
+# Include historical telemetry names
+python3 <skill-dir>/scripts/fetch_usage.py --view all --format json
+
+# Plugins as a separate report
+python3 <skill-dir>/scripts/fetch_usage.py --kind plugins --view all --format json
+
+# Earliest range exposed by Profile
 python3 <skill-dir>/scripts/fetch_usage.py --all-available --format json
 ```
 
-For a bounded inventory-aware report:
+Other views are `recent`, `unobserved`, `historical`, `duplicates`,
+`possible-renames`, `daily`, `weekly`, and `monthly`. Sort with `most-used`,
+`least-used`, `most-recent`, `least-recent`, `first-observed`, or `name`.
 
-```bash
-python3 <skill-dir>/scripts/fetch_usage.py \
-  --start YYYY-MM-DD \
-  --end YYYY-MM-DD \
-  --kind both \
-  --format markdown
-```
+“Accessible in this environment” means the intersection of the collector's
+current inventory and the skills exposed to the present task. Do not substitute
+every directory in a plugin cache. For a user-only cleanup, exclude system and
+plugin-contributed skills even when a plugin is currently active.
 
-The default `--view all` shows every skill and includes source, observation
-status, uses, active days, first observed, last used, days since last use,
-7/30/90-day uses, uses per active day, and uses per week since first observed.
+## Report with density
 
-Optional views and sorting:
+Lead with the answer. A normal report should contain:
 
-```bash
-python3 <skill-dir>/scripts/fetch_usage.py --view daily
-python3 <skill-dir>/scripts/fetch_usage.py --view weekly
-python3 <skill-dir>/scripts/fetch_usage.py --view monthly
-python3 <skill-dir>/scripts/fetch_usage.py --view recent --recent-days 30
-python3 <skill-dir>/scripts/fetch_usage.py --view unobserved
-python3 <skill-dir>/scripts/fetch_usage.py --view historical
-python3 <skill-dir>/scripts/fetch_usage.py --view duplicates
-python3 <skill-dir>/scripts/fetch_usage.py --view possible-renames
-python3 <skill-dir>/scripts/fetch_usage.py --sort most-recent
-python3 <skill-dir>/scripts/fetch_usage.py --sort least-recent
-python3 <skill-dir>/scripts/fetch_usage.py --sort most-used
-```
+1. one coverage line: returned dates and dated-row count;
+2. one summary line: items, observed items, and total uses;
+3. the requested table or ranking; and
+4. one short note only when truncation, inventory failure, or identity ambiguity
+   changes the interpretation.
 
-Other sort values are `least-used`, `first-observed`, and `name`. Use
-`--no-inventory` only when the caller explicitly wants API-observed items
-without cross-referencing current global skills.
+Use compact labels such as `0 in range`, `historical`, and `manual only`. Do not
+repeat generic caveats before and after the table. The coverage line already
+defines the period represented by the numbers.
 
-The collector writes only to stdout. Keep live responses, credentials, caches,
-and generated reports outside tracked skill packages unless the user explicitly
-chooses a safe destination.
+Skills and plugins are separate overlapping metrics. Never add their totals.
+Plugin-level usage must not be assigned to contributed skills unless the
+telemetry identity joins exactly.
 
-## Understand the inventory
+## Cleanup and invocation-policy requests
 
-The collector discovers current global skills from the active Codex and Agents
-skill roots. It discovers plugin-contributed skills only from:
+Only recommend removal or invocation-policy changes when asked. Evaluate:
 
-- plugins explicitly enabled in Codex configuration; and
-- remote plugin roots carrying the current remote-install marker.
+- usage and recency;
+- overlap with retained skills;
+- whether the relevant vendor, SDK, MCP, or connector is available;
+- unique capability and likely future value;
+- installation provenance; and
+- whether implicit activation adds correctness or expands scope unexpectedly.
 
-It honors explicit disabled skill configuration and selects one current package
-version per enabled or installed plugin. Never treat every directory in the
-plugin cache as currently available; cache contents can be stale.
+A low count is a review signal, not a removal rule. Prefer manual-only for
+skills whose implicit trigger can add instrumentation, dependencies, or work
+beyond the user's request. Keep correctness and safety guidance implicit when a
+clear task match should load it automatically.
 
-The report distinguishes:
+For current skills, use `invocation_mode` and `source_paths` from the report.
+`manual_only` means `policy.allow_implicit_invocation: false`; otherwise the
+skill may be selected automatically and can still be invoked with `$skill-name`.
 
-- current skills observed during returned coverage;
-- current skills for which no invocation was returned during coverage;
-- historical telemetry names that are not currently available;
-- user, system, and plugin-contributed installations;
-- duplicate current installations with the same skill name;
-- names associated with multiple telemetry IDs; and
-- IDs associated with multiple names.
+## Safety
 
-Names with the same normalized base or a shared telemetry ID may be flagged as
-possible rename or identity-change evidence. Treat these as leads, not proof.
-The available data cannot reliably distinguish an update, rename, reinstall,
-fork, or unrelated collision.
+The collector sends authenticated GET requests only to the fixed ChatGPT backend
+origin. Never expose or request auth tokens, cookies, account identifiers, or
+the raw auth file. On authentication failure, ask the user to sign in through
+Codex and retry. Do not persist live responses inside a tracked skill package.
 
-This package was renamed from `codex-usage-analytics` to
-`codex-skill-usage-analytics`. The collector keeps that declared predecessor
-link so earlier telemetry remains visible without merging the two name-level
-counts or claiming that the backend preserved one stable identity.
-
-## Interpret time and zeroes precisely
-
-`first_observed` is the earliest invocation visible inside returned telemetry.
-It is not an installation date. `last_used`, recent-period counts, and normalized
-rates are derived from daily API records and are relative to the requested end
-date.
-
-Use only the status supported by the report evidence:
-
-- `no invocation returned during coverage` for an exact current name with no
-  returned invocation;
-- `not observed under current name` when a current name has only possible
-  predecessor evidence;
-- `historical; not currently available` for a telemetry name absent from the
-  current inventory;
-- `installed after returned coverage` only if a future inventory source exposes
-  an explicit trustworthy installation time. Current filesystem timestamps do
-  not establish this.
-
-Never casually describe a zero as “never used.”
-
-## Preserve authentication safety
-
-The collector reads the current access token and account identifier from
-`$CODEX_HOME/auth.json`, or `~/.codex/auth.json` when `CODEX_HOME` is unset. It
-keeps both values in memory and sends them only to the fixed
-`https://chatgpt.com/backend-api` origin.
-
-- Never print, copy, summarize, persist, or ask the user to paste tokens,
-  refresh tokens, account identifiers, cookies, or the raw auth file.
-- Never accept a caller-supplied host or arbitrary endpoint.
-- Never use the refresh token. On authentication failure, ask the user to sign
-  in through Codex and retry.
-- Perform GET requests only. Do not mutate Profile, workspace, plugin, or skill
-  state.
-- Do not bypass plan, role, workspace, access, or rate-limit restrictions.
-
-## Judge completeness
-
-Keep these separate and prominent:
-
-- requested start/end dates and request windows;
-- first/last dated rows actually returned and their count;
-- first/last recorded invocation dates;
-- endpoint freshness when supplied;
-- residual `Other` invocations and named-item truncation;
-- Profile totals and top-invocation cross-check differences;
-- current inventory discovery warnings.
-
-Treat `complete_for_returned_days: true` as evidence only that no `Other`
-overflow bucket remained in returned daily records. It does not prove:
-
-- telemetry existed before the first returned day;
-- missing dated rows represent zero activity;
-- deleted or renamed skills were joined correctly;
-- Profile and analytics use identical caching or aggregation;
-- an invocation was explicit rather than automatic;
-- an invocation caused task success or added value.
-
-Skill and plugin counts can overlap when a plugin contributes a skill. Never add
-the two totals together as if they were unique actions.
-
-The endpoints expose calendar-day aggregates, not exact invocation timestamps,
-task/thread associations, prompts, activation mode, or result quality.
-
-## JSON schema version 2
-
-Schema version 2 preserves the version 1 report envelope and aggregate fields,
-including `count`, `first_observed`, `last_observed`, `identifiers`, metric
-totals, `profile_cross_check`, `requested_range`, and warnings.
-
-It adds:
-
-- per-item `daily` rows with date, count, and identifiers;
-- `last_used`, active days, days since last use, normalized rates, and
-  7/30/90-day counts;
-- returned dated-row coverage and retained `Other` daily rows;
-- top-level current inventory and duplicate installation details;
-- current/historical observation status and source on skill rows;
-- identity flags and possible rename evidence;
-- inventory summary counts, report view/sort options, and a `selected_view`
-  index (or timeline rows) while the complete metric items remain available.
-
-Consumers should continue to treat name/ID joins as provisional and use
-`schema_version` when validating newly added fields.
-
-## Handle endpoint drift
-
-If an endpoint returns an unexpected schema or a repeatable non-authentication
-failure, stop and report the drift. Inspect the currently installed application
-bundle read-only when needed to determine whether paths or fields changed. Do
-not probe unrelated routes, brute-force parameters, or turn this workflow into a
-general private-API client.
-
-## Report
-
-Lead with usable requested/returned coverage and completeness for that coverage.
-Then separate:
-
-1. directly returned daily and aggregate counts;
-2. current inventory cross-reference and identity caveats;
-3. Profile cross-check differences;
-4. coverage and semantic limitations;
-5. conclusions appropriate to the user’s stated purpose.
-
-For cleanup decisions, use invocation history as one signal alongside present
-relevance, redundancy, instruction quality, maintenance cost, and unique
-capability. A zero or low count is not sufficient by itself to remove a skill.
+If the user challenges coverage, identity joins, Profile differences, or the
+meaning of a field, read [references/methodology.md](references/methodology.md).
+Do not load it for an ordinary report.

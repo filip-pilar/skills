@@ -251,6 +251,14 @@ class FetchUsageTests(unittest.TestCase):
             write_skill(agents / "duplicate" / "SKILL.md", "duplicate")
             write_skill(codex_home / "skills" / "duplicate" / "SKILL.md", "duplicate")
             write_skill(codex_home / "skills" / "disabled" / "SKILL.md", "disabled")
+            manual_path = agents / "manual" / "SKILL.md"
+            write_skill(manual_path, "manual")
+            metadata = manual_path.parent / "agents" / "openai.yaml"
+            metadata.parent.mkdir(parents=True, exist_ok=True)
+            metadata.write_text(
+                "policy:\n  allow_implicit_invocation: false\n",
+                encoding="utf-8",
+            )
             active = codex_home / "plugins" / "cache" / "market" / "active"
             stale = codex_home / "plugins" / "cache" / "market" / "stale"
             remote = codex_home / "plugins" / "cache" / "remote" / "remote-plugin"
@@ -287,6 +295,12 @@ enabled = false
         self.assertIn("remote-plugin:remote-tool", by_name)
         self.assertNotIn("stale:stale-tool", by_name)
         self.assertNotIn("disabled", by_name)
+        self.assertEqual(by_name["manual"]["invocation_mode"], "manual_only")
+        self.assertEqual(by_name["manual"]["distribution"], "standalone_user")
+        self.assertEqual(by_name["manual"]["source_paths"], [str(manual_path)])
+        self.assertEqual(
+            by_name["active:tool-new"]["distribution"], "configured_plugin"
+        )
 
     def test_inventory_merge_adds_zero_historical_duplicate_and_possible_predecessor(self):
         client = FakeClient(
@@ -388,32 +402,32 @@ enabled = false
             all_available=True,
             inventory=inventory(),
         )
-        self.assertEqual(report["schema_version"], 2)
+        self.assertEqual(report["schema_version"], 3)
         self.assertEqual(report["requested_range"]["start"], "2026-02-23")
-        self.assertEqual(report["selected_view"]["view"], "all")
+        self.assertEqual(report["selected_view"]["view"], "current")
         skill_call = next(call for call in client.calls if call[0] == fetch_usage.SKILL_PATH)
         self.assertEqual(skill_call[1]["start_date"], "2026-02-23")
 
-    def test_warnings_make_partial_coverage_and_profile_mismatch_prominent(self):
+    def test_warnings_only_include_actionable_report_problems(self):
         warnings = fetch_usage.build_warnings(
             {"activity_start": "2026-01-01", "total_skills_used": 4},
             dt.date(2026, 1, 1),
             {
                 "skills": {
-                    "first_recorded_date": "2026-09-01",
-                    "returned_start_date": "2026-09-01",
-                    "returned_end_date": "2026-09-02",
-                    "complete_for_returned_days": True,
+                    "first_recorded_date": None,
+                    "returned_start_date": None,
+                    "returned_end_date": None,
+                    "complete_for_returned_days": False,
                     "total_invocations": 5,
                 }
             },
             dt.date(2026, 9, 2),
         )
-        self.assertTrue(any("span 2026-09-01" in warning for warning in warnings))
-        self.assertTrue(any("differs" in warning for warning in warnings))
-        self.assertTrue(any("not an installation date" in warning for warning in warnings))
+        self.assertEqual(len(warnings), 2)
+        self.assertTrue(any("no dated rows" in warning for warning in warnings))
+        self.assertTrue(any("truncated" in warning for warning in warnings))
 
-    def test_markdown_default_lists_observed_unobserved_and_historical(self):
+    def test_markdown_default_is_current_compact_and_excludes_historical(self):
         client = FakeClient(
             {
                 fetch_usage.PROFILE_PATH: empty_profile(total=1),
@@ -432,10 +446,12 @@ enabled = false
             inventory=inventory(inventory_item("unobserved", ["/unused"])),
         )
         markdown = fetch_usage.markdown_report(report)
-        self.assertIn("| historical |", markdown)
         self.assertIn("| unobserved |", markdown)
-        self.assertIn("no invocation returned during coverage", markdown)
-        self.assertIn("First observed means", markdown)
+        self.assertNotIn("| historical |", markdown)
+        self.assertIn("| Name | Source | Uses | Active days | Last used | 30d | Invocation | Source path |", markdown)
+        self.assertNotIn("Coverage and limitations", markdown)
+        all_markdown = fetch_usage.markdown_report(report, view="all")
+        self.assertIn("| historical |", all_markdown)
 
     def test_timeline_views_aggregate_daily_weekly_and_monthly(self):
         items = [
@@ -487,9 +503,18 @@ enabled = false
             ["unobserved"],
         )
         self.assertEqual(
+            [item["name"] for item in fetch_usage._view_items([current, unobserved], "current", 30, end)],
+            ["current", "unobserved"],
+        )
+        self.assertEqual(
             [item["name"] for item in fetch_usage._sort_items([unobserved, current], "most-recent")],
             ["current", "unobserved"],
         )
+
+    def test_default_arguments_focus_on_current_skills(self):
+        args = fetch_usage.parse_args([])
+        self.assertEqual(args.kind, "skills")
+        self.assertEqual(args.view, "current")
 
     def test_load_auth_does_not_include_secrets_in_errors(self):
         with tempfile.TemporaryDirectory() as directory:

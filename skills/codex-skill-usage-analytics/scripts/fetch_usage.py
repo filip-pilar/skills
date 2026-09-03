@@ -28,11 +28,13 @@ ALLOWED_PATHS = frozenset((PROFILE_PATH, SKILL_PATH, PLUGIN_PATH))
 MAX_WINDOW_DAYS = 365
 ITEM_LIMIT = 1000
 MAX_RESPONSE_BYTES = 8 * 1024 * 1024
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 KNOWN_SKILL_RENAMES = {
     "codex-skill-usage-analytics": ("codex-usage-analytics",),
 }
 VIEWS = (
+    "current",
+    "user",
     "all",
     "daily",
     "weekly",
@@ -286,6 +288,36 @@ def _frontmatter_name(path: Path) -> str | None:
     return None
 
 
+def _invocation_mode(path: Path) -> str:
+    metadata_path = path.parent / "agents" / "openai.yaml"
+    try:
+        metadata = metadata_path.read_text(encoding="utf-8")
+    except OSError:
+        return "automatic_or_manual"
+    match = re.search(
+        r"(?m)^\s*allow_implicit_invocation:\s*(true|false)\s*(?:#.*)?$",
+        metadata,
+        re.IGNORECASE,
+    )
+    if match and match.group(1).casefold() == "false":
+        return "manual_only"
+    return "automatic_or_manual"
+
+
+def _distribution(source: str, marketplace: str | None) -> str:
+    if source == "system":
+        return "system"
+    if source == "user":
+        return "standalone_user"
+    if marketplace == "openai-bundled":
+        return "bundled_plugin"
+    if marketplace == "openai-primary-runtime":
+        return "runtime_plugin"
+    if marketplace == "openai-curated-remote":
+        return "remote_plugin"
+    return "configured_plugin"
+
+
 def _skill_config_entries(config: dict[str, Any]) -> list[dict[str, Any]]:
     skills = config.get("skills", {})
     if not isinstance(skills, dict):
@@ -393,15 +425,20 @@ def _installation(
     plugin_identifier: str | None = None,
     version: str | None = None,
 ) -> dict[str, Any]:
+    invocation_mode = _invocation_mode(path)
     return {
         "name": name,
         "base_name": base_name,
         "namespace": namespace,
         "source": source,
         "path": str(path),
+        "source_path": str(path),
         "marketplace": marketplace,
         "plugin_identifier": plugin_identifier,
         "version": version,
+        "distribution": _distribution(source, marketplace),
+        "invocation_mode": invocation_mode,
+        "implicit_invocation": invocation_mode != "manual_only",
     }
 
 
@@ -516,6 +553,12 @@ def discover_inventory(
     current_skills: list[dict[str, Any]] = []
     for name, grouped_installations in grouped.items():
         sources = sorted({item["source"] for item in grouped_installations})
+        distributions = sorted(
+            {item["distribution"] for item in grouped_installations}
+        )
+        invocation_modes = sorted(
+            {item["invocation_mode"] for item in grouped_installations}
+        )
         namespaces = sorted(
             {item["namespace"] for item in grouped_installations if item["namespace"]}
         )
@@ -526,6 +569,16 @@ def discover_inventory(
                 "namespace": namespaces[0] if len(namespaces) == 1 else None,
                 "source": sources[0] if len(sources) == 1 else "multiple",
                 "sources": sources,
+                "distribution": (
+                    distributions[0] if len(distributions) == 1 else "multiple"
+                ),
+                "distributions": distributions,
+                "invocation_mode": (
+                    invocation_modes[0] if len(invocation_modes) == 1 else "mixed"
+                ),
+                "source_paths": sorted(
+                    {item["source_path"] for item in grouped_installations}
+                ),
                 "installation_count": len(grouped_installations),
                 "duplicate_installation": len(grouped_installations) > 1,
                 "installations": sorted(
@@ -825,6 +878,17 @@ def _empty_inventory_item(
         "observation_status": status,
         "source": inventory_item["source"],
         "sources": inventory_item["sources"],
+        "distribution": inventory_item.get("distribution", "standalone_user"),
+        "distributions": inventory_item.get(
+            "distributions", [inventory_item.get("distribution", "standalone_user")]
+        ),
+        "invocation_mode": inventory_item.get(
+            "invocation_mode", "automatic_or_manual"
+        ),
+        "source_paths": inventory_item.get(
+            "source_paths",
+            [item["path"] for item in inventory_item["installations"]],
+        ),
         "namespace": inventory_item["namespace"],
         "base_name": inventory_item["base_name"],
         "installation_count": inventory_item["installation_count"],
@@ -856,6 +920,10 @@ def merge_skill_inventory(
                     "observation_status": "historical_skill_not_currently_available",
                     "source": "plugin" if is_plugin else "unknown",
                     "sources": ["plugin"] if is_plugin else ["unknown"],
+                    "distribution": "historical",
+                    "distributions": [],
+                    "invocation_mode": None,
+                    "source_paths": [],
                     "namespace": item["name"].split(":", 1)[0] if is_plugin else None,
                     "base_name": item["name"].rsplit(":", 1)[-1],
                     "installation_count": 0,
@@ -871,6 +939,20 @@ def merge_skill_inventory(
                 "observation_status": "observed_during_coverage",
                 "source": inventory_item["source"],
                 "sources": inventory_item["sources"],
+                "distribution": inventory_item.get(
+                    "distribution", "standalone_user"
+                ),
+                "distributions": inventory_item.get(
+                    "distributions",
+                    [inventory_item.get("distribution", "standalone_user")],
+                ),
+                "invocation_mode": inventory_item.get(
+                    "invocation_mode", "automatic_or_manual"
+                ),
+                "source_paths": inventory_item.get(
+                    "source_paths",
+                    [entry["path"] for entry in inventory_item["installations"]],
+                ),
                 "namespace": inventory_item["namespace"],
                 "base_name": inventory_item["base_name"],
                 "installation_count": inventory_item["installation_count"],
@@ -949,51 +1031,14 @@ def build_warnings(
     end: dt.date | None = None,
     inventory: dict[str, Any] | None = None,
 ) -> list[str]:
-    resolved_end = end or start
-    warnings = [
-        "The endpoints are undocumented private ChatGPT infrastructure and may change.",
-        "First observed is the earliest invocation visible in returned telemetry, not an installation date.",
-        "Invocation counts do not expose exact timestamps, task or thread associations, explicit versus automatic activation, or result quality.",
-        "Skill and plugin totals may overlap and must not be added together.",
-    ]
-    activity_start = profile.get("activity_start")
-    if isinstance(activity_start, str) and activity_start < start.isoformat():
-        warnings.append(
-            "The requested range starts after the earliest activity visible in Profile."
-        )
-    first_dates = [
-        metric["first_recorded_date"]
-        for metric in metrics.values()
-        if metric.get("first_recorded_date") is not None
-    ]
-    if isinstance(activity_start, str) and first_dates and activity_start < min(first_dates):
-        warnings.append(
-            "Profile activity predates the first returned analytics invocation; the report is not proven lifetime-complete."
-        )
+    warnings: list[str] = []
     for kind, metric in metrics.items():
         returned_start = metric.get("returned_start_date")
-        returned_end = metric.get("returned_end_date")
         if returned_start is None:
-            warnings.append(
-                f"The {kind} endpoint returned no dated rows for the requested range."
-            )
-        elif returned_start > start.isoformat() or returned_end < resolved_end.isoformat():
-            warnings.append(
-                f"Returned {kind} rows span {returned_start} through {returned_end} within the requested range; absent rows outside that span do not prove zero activity or complete history."
-            )
+            warnings.append(f"The {kind} endpoint returned no dated rows.")
     if any(not metric["complete_for_returned_days"] for metric in metrics.values()):
         warnings.append(
-            "At least one response retained an Other bucket, so named-item counts are truncated."
-        )
-    profile_skill_total = profile.get("total_skills_used")
-    skill_metric = metrics.get("skills")
-    if (
-        isinstance(profile_skill_total, int)
-        and skill_metric is not None
-        and profile_skill_total != skill_metric["total_invocations"]
-    ):
-        warnings.append(
-            "Profile total skill usage differs from the detailed daily analytics total; treat them as separate aggregates rather than reconciling either away."
+            "Named-item counts are truncated because at least one response retained an Other bucket."
         )
     if inventory:
         warnings.extend(inventory.get("warnings", []))
@@ -1061,7 +1106,7 @@ def build_report(
             "windows": len(date_windows(resolved_start, end)),
         },
         "report_options": report_options
-        or {"view": "all", "sort": "most-used", "recent_days": 30},
+        or {"view": "current", "sort": "most-used", "recent_days": 30},
         "profile_cross_check": profile,
         "inventory": resolved_inventory,
         "metrics": metrics,
@@ -1109,6 +1154,16 @@ def _view_items(
     recent_days: int,
     end: dt.date,
 ) -> list[dict[str, Any]]:
+    if view == "current":
+        if any("current_available" in item for item in items):
+            return [item for item in items if item.get("current_available")]
+        return items
+    if view == "user":
+        return [
+            item
+            for item in items
+            if item.get("current_available") and item.get("source") == "user"
+        ]
     if view == "unobserved":
         return [
             item for item in items if item.get("current_available") and item["count"] == 0
@@ -1182,16 +1237,6 @@ def _selected_view_payload(report: dict[str, Any]) -> dict[str, Any]:
     return selected
 
 
-def _display_status(value: str | None) -> str:
-    labels = {
-        "observed_during_coverage": "observed during coverage",
-        "no_invocation_returned_during_coverage": "no invocation returned during coverage",
-        "not_observed_under_current_name": "not observed under current name",
-        "historical_skill_not_currently_available": "historical; not currently available",
-    }
-    return labels.get(value, value or "observed")
-
-
 def _format_number(value: Any) -> str:
     if value is None:
         return "—"
@@ -1208,43 +1253,39 @@ def markdown_report(
     recent_days: int | None = None,
 ) -> str:
     options = report.get("report_options", {})
-    selected_view = view or options.get("view", "all")
+    selected_view = view or options.get("view", "current")
     selected_sort = sort or options.get("sort", "most-used")
     selected_recent_days = recent_days or options.get("recent_days", 30)
     end = dt.date.fromisoformat(report["requested_range"]["end"])
     lines = [
         "# Codex usage analytics",
         "",
-        f"Requested range: {report['requested_range']['start']} through "
-        f"{report['requested_range']['end']} "
-        f"({report['requested_range']['windows']} request window(s)).",
-        "",
-        "First observed means the earliest invocation visible in returned telemetry. It is not an installation date.",
-        "",
-        "## Coverage and limitations",
+        f"Requested: {report['requested_range']['start']} to "
+        f"{report['requested_range']['end']}.",
         "",
     ]
-    lines.extend(f"- {warning}" for warning in report["warnings"])
-    lines.append("")
+    if report["warnings"]:
+        lines.append("Alerts: " + " ".join(report["warnings"]))
+        lines.append("")
 
     for kind, metric in report["metrics"].items():
+        items = _view_items(metric["items"], selected_view, selected_recent_days, end)
+        items = _sort_items(items, selected_sort)
+        selected_total = sum(item["count"] for item in items)
+        observed_count = sum(item["count"] > 0 for item in items)
         lines.extend(
             [
                 f"## {kind.title()}",
                 "",
-                f"Returned dated rows: {metric['returned_start_date'] or 'none'} through "
-                f"{metric['returned_end_date'] or 'none'} ({metric['returned_day_count']} day(s)); "
-                f"recorded invocations: {metric['first_recorded_date'] or 'none'} through "
-                f"{metric['last_recorded_date'] or 'none'}; freshness: "
-                f"{metric['data_freshness'] or 'not supplied'}.",
+                f"Coverage: {metric['returned_start_date'] or 'none'} to "
+                f"{metric['returned_end_date'] or 'none'}; "
+                f"{metric['returned_day_count']} dated rows.",
                 "",
-                f"Directly returned total: {metric['total_invocations']} invocations across "
-                f"{metric['distinct_items']} named items on {metric['active_days']} active days.",
+                f"Selected: {len(items)} items, {observed_count} observed, "
+                f"{selected_total} uses.",
                 "",
             ]
         )
-        items = _view_items(metric["items"], selected_view, selected_recent_days, end)
-        items = _sort_items(items, selected_sort)
         if selected_view in ("daily", "weekly", "monthly"):
             lines.extend(["| Period | Name | Uses |", "| --- | --- | ---: |"])
             for period, name, count in _timeline_rows(items, selected_view):
@@ -1253,8 +1294,8 @@ def markdown_report(
         else:
             lines.extend(
                 [
-                    "| Name | Source | Status | Uses | Active days | First observed | Last used | Days since | 7d | 30d | 90d | Uses/active day | Uses/week since first observed |",
-                    "| --- | --- | --- | ---: | ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+                    "| Name | Source | Uses | Active days | Last used | 30d | Invocation | Source path |",
+                    "| --- | --- | ---: | ---: | --- | ---: | --- | --- |",
                 ]
             )
             for item in items:
@@ -1264,22 +1305,24 @@ def markdown_report(
                     or "API"
                 )
                 safe_name = item["name"].replace("|", "\\|")
+                invocation = {
+                    "automatic_or_manual": "auto + manual",
+                    "manual_only": "manual only",
+                    "mixed": "mixed",
+                }.get(item.get("invocation_mode"), "—")
+                source_paths = "<br>".join(
+                    path.replace("|", "\\|")
+                    for path in item.get("source_paths", [])
+                ) or "—"
                 lines.append(
-                    f"| {safe_name} | {source} | {_display_status(item.get('observation_status'))} | "
-                    f"{item['count']} | {item['active_days']} | {_format_number(item['first_observed'])} | "
-                    f"{_format_number(item['last_used'])} | {_format_number(item['days_since_last_use'])} | "
-                    f"{item['uses_last_7_days']} | {item['uses_last_30_days']} | {item['uses_last_90_days']} | "
-                    f"{_format_number(item['uses_per_active_day'])} | "
-                    f"{_format_number(item['uses_per_week_since_first_observed'])} |"
+                    f"| {safe_name} | {source} | {item['count']} | "
+                    f"{item['active_days']} | {_format_number(item['last_used'])} | "
+                    f"{item['uses_last_30_days']} | {invocation} | {source_paths} |"
                 )
         lines.append("")
-        if not metric["complete_for_returned_days"]:
-            lines.extend(
-                [
-                    f"Named rows are incomplete: {metric['other_invocations']} invocations remained in Other.",
-                    "",
-                ]
-            )
+    if len(report["metrics"]) > 1:
+        lines.append("Skill and plugin totals overlap.")
+        lines.append("")
     return "\n".join(lines)
 
 
@@ -1300,12 +1343,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         default=dt.datetime.now(dt.timezone.utc).date(),
     )
     parser.add_argument(
-        "--kind", choices=("skills", "plugins", "both"), default="both"
+        "--kind", choices=("skills", "plugins", "both"), default="skills"
     )
     parser.add_argument(
         "--format", choices=("json", "markdown"), default="markdown"
     )
-    parser.add_argument("--view", choices=VIEWS, default="all")
+    parser.add_argument("--view", choices=VIEWS, default="current")
     parser.add_argument("--sort", choices=SORTS, default="most-used")
     parser.add_argument("--recent-days", type=int, default=30)
     parser.add_argument("--no-inventory", action="store_true")
