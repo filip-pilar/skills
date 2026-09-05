@@ -146,13 +146,11 @@ If no useful network request exists, inspect the bounded client-side transformat
 
 ### Page-runtime extraction
 
-Use page runtime only after a useful HTTP replay is absent or demonstrably insufficient. Legitimate cases include a client-computed result, a bounded view assembled from several transient mechanisms, or useful state exposed only through the rendered page. First identify the smallest fixed page-ready condition and the smallest JSON projection that proves the user-visible result.
-
-Establish that ready condition in the final execution browser, not only the discovery browser. Anchor it to the smallest fixed semantic component—such as a specific form, custom element, or identified section—rather than assuming `main`, `body`, or another layout wrapper is invariant. For styled radios and checkboxes, inspect the exact associated label or option container and disabled/hidden accessibility state; a native input with no client rect may still represent a visible option. Project only the exact allowlisted group and fail if the root, group, or selected option is missing or ambiguous.
-
-The generated recipe may contain literal site-specific selectors and a short fixed preparation for the one action. It must return new JSON made only from allowlisted primitive fields. Do not return DOM nodes, HTML, broad text snapshots, application state objects, event objects, or source URLs with sensitive queries. Do not read cookies, local/session storage, IndexedDB, credential APIs, password fields, or token-bearing variables. Do not accept code, selectors, URLs, or executable expressions from the prototype. Do not add general click/type/navigation primitives; the fixed target URL, exact pathname, allowed fixed query/fragment state, preparation, and projection belong in generated source. If the page consumes configured state or migrates fixed query entries into its fragment, record that observation, use only the matching narrow policy, and make the recipe verify its fixed expected controls before acting.
-
-Prefer visible DOM attributes/text or public non-secret browser API values over private framework internals. If private client state is the only evidence, treat it as unstable and project only a tiny explicit shape. A page-runtime proof is not evidence that a server-side scraper will work; record its browser dependency and the corresponding production gap.
+Use page runtime only after useful HTTP replay is absent or demonstrably insufficient.
+Identify the smallest fixed ready condition and narrow JSON projection that proves
+the visible result. If this mode is needed, read [page-runtime.md](page-runtime.md)
+before implementing the fixed recipe; the general data-projection and no-secret
+boundaries above still apply during discovery.
 
 ## Assess scraping and integration readiness
 
