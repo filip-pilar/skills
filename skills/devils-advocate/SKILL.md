@@ -1,6 +1,6 @@
 ---
 name: devils-advocate
-description: Constructive scrutiny of ideas, plans, decisions, arguments, and research, focused on material assumptions, risks, blind spots, and credible opposing cases.
+description: Constructive adversarial scrutiny of an idea, plan, decision, argument, or research claim.
 ---
 
 # Devil's Advocate
@@ -15,33 +15,25 @@ Raise a concern only when it could materially change the decision, design, confi
 
 Treat bounded downside and uncertainty as acceptable. Do not add controls, formal metrics, or process to a cheap, reversible trial unless they prevent material harm or determine whether it tests the stated objective.
 
-Honor an explicit depth request. Otherwise use Quick for bounded, low-stakes, readily reversible choices; Deep for clearly costly, irreversible, regulated, or safety-critical decisions; and Standard for the rest.
+Honor the user's requested depth; otherwise scale detail to stakes and
+reversibility. Keep cheap, bounded choices brief and examine consequential
+uncertainty more deeply.
 
-- **Quick:** Give one short bottom line, at most three pressure points, and a one-line verdict or action. Do not use the full standard structure or an implementation plan.
-- **Standard:** Give a balanced, prioritized assessment with practical responses.
-- **Deep:** Examine costly, irreversible, regulated, safety-critical, or strategically important decisions more rigorously.
+## Assess and respond
 
-## Pressure-test
+Preserve the actual claim, objective, constraints, and standard. Consider the
+strongest credible case on both sides and, for decisions, realistic alternatives
+including the status quo. Examine assumptions only where they affect the decision.
 
-1. **Frame the target.** Preserve the actual claim, objective, constraints, and standard instead of silently broadening, narrowing, idealizing, or replacing them. Test whether stated success or kill criteria measure the intended outcome before relying on them. For decisions, compare the proposal with the status quo and strongest realistic alternatives.
-2. **Steelman both sides.** Briefly state the strongest plausible case for the proposal, then develop the strongest realistic case against it.
-3. **Expose load-bearing assumptions.** Examine only decision-relevant dimensions, including incentives, execution, opportunity cost, reversibility, safety, and—when applicable—confounders or alternative explanations.
-4. **Develop the top challenges.** For each, explain the mechanism, consequence, and confidence without false precision. Classify it only when useful: a blocker threatens the intended outcome, a risk is a manageable failure mode, an unknown is missing evidence, and a tradeoff is a real cost or preference.
-5. **Resolve proportionately.** Recommend mitigating, running a cheap disconfirming test, monitoring, consciously accepting the risk, or stopping. Match the response cost to the expected harm.
-6. **Synthesize.** Give a candid verdict, identify what remains robust, and recommend proceeding, revising, piloting, pausing, stopping, or taking no action.
+Lead with a candid verdict supported by the strongest material objections and
+what survives them. Explain each consequential concern's mechanism, consequence,
+and confidence without false precision. Recommend a proportionate response when
+useful: a mitigation, a cheap disconfirming test, monitoring, accepting the risk,
+or stopping. Adapt the format to the question; no fixed sections or objection quota.
 
-For a prototype, pilot, or experiment, state what its evidence can and cannot establish; do not generalize one tested claim into proof of demand, usability, or production readiness.
-
-## Respond
-
-Adapt the format instead of forcing a template. The following structure is not a quota; omit any section without material content. For a standard review, prefer:
-
-1. **Bottom line** — Sound, promising with conditions, fragile, or not ready, with a short reason.
-2. **Strongest case** — Why the proposal could work.
-3. **Top pressure points** — Ranked by decision relevance, with mechanism, consequence, confidence, and response.
-4. **What holds up and next step** — What remains credible, the verdict, and any proportionate test or evidence needed.
-
-Keep quick reviews compact. Expand deep reviews only where the additional detail affects the decision.
+For a prototype, pilot, or experiment, establish whether success or kill criteria
+measure the intended outcome. State what the evidence can and cannot establish;
+one tested claim does not prove demand, usability, or production readiness.
 
 ## Continue across turns
 
