@@ -20,9 +20,11 @@ Do not duplicate skill behavior in this file.
 ## Working rules
 
 - Inspect `git status --short` before editing and preserve unrelated work.
-- For a skill change, read its complete `SKILL.md` before modifying it.
+- For behavioral changes, read the complete `SKILL.md`; for mechanical edits,
+  inspect the affected section and relevant constraints.
 - Treat audits, reviews, and diagnoses as report-only unless edits are requested.
-- Prefer one named skill and one explicit behavioral objective at a time.
+- Keep changes within the requested scope; update related skills together when
+  consistency requires it.
 - Keep generated evidence, credentials, logs, caches, and live-provider output
   outside tracked skill packages.
 - When adding, removing, or renaming a public skill, update the README catalogue.
@@ -32,23 +34,29 @@ Do not duplicate skill behavior in this file.
 
 ## Validation
 
-During iteration, run the focused validator and package tests:
+Scale validation to the change. For each affected skill package, run the focused
+validator and package tests:
 
 ```bash
 ./scripts/check-skill <name>
 ```
 
-Before handing off repository changes:
+For package, catalogue, or shared tooling changes, also run:
 
 ```bash
 ./scripts/check-repo
 ```
 
-For substantial integration changes:
+For substantial integration changes, run the following, which includes
+`check-repo`:
 
 ```bash
 ./scripts/check-full
 ```
+
+For documentation-only changes that do not affect skill behavior or package
+structure, check the affected content and any relevant links or examples.
+Rerun or broaden checks when failures, new edits, or unresolved risks justify it.
 
 Run `./scripts/check-release` only for an explicitly requested release check; it
 may require network access and a clean worktree. Live-provider, OAuth, browser,
