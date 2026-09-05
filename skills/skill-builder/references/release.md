@@ -1,17 +1,9 @@
-# Release a Skill
+# Release a skill
 
-Release is an optional stage for an already accepted skill. It does not grant content-change, install, commit, push, publish, or out-of-workspace write authority.
+Release checks do not grant permission to install, synchronize, commit, push, or publish. Perform only the distribution actions the user authorized.
 
-## Readiness checks
+Inspect the complete diff and preserve unrelated work. Run the repository's package checks and relevant tests, or this package's `scripts/validate_skill.py` when no repository validator exists. Check metadata, links, resource routing, executable permissions, and symlinks. Keep generated outputs, credentials, caches, and evaluation history out of the package. Reuse applicable validation results; run additional behavioral checks only where uncertainty warrants them.
 
-1. Inspect the complete diff and current git state; isolate unrelated work.
-2. Run `python3 scripts/inspect_skill.py <skill-directory>` for root and applicable `--load` paths, then `python3 scripts/validate_skill.py <skill-directory>` from Skill Builder.
-3. Run added or changed scripts on representative inputs only when execution is safe and authorized. Otherwise use an existing mock or dry-run when permitted, or report the verification gap; do not invent authority.
-4. Verify metadata, links, resource routing, executable permissions, and symlinks. Confirm invocation policy, description, `short_description`, `default_prompt`, and runtime instructions have distinct, consistent ownership.
-5. Replay accepted behavioral scenarios and known regressions at the strongest feasible verification-maturity level.
-6. Confirm that the target's evaluation cases and histories, answer keys, raw benchmark outputs, caches, bytecode, generated outputs, and temporary work are outside the repository and distributable skill directory unless explicitly authorized. Focused deterministic executable tests and runtime-needed templates may remain.
-7. Compare repository, installed, and packaged copies when the request includes synchronization.
+For synchronization, compare source and installed copies and follow the authorized source of truth. Do not overwrite a divergent installation without resolving which changes to preserve.
 
-Do not silently overwrite a divergent installed copy. Report the difference and use the user-authorized source of truth. Do not commit, push, install globally, or publish without the corresponding authorization.
-
-Report semantic changes, representation changes, affected loading-path size, validation results, verification maturity, exact installation or distribution state, and unresolved uncertainty.
+Report material changes, completed validation, remaining limits, and the exact installation or publication state.

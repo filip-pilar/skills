@@ -5,46 +5,26 @@ description: Create, diagnose, improve, compress, evaluate, and release Codex sk
 
 # Skill Builder
 
-Own one named skill at a time. If its target or requested outcome is materially unclear, ask one focused question. Existing files are evidence of prior intent, not the definition of desired behavior.
+Resolve the target and intended outcome from the request. Audits, reviews, and diagnosis are report-only unless edits are requested. An authorized batch or diagnose-and-fix request needs no approval between skills or stages. Preserve unrelated work; ask only about material choices that context cannot settle.
 
-## Route independently
+Read the complete target `SKILL.md` before behavioral edits and inspect relevant resources. For a new skill, check the destination for conflicts. Existing files show prior intent; the user's accepted outcome determines what should remain.
 
-State the objective and posture before changing files:
+## Build the smallest useful package
 
-- **Objective:** **Create** a skill or capability; **Diagnose** an observed failure; **Improve** behavior intentionally; or **Compress** an accepted contract without changing it. A broad audit is assessment only, with no transformation objective.
-- **Posture:** Assess, audit, evaluate, compare, suggest, and diagnose-without-fix are **report-only**. Use **edit** only for an authorized scoped change; an explicit no-edit constraint wins.
-- **Evidence:** Every claim needs proportionate evidence, but evaluation grants no edit authority. Load [evaluate.md](references/evaluate.md) when a specialist directs it for scenario design, or for execution comparisons, blind judging, or an explicitly authorized durable benchmark; otherwise use the specialist's evidence gate.
-- **Release:** Installation, synchronization, packaging, commit, push, and publication need separate authority. Load [release.md](references/release.md) only when requested.
+Start with `SKILL.md` and required display metadata. Add a reference only for substantial conditional knowledge, a script for reliable execution that should not be reconstructed each time, and an asset for an actual runtime input. Do not scaffold empty directories, generic templates, evaluation frameworks, or a test suite by default.
 
-If the target `SKILL.md` exists, read it completely; for greenfield Create, inspect the intended destination for conflicts instead. Inspect only relevant package state and raw evidence, pin compared versions, and preserve unrelated work. Then load only:
+Keep purpose, activation boundaries, essential workflow, completion criteria, and authorization constraints clear. Prefer outcome-oriented instructions and examples that resolve real ambiguity. Remove repeated platform guidance, obvious steps, rigid checkpoints, and unsupported edge cases. Let the agent choose routine methods and presentation.
 
-- **Create:** [create.md](references/create.md) and [quality-model.md](references/quality-model.md)
-- **Diagnose:** [diagnose.md](references/diagnose.md) and [quality-model.md](references/quality-model.md)
-- **Improve:** [improve.md](references/improve.md) and [quality-model.md](references/quality-model.md)
-- **Compress:** [compress.md](references/compress.md)
-- **Assessment only:** [quality-model.md](references/quality-model.md) and [evaluate.md](references/evaluate.md)
+Invocation policy controls automatic selection. The description identifies the capability and relevant matching boundaries; `short_description` summarizes it for the UI; `default_prompt` demonstrates invocation; the body owns runtime behavior. Review their consistency without treating preferred wording as a structural requirement.
 
-Do not load or apply another objective implicitly. Diagnose-and-fix starts in Diagnose, then switches to Improve only after cause and desired behavior are supported. Route unqualified “optimize” to Improve for outcomes or known failures, and to Compress for brevity without behavior change.
+For improvements, change what supports the requested outcome and preserve accepted behavior elsewhere. For compression, preserve behavior and authorization while deleting duplication and unnecessary machinery; moving text to references alone is not simplification. Continue clearly equivalent edits even if an unrelated ambiguity remains. Do not invent a behavioral choice to reach a size target.
 
-## Preserve authority boundaries
+## Verify proportionately
 
-Diagnose explains cause without editing. Improve changes accepted behavior. Compress preserves an accepted contract; its semantic preflight may only stop the work or request an objective switch. Assessment measures quality without manufacturing work.
+Use existing repository checks. Otherwise run `scripts/validate_skill.py <skill-directory>` from this package for structure, links, and resource integrity. Use `scripts/inspect_skill.py <skill-directory> --load <relative-reference>` when measuring an actual loading path helps assess the change.
 
-If user intent and accepted evidence do not settle a material behavior, explain the choice before encoding it. Static validity, lower word count, and phrase retention do not prove behavioral quality or equivalence.
+Test executable behavior where a failure matters: identity, data handling, side effects, parsing, or a known regression. Avoid tests that merely demand particular instruction phrases or mirror formatting code. Run relevant existing checks; add durable tests only when they earn their maintenance cost. Keep generated evidence, logs, and temporary evaluations outside distributable packages. Durable benchmark suites require explicit authorization.
 
-Treat activation metadata as a coordinated contract with separate owners: invocation policy alone controls automatic selection; the description identifies purpose and—only for implicit skills—matching boundaries; `short_description` summarizes the capability in the UI; `default_prompt` demonstrates explicit invocation; and the body owns runtime behavior.
+Use [diagnose.md](references/diagnose.md) for surprising behavior or regressions, [evaluate.md](references/evaluate.md) for execution comparisons, and [release.md](references/release.md) only for requested distribution work. Routine edits do not require these workflows.
 
-## Calibrate evidence
-
-Report claim confidence and verification maturity separately:
-
-- **Claim confidence:** **Observed** is directly established by an artifact or source; **Supported** is reproduced or independently corroborated; **Plausible** fits the evidence but has not been isolated from alternatives.
-- **Verification maturity:** **Level 1** is structural validation or source inspection; **Level 2** is manual contract or scenario replay; **Level 3** is isolated execution on synthetic artifacts; **Level 4** is replay of the real-world regression.
-
-These axes answer different questions. A directly observed failure can still have only a plausible cause. Never use a confidence label as a maturity level. Report the strongest completed maturity level, what it establishes, and material evidence still missing.
-
-## Finish
-
-For edits, run the Builder inspector and validator, test changed scripts, and replay applicable baselines. Use inspector `--load <relative-reference>` for actual runtime paths rather than summing every reference.
-
-Report objective, posture, semantic and representation changes, affected loading-path size, claim confidence when applicable, verification maturity, validation, and uncertainty. Do not install, sync, commit, push, or publish without authorization.
+Report what changed, what was actually checked, and material uncertainty in plain language. Structural validity and fewer words do not establish behavioral equivalence. Do not install, synchronize, commit, push, or publish without authorization; live or consequential checks require their own applicable authority.

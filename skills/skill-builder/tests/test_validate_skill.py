@@ -26,6 +26,7 @@ class MetadataValidationTests(unittest.TestCase):
         binary_asset: bool = False,
         escaped_symlink: bool = False,
         bundled_evals: bool = False,
+        metadata_override: str | None = None,
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temp_dir:
             skill_dir = Path(temp_dir) / "sample"
@@ -56,7 +57,9 @@ class MetadataValidationTests(unittest.TestCase):
             )
             if implicit is not None:
                 metadata += f"\npolicy:\n  allow_implicit_invocation: {str(implicit).lower()}\n"
-            (agents_dir / "openai.yaml").write_text(metadata, encoding="utf-8")
+            (agents_dir / "openai.yaml").write_text(
+                metadata if metadata_override is None else metadata_override, encoding="utf-8"
+            )
             if reference is not None:
                 references = skill_dir / "references"
                 references.mkdir()
@@ -95,45 +98,19 @@ class MetadataValidationTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
-    def test_manual_description_rejects_explicit_command(self) -> None:
-        result = self.validate(
-            description="Formatter for supplied notes. Use $sample explicitly.",
-            implicit=False,
-            default_prompt="Use $sample to format these notes.",
-        )
-        self.assertIn("description must not contain $skill commands", result.stdout)
-
-    def test_manual_description_rejects_reentry_behavior(self) -> None:
-        result = self.validate(
-            description="Formatter for supplied notes. A bare invocation refreshes the result.",
-            implicit=False,
-            default_prompt="Use $sample to format these notes.",
-        )
-        self.assertIn("must not encode invocation or re-entry behavior", result.stdout)
-
-    def test_manual_description_rejects_policy_label(self) -> None:
-        result = self.validate(
-            description="Manual-only formatter for supplied notes.",
-            implicit=False,
-            default_prompt="Use $sample to format these notes.",
-        )
-        self.assertIn("description must not restate invocation policy", result.stdout)
-
-    def test_manual_description_rejects_generic_invocation_instruction(self) -> None:
-        result = self.validate(
-            description="Formatter for supplied notes. Invoke this skill explicitly.",
-            implicit=False,
-            default_prompt="Use $sample to format these notes.",
-        )
-        self.assertIn("must not encode invocation or re-entry behavior", result.stdout)
-
-    def test_manual_description_rejects_trigger_instruction(self) -> None:
-        result = self.validate(
-            description="Formatter for supplied notes. Use only when the user asks for formatting.",
-            implicit=False,
-            default_prompt="Use $sample to format these notes.",
-        )
-        self.assertIn("must not encode invocation or re-entry behavior", result.stdout)
+    def test_editorial_choices_are_not_structural_errors(self) -> None:
+        for description in (
+            "Manual-only formatter. Use $sample explicitly.",
+            "Formatter. A bare invocation refreshes the result.",
+            "Use only when the user asks for formatting.",
+        ):
+            with self.subTest(description=description):
+                result = self.validate(
+                    description=description, implicit=False,
+                    default_prompt="Use $sample to format notes.",
+                    short_description="Use $sample to format notes now",
+                )
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_manual_default_prompt_requires_explicit_command(self) -> None:
         result = self.validate(
@@ -159,23 +136,15 @@ class MetadataValidationTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
-    def test_short_description_rejects_skill_command(self) -> None:
-        result = self.validate(
-            description="Formatter for supplied notes.",
-            implicit=False,
-            default_prompt="Use $sample to format these notes.",
-            short_description="Use $sample to format notes now",
-        )
-        self.assertIn("short_description must summarize capability", result.stdout)
-
-    def test_short_description_rejects_invocation_policy(self) -> None:
-        result = self.validate(
-            description="Formatter for supplied notes.",
-            implicit=False,
-            default_prompt="Use $sample to format these notes.",
-            short_description="Manual-only formatter for notes",
-        )
-        self.assertIn("not invocation policy or instructions", result.stdout)
+    def test_non_mapping_metadata_is_rejected(self) -> None:
+        for metadata in ("[]", "null", "plain string"):
+            with self.subTest(metadata=metadata):
+                result = self.validate(
+                    description="Format notes.", implicit=True,
+                    default_prompt="Format notes.", metadata_override=metadata,
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("metadata must be a YAML mapping", result.stdout)
 
     def test_todo_status_is_not_an_unresolved_placeholder(self) -> None:
         result = self.validate(

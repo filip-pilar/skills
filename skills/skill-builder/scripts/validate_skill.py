@@ -21,16 +21,6 @@ NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 LINK_RE = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 WORD_RE = re.compile(r"\b[\w'-]+\b", re.UNICODE)
 PLACEHOLDER_RE = re.compile(r"\[TODO(?::|\])", re.IGNORECASE)
-SKILL_COMMAND_RE = re.compile(r"\$[a-z0-9]+(?:-[a-z0-9]+)*", re.IGNORECASE)
-INVOCATION_POLICY_LABEL_RE = re.compile(r"\b(?:(?:explicit|manual)-only|user-invoked)\b", re.IGNORECASE)
-INVOCATION_INSTRUCTION_RE = re.compile(
-    r"(?:"
-    r"\b(?:bare\s+invocation|re-?invocation|(?:invoke|re-?invoke|trigger|run|call|use)\s+(?:this|the)\s+skill)\b"
-    r"|(?:\A|[.!?]\s+)(?:only\s+)?(?:invoke|re-?invoke|trigger|run|call|use)"
-    r"(?:\s+(?:this|the)\s+skill)?\s+(?:only\s+)?when\b"
-    r")",
-    re.IGNORECASE,
-)
 ALLOWED_FRONTMATTER_KEYS = {"name", "description", "license", "allowed-tools", "metadata"}
 DEVELOPMENT_DEBRIS_DIRS = {"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache"}
 DEVELOPMENT_ONLY_DIRS = {"evals"}
@@ -64,20 +54,6 @@ def check_markdown_links(path: Path, skill_dir: Path, errors: list[str]) -> None
             continue
         if not resolved.exists():
             errors.append(f"{path}: broken relative link: {raw_target}")
-
-
-def repeated_paragraphs(body: str) -> list[str]:
-    seen: dict[str, str] = {}
-    repeats: list[str] = []
-    for paragraph in re.split(r"\n\s*\n", body):
-        normalized = re.sub(r"\s+", " ", paragraph.strip().lower())
-        if len(normalized) < 80 or normalized.startswith("```"):
-            continue
-        if normalized in seen:
-            repeats.append(paragraph.strip().splitlines()[0][:80])
-        else:
-            seen[normalized] = paragraph
-    return repeats
 
 
 def main() -> int:
@@ -157,15 +133,6 @@ def main() -> int:
             else:
                 if not 25 <= len(short) <= 64:
                     warnings.append(f"{metadata_path}: short_description should be 25-64 characters")
-                if SKILL_COMMAND_RE.search(short):
-                    errors.append(
-                        f"{metadata_path}: short_description must summarize capability, not contain a $skill command"
-                    )
-                if INVOCATION_POLICY_LABEL_RE.search(short) or INVOCATION_INSTRUCTION_RE.search(short):
-                    errors.append(
-                        f"{metadata_path}: short_description must summarize capability, not invocation policy or instructions"
-                    )
-
             implicit = policy.get("allow_implicit_invocation", True)
             if not isinstance(implicit, bool):
                 errors.append(f"{metadata_path}: allow_implicit_invocation must be boolean")
@@ -176,22 +143,8 @@ def main() -> int:
             elif implicit is False and name and f"${name}" not in prompt:
                 errors.append(f"{metadata_path}: manual-only default_prompt must mention ${name}")
 
-            if isinstance(description, str) and description:
-                if SKILL_COMMAND_RE.search(description):
-                    errors.append(
-                        f"{skill_md}: description must not contain $skill commands; "
-                        "put explicit invocation in interface.default_prompt"
-                    )
-                if INVOCATION_POLICY_LABEL_RE.search(description):
-                    errors.append(
-                        f"{skill_md}: description must not restate invocation policy; "
-                        "use policy.allow_implicit_invocation"
-                    )
-                if implicit is False and INVOCATION_INSTRUCTION_RE.search(description):
-                    errors.append(
-                        f"{skill_md}: manual-only description must not encode invocation or re-entry behavior; "
-                        "put explicit invocation in interface.default_prompt and runtime behavior in the SKILL.md body"
-                    )
+        else:
+            errors.append(f"{metadata_path}: metadata must be a YAML mapping")
 
     markdown_files = [skill_md]
     references = skill_dir / "references"
@@ -259,9 +212,6 @@ def main() -> int:
         if path not in reachable:
             relative = path.relative_to(skill_dir)
             errors.append(f"{relative}: bundled resource is not reachable from SKILL.md")
-
-    for repeated in repeated_paragraphs(body):
-        warnings.append(f"{skill_md}: repeated paragraph beginning: {repeated}")
 
     root_words = len(WORD_RE.findall(content))
     reference_words = sum(
