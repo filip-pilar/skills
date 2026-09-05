@@ -19,7 +19,8 @@ Do not ask about every listed dimension.
 
 ## Design the batch
 
-Present three to six named themes with one primary question each. Add cues only
+Ask only the consequential missing questions, grouped into a compact batch. One
+question is enough when it resolves the remaining fork. Add cues only
 to clarify the answer space; merge overlap and order themes coherently. First
 synthesize current understanding and say the user may answer naturally,
 incompletely, or out of order without addressing each cue.

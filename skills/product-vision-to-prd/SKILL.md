@@ -39,9 +39,9 @@ If consequential gaps remain, load
 [interview-design.md](references/interview-design.md) and conduct one compact,
 adaptive interview. Let the user answer naturally, incompletely, or out of
 order and consolidate overlap. Do not delegate feature design or routine
-product decisions to them. On that turn load only the interview guidance; do
-not load the quality rubric, draft, or create the artifact. If context already
-resolves the material questions, state necessary assumptions and proceed
+product decisions to them. While answers are pending, continue independent
+analysis where useful, but do not finalize an artifact whose identity depends
+on them. If context already resolves the material questions, state necessary assumptions and proceed
 without an interview.
 
 ## Develop the product argument
@@ -54,30 +54,23 @@ batch those founder-level forks and explain their consequence.
 Develop the strongest coherent interpretation, not a catalogue. Preserve
 founder intent while removing, combining, or deprioritizing weakening ideas.
 
-Use this convergence loop without narrating its intermediate passes:
-
-1. Form a crisp thesis: the change, audience, and reason to exist.
-2. Design the ideal journey and minimum coherent set of product concepts.
-3. Critique it as the primary user, operator or maintainer, developer,
-   skeptical buyer or adopter, and long-term platform owner. Find
-   contradictions, generic positioning, weak assumptions, excess complexity,
-   missing experiences, incentive failures, and trust or agency problems.
-4. Revise those weaknesses and test for distinctiveness beyond a familiar
-   category with agent features attached.
-5. Separate enduring vision from a credible path toward it without making the
-   exercise synonymous with an MVP.
-
-Run at least two genuine critique-and-revision passes. Continue while another
-pass is likely to change the thesis, experience, positioning, trust model, or
-direction; stop when it would mainly polish wording. Surface any remaining
-material founder fork instead of choosing silently.
+Develop a clear thesis, ideal journey, and minimum coherent set of product
+concepts. Assess material contradictions, weak positioning, excess complexity,
+and trust or incentive failures from the perspectives relevant to this product.
+Use [product-quality-rubric.md](references/product-quality-rubric.md) as a quality
+check, not a prescribed sequence of personas or passes. Revise while another pass
+could materially improve identity, experience, coherence, trust, or direction;
+stop when it would mainly polish wording. Preserve the enduring vision alongside
+a credible path toward it, without reducing the exercise to an MVP.
 
 ## Maintain evidence and scope
 
 Distinguish founder beliefs, hypotheses, inferences, and verified facts. Never
 invent evidence, competitor behavior, validation, or technical capability.
-Research externally only when authorized; otherwise express unverified claims
-as hypotheses or validation questions.
+Use proportionate public research when needed to support material factual claims
+and allowed by the task. Honor no-browse constraints and obtain authority for paid
+or consequential external actions. If a claim cannot be verified, label it as a
+hypothesis or validation question rather than inventing evidence.
 
 Keep the PRD product-focused: why it exists, for whom, the changed experience,
 its distinctiveness, and its coherent system. Exclude databases, frameworks,
