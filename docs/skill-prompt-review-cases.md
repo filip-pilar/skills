@@ -53,7 +53,6 @@ of shorter prompts. They are scenario specifications, not recorded live test res
 | Skill Builder | Compression exposes an unrelated contradiction | Preserve and disclose the issue, continue clearly equivalent edits, and ask only if an edit requires choosing incompatible behaviors. |
 | Skill Usage Auditor | An explicit invocation lacks retained injection evidence | Load lifecycle guidance and report insufficient evidence; do not call missing logs proof of an activation gap. |
 | Codex Skill Usage Analytics | User asks one narrow usage question | Return the relevant result and coverage limit without forcing a full provenance inventory or recommending deletion. |
-| TLDR | New current parent context already covers the last update | Return the full concise digest with status and verification; avoid rereading history already available or losing unresolved items. |
 
 For maintenance changes, verify that Skill Builder starts with a minimal package,
 adds scripts/tests only for a concrete need, and reports evidence limits without
