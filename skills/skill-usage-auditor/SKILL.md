@@ -20,7 +20,8 @@ metadata. State:
 - the contract criteria used to judge it;
 - the date window, project filter, and follow-up depth.
 
-Choose the window intentionally; do not silently accept a default. Treat the
+Choose and disclose a reasonable window and follow-up depth from the question;
+ask only when ambiguity would materially change the audit. Treat the
 current contract as context, not proof that an older version had the same
 requirements.
 
@@ -80,37 +81,12 @@ Review the underlying task only when needed to apply the audit rubric. Do not
 treat a question, tool call, long answer, or later user message as friction by
 itself. A requested goal status does not prove the tool call succeeded.
 
-## Respect observability and submission lifecycle
+## Resolve uncertain activation
 
-Persisted rollout JSONL is a partial history surface. A captured matching
-`<skill>` block is authoritative positive evidence for that model-visible
-context. The absence of such a block is not authoritative negative evidence:
-ephemeral tasks may have no persisted rollout, and retained records need not
-be a complete serialization of the outbound model request.
-
-Classify explicit requests by submission mode:
-
-- `new_turn`: submitted before model activity in the turn;
-- `batched_input`: another user input was already queued before model activity;
-- `steer_or_pending`: submitted after model activity began;
-- `unknown`: ordering could not be established.
-
-Keep these cohorts separate when diagnosing activation. A steer or pending
-message may be incorporated without rerunning the same skill-selection path as
-a fresh turn. Resume, compaction, goal continuation, and duplicated archived
-rollouts are additional lifecycle boundaries to disclose when they limit the
-comparison.
-
-Application submission logs establish that input was accepted or serialized,
-not what the model ultimately received. A prompt-preview or debug command is
-not an activation oracle unless it executes the same skill-extension and
-request-construction path as the production sampling step.
-
-Negative activation evidence requires an authoritative capture of the exact
-outbound model request for the same sampling step. Preserve the request
-boundary and show that the expected matching skill fragment is absent. Without
-that capture, an explicit request lacking a retained `<skill>` block remains
-`unverified`.
+Missing retained injection evidence does not prove a skill was absent from the
+model request. Read [activation-evidence.md](references/activation-evidence.md)
+when activation is unverified, lifecycle differences matter, or an activation-gap
+claim is considered. Do not search unrelated history to manufacture certainty.
 
 ## Respect version boundaries
 
@@ -147,7 +123,7 @@ Report:
    manual-access-candidate, submission-mode, current-version, and version
    cohorts.
 3. Findings with episode pointers, counterexamples, competing explanations,
-   confidence, and verification maturity.
+   and a plain-language account of what the evidence establishes or leaves uncertain.
 4. One of `NO OBSERVED FRICTION`, `FRICTION SIGNAL`, `ACTIVATION GAP`, or
    `INSUFFICIENT EVIDENCE`.
 5. The smallest justified next action.
