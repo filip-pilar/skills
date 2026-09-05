@@ -22,8 +22,8 @@ conclusions and decisions plus only the Side context the parent needs. Preserve
 the chosen scope, constraints, permissions, pauses, expectations, ordering, and
 acceptance criteria. Refer briefly to context the parent already knows.
 
-Leave out rejected ideas, unresolved choices, and Sidekick's reasoning or
-recommendations unless the user adopted them. Never turn interest, partial
+Leave out rejected ideas and unadopted Sidekick reasoning or recommendations.
+Do not present unresolved choices as settled. Never turn interest, partial
 agreement, or an unanswered suggestion into a decision. Match the user's tone
 and directness, using technical wording only when the parent needs it to act
 correctly.
@@ -34,8 +34,10 @@ user authorized them end to end; pause only when the user explicitly requested
 approval before continuing.
 
 Never invent permission for destructive, external, paid, risky, or broader
-actions. If an unresolved decision or missing limit would materially change the
-prompt, ask one focused question and do not draft yet.
+actions. Ask one focused question before drafting when a missing decision changes
+the objective, scope, authority, or acceptance criteria. Routine implementation
+details may remain delegated to the parent within the user's existing authority;
+do not invent choices or add a review checkpoint to settle them.
 
 ## Present the prompt
 
