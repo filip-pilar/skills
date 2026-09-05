@@ -2,7 +2,8 @@
 
 ## How to use it
 
-The workflow has three manual steps:
+The usual workflow has three manual steps. Reply is optional when a clear,
+current parent-ready prompt already exists:
 
 1. **`$sidekick` — understand and discuss.** Open a Side task from the parent.
    Sidekick explains the situation, identifies any real decision, and helps the
@@ -42,99 +43,60 @@ that prompt's authority.
 
 ### Sidekick
 
-Sidekick starts from the inherited parent snapshot. On later uses, or when the
-user requests a refresh, it reads the newest completed parent response when
-possible.
-
-Its explanation leads with the practical bottom line and names the actual work
-type and boundary. An active, unblocked parent is still working; an active
-blocker surfaces the decision or input needed; completed analysis with
-actionable follow-up exposes the next scope decision; and a genuinely finished
-situation stays concise. Headings such as `Bottom line`, `Needs from you`, `To
-continue`, and `My take` are optional scanning aids. An unchanged refresh
-receives a brief status, and ordinary follow-up discussion answers the user's
-message naturally.
-
-Sidekick does not turn each backlog item into an approval. When completed
-analysis reaches a new scope boundary, it surfaces one continuation decision
-without implying authorization, and keeps its recommended starting point
-clearly attributable. Long reports are compressed while preserving material
-findings, risks, deferrals, verification gaps, priority relationships, and the
-scale of independently useful outcomes. Before responding, Sidekick checks that
-its summary would not leave the user with a materially different picture of
-what completed, what remains, what matters most, or what to do next.
+Sidekick uses the inherited snapshot and refreshes when requested or when newer
+parent activity could materially affect the answer. Ordinary discussion of the
+available response does not require another read. It distinguishes parent facts,
+its own recommendations, and user decisions while preserving material status,
+findings, priorities, verification gaps, and unfinished work. It answers natural
+follow-ups without restarting a summary template or inventing approval questions.
 
 ### Reply
 
-Reply checks that the parent has not moved past the Side discussion. It writes
-only what the user settled and sounds like the user speaking directly to the
-parent.
-
-Reply preserves the user's chosen sequencing and approval gates. Planning,
-implementation, and validation remain ordered parts of one job when the user
-approved them end to end; an approval pause remains when the user explicitly
-requested one.
-
-Risky, destructive, external, paid, or broader work requires settled user
-authority. Reply asks one focused question when a missing choice or limit would
-change what the parent may do.
+Reply checks the parent before drafting and preserves settled intent, sequencing,
+and actual approval gates. It asks when missing decisions change the objective,
+scope, authority, or acceptance criteria. Routine implementation details can stay
+delegated to the parent within existing authority. Its output is one fenced prompt;
+drafting does not send it or approve unadopted recommendations.
 
 ### Supervise
 
-Supervise selects the most recent clear parent-ready prompt that reflects the
-user's current intent, accounting for later corrections and changed decisions.
-It checks the parent again before sending and never retries an uncertain
-delivery, because that could duplicate the message.
+Supervise selects the current intended prompt, checks parent state, and sends it
+once. Uncertain delivery stops the run without a retry. It follows only the linked
+parent and the supervised run, preserving the distinction between plan-only and
+end-to-end authority.
 
-Supervise follows the prompt's boundary. A plan-only prompt remains plan-only;
-an end-to-end prompt continues through its authorized planning, implementation,
-and validation steps as one job unless the prompt requires a pause.
+It independently checks important claims proportionately, reusing credible current
+evidence and repeating checks only for changes, failures, or unresolved uncertainty.
+Corrections continue while a concrete in-scope path to completion remains. Routine
+dependencies and new in-scope findings do not themselves require approval. A new
+consequential decision, authority, scope, unavailable outside change, or repeated
+lack of progress can require a handoff to the user.
 
-It checks important claims directly when reasonable. If a requested part is
-missing and no new decision or permission is needed, it may send a short
-correction. It continues while another correction has a concrete in-scope path
-to progress, and stops when the work is complete, requires a new user choice or
-permission, depends on an outside change, or repeatedly makes no material
-progress on the same gap.
-
-After the parent finishes, Supervise re-reads the newest completed response when
-possible and treats its final report as a completion handoff rather than a
-receipt. It reconciles the selected prompt, material results and corrections
-across the run, its own verification, the newest response, and the reason it
-stopped. Latest settled evidence wins, so corrected or superseded failures do
-not reappear.
-
-Supervise fixes the supported practical result and its material qualifiers
-before choosing a status or compressing the response. A qualifier remains
-material when it affects confidence or the user's next action even if the work
-it describes was intentionally outside scope. Several independently useful
-outcomes retain their scale rather than collapsing into a generic success
-claim. Status and compression may shorten wording but cannot remove or weaken
-that settled content. The handoff opens with a clear completion state and
-practical result, preserving the distinctions represented by `Done`, `Partly
-done`, `Blocked`, and `Delivery uncertain` in any concise wording or layout. It
-names the actual work type: implementation, investigation, diagnosis, review,
-planning, or recommendation.
-
-The handoff makes every material qualifier skimmable in the status line or an
-immediately following section, including what is not complete or verified, its
-practical consequence, and the next responsible action when established. It
-compresses routine logs and repetition. A routine success without a material
-qualifier remains one concise line; complex work receives only the conditional
-sections needed to keep its meaning intact.
-
-If completed work reaches a new approval boundary, Supervise does not grant the
-permission. Its handoff says what completed and was verified, what has not
-happened, why it stopped, and the exact approval or decision the user must make.
-
-Supervise performs a final semantic check: if its summary would leave the user
-with a materially different picture from the parent's full response, it
-restores the missing context. The completion handoff ends the supervised cycle;
-the user can invoke `$sidekick` later to explore the result.
+The final handoff reconciles the latest results and evidence, identifies completion
+accurately, and preserves material verification limits, deferrals, new findings,
+and needed user action. Superseded failures stay superseded. Reporting out-of-scope
+findings does not authorize fixing them. A routine verified success can take one
+line; complex results retain the distinctions needed for the user's next decision.
 
 ## Behavioral checks
 
-Release evaluation covers these cases:
+Cross-skill regression cases are listed in
+[focused prompt regression cases](skill-prompt-review-cases.md).
+
+These are behavioral evaluation scenarios, not claims established by the
+structural Python tests. Live linked-parent runs remain explicit integration
+checks; do not simulate delivery by messaging unrelated tasks.
+
+- A question about a term in the available parent response needs no refresh.
+- A requested refresh or potentially material parent update triggers a read.
+- Reply drafts with routine implementation details delegated, but asks about an
+  unresolved scope or authority choice.
+- Supervise waits for relevant CI and corrects an in-scope bug without inventing
+  approval gates; a dependency requiring new authority returns to the user.
+- Current credible check results are reused; a changed artifact or unresolved
+  high-risk claim justifies focused verification.
+
+When behavioral evaluation is warranted, select relevant cases from these examples:
 
 - Active, unblocked work does not sound complete or ask for unnecessary input.
 - A trivial completed task with no caveat or next work stays concise.
@@ -178,9 +140,11 @@ Previous testing covered first-use Side context, parent refreshes, Reply
 revision, single-send behavior, interrupted runs, limited corrections, and
 direct checks that caught a safety bug missed by parent-authored tests.
 
-The latest workflow contracts must pass isolated runs for the behavioral cases
-above plus the repository's structural checks. A fresh real linked-parent run
-remains the strongest final integration check.
+Run the repository checks for contract changes. Use isolated behavioral runs
+when a regression or material uncertainty warrants them; routine wording edits
+do not require the entire scenario list. Report which cases were actually tested.
+A fresh real linked-parent run provides stronger integration evidence when
+explicitly authorized.
 
 Known limits:
 
@@ -188,7 +152,8 @@ Known limits:
   on uncertain delivery instead of promising exactly-once delivery.
 - If the Side task cannot identify its parent, all three skills stop rather than
   guess.
-- New permissions and meaningful tradeoffs always return to the user.
+- New permissions and consequential user decisions return to the user; routine
+  choices within existing authority do not.
 - Live release tests do not perform purchases, publication, destructive work,
   or other consequential external actions.
 
