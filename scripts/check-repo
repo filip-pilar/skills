@@ -22,7 +22,7 @@ USAGE
   exit 2
 fi
 
-for dependency in git python3 node jq zsh; do
+for dependency in git python3 node; do
   command -v "$dependency" >/dev/null 2>&1 || {
     printf 'missing required dependency: %s\n' "$dependency" >&2
     exit 1
@@ -124,21 +124,9 @@ done < <(find "$repo_root/scripts" -maxdepth 1 -type f -print0)
 python3 "$repo_root/scripts/check-readme-links.py"
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$repo_root/scripts/tests" -p 'test_*.py'
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$skills_dir/codex-skill-usage-analytics/tests" -p 'test_*.py'
-node --test "$skills_dir/dr-react/tests/test_parse_react_doctor_report.mjs"
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$skills_dir/recover-side-thread/tests" -p 'test_*.py'
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$skills_dir/skill-builder/tests" -p 'test_*.py'
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$skills_dir/skill-usage-auditor/tests" -p 'test_*.py'
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$skills_dir/socket-audit/tests" -p 'test_*.py'
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$skills_dir/wdyt/tests" -p 'test_*.py'
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$skills_dir/web-traffic-inspector/tests" -p 'test_scaffold_prototype.py'
-
-for test_script in \
-  "$skills_dir/setup-cli-proxy-gateway/scripts/test_token_helper.sh" \
-  "$skills_dir/setup-cli-proxy-gateway/scripts/test_route_transaction.sh" \
-  "$skills_dir/setup-cli-proxy-gateway/scripts/test_isolated_home.sh" \
-  "$skills_dir/setup-cli-proxy-gateway/scripts/test_claudex_launcher.sh"
-do
-  "$test_script"
-done
 
 printf 'repository_check=passed skills=%s\n' "${#skill_files[@]}"

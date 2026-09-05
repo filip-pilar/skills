@@ -1,13 +1,25 @@
-# Retired Side skills
+# Archived skills
 
-The packages under `legacy/skills/` were retired on 2026-08-19 when the Side
-orchestration workflow was promoted to its permanent three-skill suite.
+Packages under `legacy/skills/` are historical source material. The original
+Side packages were retired on 2026-08-19 when their permanent suite was introduced.
 
 | Retired package | Replacement |
 | --- | --- |
 | `sidekick` | [`sidekick`](../skills/sidekick/) — understand and discuss |
 | `reply` | [`reply`](../skills/reply/) — draft without sending |
 | `co-prompt` | [`sidekick`](../skills/sidekick/) — its thinking-only role was absorbed into Sidekick |
+
+The following packages were archived on 2026-09-05 during catalogue pruning;
+no replacement is designated:
+
+| Archived package | Source |
+| --- | --- |
+| `wdyt` | [Package](skills/wdyt/) |
+| `catchup` | [Package](skills/catchup/) |
+| `dr-react` | [Package](skills/dr-react/) |
+| `lockin` | [Package](skills/lockin/) |
+| `setup-cli-proxy-gateway` | [Package](skills/setup-cli-proxy-gateway/) |
+| `socket-audit` | [Package](skills/socket-audit/) |
 
 These copies are historical source material, not supported or distributable
 public skills. They intentionally keep their original names, metadata, tests,

@@ -8,7 +8,7 @@ Usage: ./scripts/check-full [--strict]
 Run the fast repository check plus deeper, credential-free integration tests.
 
 Options:
-  --strict  Fail when an optional integration dependency is unavailable.
+  --strict  Accepted for compatibility; does not enable opt-in browser tests.
 USAGE
 }
 
@@ -24,35 +24,12 @@ done
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
 skills_dir="$repo_root/skills"
-ran=0
-skipped=0
 
 "$script_dir/check-repo"
 
 printf '\n== Web Traffic Inspector companion integration ==\n'
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest \
   discover -s "$skills_dir/web-traffic-inspector/tests" -p 'test_companion_integration.py'
-ran=$((ran + 1))
 
-gateway_test="$skills_dir/setup-cli-proxy-gateway/scripts/test_custom_endpoint_mock.sh"
-gateway_bin=${CLI_PROXY_BIN:-cli-proxy-api}
-missing=()
-for dependency in ruby curl jq "$gateway_bin"; do
-  command -v "$dependency" >/dev/null 2>&1 || missing+=("$dependency")
-done
-
-if [[ ${#missing[@]} -gt 0 ]]; then
-  printf '\nSKIP: synthetic CLIProxyAPI integration; missing: %s\n' "${missing[*]}"
-  skipped=$((skipped + 1))
-  if [[ $strict -eq 1 ]]; then
-    printf 'ERROR: --strict requires every optional integration dependency.\n' >&2
-    exit 1
-  fi
-else
-  printf '\n== CLIProxyAPI synthetic custom-endpoint integration ==\n'
-  "$gateway_test"
-  ran=$((ran + 1))
-fi
-
-printf '\nfull_check=passed integrations_run=%s integrations_skipped=%s strict=%s\n' \
-  "$ran" "$skipped" "$strict"
+printf '\nfull_check=passed integration_suites_run=1 strict=%s\n' "$strict"
+printf 'Individual test skips are reported by unittest above; opt-in browser tests may be skipped.\n'

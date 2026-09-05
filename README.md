@@ -1,6 +1,6 @@
 # Agent Skills
 
-Reusable workflows for coding agents: cleaner commits, sharper decisions, React diagnostics, browser-traffic inspection, macOS automation, and structured UK Global Talent guidance.
+Reusable workflows for coding agents: cleaner commits, sharper decisions, browser-traffic inspection, macOS automation, and structured UK Global Talent guidance.
 
 ```bash
 npx skills add filip-pilar/skills --list
@@ -13,8 +13,6 @@ npx skills add filip-pilar/skills --list
 | If you want to… | Start with |
 | --- | --- |
 | Prepare a repository for a clean, intentional commit | [`gitprep`](skills/gitprep/) |
-| Recover focus and move the current task forward | [`lockin`](skills/lockin/) |
-| Improve a React Doctor score without gaming it | [`dr-react`](skills/dr-react/) |
 | Create, diagnose, or refine an agent skill | [`skill-builder`](skills/skill-builder/) |
 | Orchestrate a Codex parent from Side | [`sidekick`](skills/sidekick/) → [`reply`](skills/reply/) → [`supervise`](skills/supervise/) |
 
@@ -24,23 +22,17 @@ npx skills add filip-pilar/skills --list
 
 | Skill | Best for |
 | --- | --- |
-| [`catchup`](skills/catchup/) | Orienting yourself to current repository state, recent workstreams, and concrete loose ends from local evidence. |
 | [`devils-advocate`](skills/devils-advocate/) | Pressure-testing a plan, decision, argument, or piece of research without inventing objections. |
 | [`gitprep`](skills/gitprep/) | Inspecting repository and publication state, planning coherent commits, and creating only approved commits. |
-| [`lockin`](skills/lockin/) | Recovering the active objective, narrowing the working set, and advancing to progress, completion, or one genuine blocker. |
 | [`product-vision-to-prd`](skills/product-vision-to-prd/) | Developing a broad product vision through one adaptive interview into a persistent, product-focused PRD. |
 | [`skill-usage-auditor`](skills/skill-usage-auditor/) | Auditing one custom skill against its contract using version-pinned local Codex task evidence. |
 | [`skill-builder`](skills/skill-builder/) | Creating, diagnosing, improving, evaluating, and releasing skills with explicit evidence and authority boundaries. |
-| [`wdyt`](skills/wdyt/) | Getting an isolated Claude Code second opinion with curated task context and optional read-only repository exploration. |
 
 ### Engineering and integration
 
 | Skill | Best for |
 | --- | --- |
 | [`codex-skill-usage-analytics`](skills/codex-skill-usage-analytics/) | Cross-referencing current Codex skills with daily skill and plugin invocation analytics from the authenticated private ChatGPT backend. |
-| [`dr-react`](skills/dr-react/) | Raising a React Doctor score through small fixes and regression checks. |
-| [`setup-cli-proxy-gateway`](skills/setup-cli-proxy-gateway/) | Configuring and validating CLIProxyAPI routes for Codex CLI or Claude Code. |
-| [`socket-audit`](skills/socket-audit/) | Auditing supply-chain indicators and managing supported install-time protections. |
 | [`web-traffic-inspector`](skills/web-traffic-inspector/) | Inspecting browser traffic and building disposable HTML proof-prototypes for observed website actions. |
 
 ### Codex Side companions
@@ -70,6 +62,12 @@ orchestration skills are manual-only and are intended to be invoked in order:
 
 These workflows are not legal advice and intentionally do not generate paste-ready application prose. Always verify current official eligibility, evidence, fees, timing, and authorship requirements.
 
+## Archived skills
+
+Retired packages are preserved unchanged under [`legacy/skills/`](legacy/skills/).
+See the [archive catalogue](legacy/README.md) for the list; they are outside the
+supported public collection and its validation path.
+
 ## Install
 
 List the collection without installing anything:
@@ -98,7 +96,6 @@ Install several selected skills:
 ```bash
 npx skills add filip-pilar/skills \
   --skill gitprep \
-  --skill lockin \
   --skill devils-advocate \
   --agent codex
 ```
@@ -168,19 +165,19 @@ The repository has focused iteration plus three deliberately separate validation
 | --- | --- |
 | `./scripts/check-skill <name>` | Validate one skill and run its deterministic Python and Node.js package tests. |
 | `./scripts/check-repo` | Fast, deterministic, network-free structure and regression checks. |
-| `./scripts/check-full` | Everything above plus credential-free browser-companion and synthetic gateway integration tests. |
+| `./scripts/check-full` | Everything above plus credential-free browser-companion integration tests. |
 | `./scripts/check-release` | Full validation plus current `npx skills` discovery and release-state checks. |
 
 Use the focused check while editing, then run the repository check before handoff:
 
 ```bash
-./scripts/check-skill lockin
+./scripts/check-skill gitprep
 ./scripts/check-repo
 ```
 
 The focused command excludes credentialed, live-provider, and standalone shell
 integration tests. The repository check requires Git, Python 3 with PyYAML,
-Node.js, `jq`, and `zsh`. It validates public skills, catalogue completeness,
+and Node.js. It validates public skills, catalogue completeness,
 bundled-resource references, tracked-file hygiene, README links, maintainer
 commands, and fast deterministic tests.
 
@@ -196,7 +193,7 @@ For a release, additionally run:
 ./scripts/check-release
 ```
 
-The deeper checks start disposable loopback servers. The synthetic gateway integration runs when Ruby, `curl`, `jq`, and CLIProxyAPI are available; `check-full --strict` fails instead of skipping it when they are not.
+The deeper checks start disposable loopback servers and run the browser-companion integration suite. Individual browser tests remain opt-in; unittest reports skips. `check-full --strict` is accepted for compatibility.
 
 `check-release` uses the current `npx skills` CLI and therefore requires network access. It requires a clean worktree by default; use `--allow-dirty` only to rehearse it locally. After pushing, verify that public discovery matches and GitHub's default branch is at the local commit:
 
@@ -211,7 +208,7 @@ Live-provider tests, real Messages checks, OAuth flows, and browser-enabled `age
 For interactive dogfooding, activate one source skill in the ignored sandbox:
 
 ```bash
-./scripts/dev-skill lockin
+./scripts/dev-skill gitprep
 cd local/sandbox
 ```
 

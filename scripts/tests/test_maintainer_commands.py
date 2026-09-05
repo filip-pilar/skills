@@ -433,37 +433,26 @@ class FullCheckTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temporary.cleanup()
 
-    def test_optional_gateway_dependency_is_reported(self) -> None:
-        result = run(str(self.repo / "scripts" / "check-full"), cwd=self.repo, env=self.env)
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("integrations_run=1 integrations_skipped=1", result.stdout)
-        arguments = self.python_log.read_text(encoding="utf-8")
-        self.assertIn("-m unittest discover -s", arguments)
-        self.assertIn("test_companion_integration.py", arguments)
+    def test_current_integration_runs_without_archived_gateway(self) -> None:
+        for options in ((), ("--strict",)):
+            with self.subTest(options=options):
+                result = run(str(self.repo / "scripts" / "check-full"), *options,
+                             cwd=self.repo, env=self.env)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn("integration_suites_run=1", result.stdout)
+                self.assertNotIn("integrations_skipped=0", result.stdout)
+                arguments = self.python_log.read_text(encoding="utf-8")
+                self.assertIn("-m unittest discover -s", arguments)
+                self.assertIn("test_companion_integration.py", arguments)
 
-    def test_strict_mode_rejects_skipped_integration(self) -> None:
-        result = run(str(self.repo / "scripts" / "check-full"), "--strict", cwd=self.repo, env=self.env)
-        self.assertEqual(result.returncode, 1)
-        self.assertIn("--strict requires", result.stderr)
-
-    def test_custom_gateway_binary_override_runs_integration(self) -> None:
-        fake_bin = Path(self.temporary.name) / "bin"
-        executable(fake_bin / "jq", "#!/bin/sh\nexit 0\n")
-        custom_proxy = fake_bin / "custom-proxy"
-        executable(custom_proxy, "#!/bin/sh\nexit 0\n")
-        gateway_test = (
-            self.repo
-            / "skills"
-            / "setup-cli-proxy-gateway"
-            / "scripts"
-            / "test_custom_endpoint_mock.sh"
+    def test_integration_failure_does_not_report_full_success(self) -> None:
+        executable(
+            Path(self.temporary.name) / "bin" / "python3",
+            "#!/bin/sh\nexit 6\n",
         )
-        executable(gateway_test, "#!/bin/sh\necho gateway_fixture=passed\n")
-        environment = self.env.copy()
-        environment["CLI_PROXY_BIN"] = str(custom_proxy)
-        result = run(str(self.repo / "scripts" / "check-full"), cwd=self.repo, env=environment)
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("integrations_run=2 integrations_skipped=0", result.stdout)
+        result = run(str(self.repo / "scripts" / "check-full"), cwd=self.repo, env=self.env)
+        self.assertEqual(result.returncode, 6)
+        self.assertNotIn("full_check=passed", result.stdout)
 
     def test_fast_check_failure_stops_full_check(self) -> None:
         executable(self.repo / "scripts" / "check-repo", "#!/bin/sh\nexit 7\n")
