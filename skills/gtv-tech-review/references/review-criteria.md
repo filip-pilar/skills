@@ -1,5 +1,9 @@
 # Review Criteria — Detailed Reference
 
+Treat these as review dimensions, not a required sequence. Check only applicable
+documents and revisit changed or connected claims on revision. No objection quota
+is implied by the example questions.
+
 ## Authority and Review Boundary
 
 Before technical validation, check the live:
@@ -21,7 +25,7 @@ Appendix Global Talent defines **four** optional criteria. GOV.UK's simplified p
 
 Never rewrite submitted application prose. Give findings, questions, factual gaps, and revision goals only.
 
-## Pass 1: Technical Validation
+## Technical Validation
 
 ### Narrative Form Responses / Personal Statement
 
@@ -79,7 +83,7 @@ If distinct documents concern one underlying achievement, ask whether each conta
 - [ ] If the applicant has been a founder or senior executive of a technology business in the last 5 years, the current required proof is included
 - [ ] Any established business, share ownership, or dissolved-business evidence required by Appendix Global Talent is addressed
 
-## Pass 2: Constructive Review
+## Constructive Review
 
 ### Criterion Alignment
 
@@ -134,7 +138,7 @@ Rate each document:
 
 Ratings are review judgements, not outcome predictions.
 
-## Pass 3: Adversarial Assessment
+## Adversarial Assessment
 
 Ask the hardest supportable questions without pretending to know how a particular assessor will decide.
 
@@ -187,13 +191,13 @@ Ask the hardest supportable questions without pretending to know how a particula
 
 Do not claim an undocumented “UK-inside bias,” a guaranteed rejection pattern, a fixed funding/citation/audience threshold, or privileged knowledge of panel composition.
 
-## Pass 4: Authorship and Voice-Risk Review
+## Authorship and Voice-Risk Review
 
-### What This Pass Can and Cannot Do
+### What This Review Can and Cannot Do
 
 Tech Nation has published authorship guidance and warnings about AI- or language-tool-created material. Verify the live wording before submission. Keep roles distinct: the applicant authors their documents and each recommender authors their own letter.
 
-Text style cannot reliably determine whether AI was used or who wrote a passage. This pass must **not** label text “AI-generated,” assign a probability of AI authorship, or treat punctuation, vocabulary, polish, or sentence structure as proof.
+Text style cannot reliably determine whether AI was used or who wrote a passage. This review must **not** label text “AI-generated,” assign a probability of AI authorship, or treat punctuation, vocabulary, polish, or sentence structure as proof.
 
 ### Observable Risks to Flag
 
@@ -219,7 +223,7 @@ Use:
 
 Do not provide replacement sentences. Point to genuine passages elsewhere only to help the applicant identify their own natural level of detail and voice.
 
-## Pass 5: Cross-Document Consistency
+## Cross-Document Consistency
 
 ### Dates and Names
 
