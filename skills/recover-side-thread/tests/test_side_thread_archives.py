@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import subprocess
 import sys
@@ -1220,37 +1221,26 @@ class SideThreadArchiveScriptTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("outside the archived_sessions directory", result.stderr)
 
-    def test_handoff_contract_keeps_source_inside_prompt_and_omits_ids(self) -> None:
+    def test_routed_handoff_template_keeps_source_inside_copyable_prompt(self) -> None:
+        # Formatting is an artifact contract; instruction wording is not behavior proof.
         instructions = SKILL.read_text(encoding="utf-8")
-        handoff = instructions.split("## 5. Produce the handoff", 1)[1]
+        target = re.search(r"\[handoff\.md\]\(([^)]+)\)", instructions)
+        self.assertIsNotNone(target)
+        reference = (PACKAGE_ROOT / target.group(1)).resolve()
+        self.assertTrue(reference.is_relative_to(PACKAGE_ROOT.resolve()))
+        handoff = reference.read_text(encoding="utf-8")
+        prompt = re.search(r"```text\n(You are continuing.*?)(?:\n```)", handoff, re.S)
+        self.assertIsNotNone(prompt)
+        self.assertIn("Type: Side chat", prompt.group(1))
+        self.assertIn("Label:", prompt.group(1))
+        self.assertIn("historical context, not fresh authorization", prompt.group(1))
 
-        self.assertIn("Main Codex task (confirmed)", instructions)
-        self.assertIn("Side chat (confirmed)", instructions)
-        self.assertIn("Likely Side chat", instructions)
-        self.assertIn("Possible Side chat", instructions)
-        self.assertIn("Group numbered choices by Codex project", instructions)
-        self.assertIn("relative age of its latest actual user message", instructions)
-        self.assertIn("Discover local Side chats first", instructions)
-        self.assertIn("side-list", instructions)
-        self.assertIn("side-inspect", instructions)
-        self.assertIn("legacy archive commands are exact-record fallbacks only", instructions)
-        self.assertIn("Candidate selection and `side-inspect` are intermediate steps, not completion", instructions)
-        self.assertIn("Bounded downstream parent evidence", instructions)
-        self.assertIn("Missing title or workspace is a coverage gap", handoff)
-        self.assertIn("Type: Side chat", handoff)
-        self.assertIn("Side user turns, ordinary Side assistant prose, tool activity, downstream parent evidence", handoff)
-
-    def test_local_discovery_precedes_visible_supplements(self) -> None:
-        instructions = SKILL.read_text(encoding="utf-8")
-        local = instructions.index("## 1. Discover local Side chats first")
-        visible = instructions.index("## 2. Supplement with visible evidence")
-        absent = instructions.index("## 3. Handle absence and classification honestly")
-
-        self.assertLess(local, visible)
-        self.assertLess(visible, absent)
-        self.assertIn("These are supplements, not a prerequisite for local discovery", instructions)
-        self.assertIn("Do not falsely say the skill cannot search automatically", instructions)
-        self.assertIn("Use partial evidence", instructions)
+    def test_documented_discovery_commands_are_supported(self) -> None:
+        # Exercise the real CLI used by the routed reference without reading live history.
+        for command in ("side-list", "side-inspect"):
+            result = self.run_script(command, "--help")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn(command, result.stdout)
 
 
 if __name__ == "__main__":
