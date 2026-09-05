@@ -11,7 +11,7 @@ the skills present in this repository.
 Options:
   --remote OWNER/REPO  Verify discovery and the already-pushed default branch.
   --skip-full          Run check-repo instead of check-full.
-  --strict             Require optional check-full integrations.
+  --strict             Compatibility flag passed to check-full; does not enable browser tests.
   --allow-dirty        Permit tracked or untracked repository changes.
   -h, --help           Show this help.
 

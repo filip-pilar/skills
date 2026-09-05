@@ -1,6 +1,6 @@
 # Agent Skills
 
-Reusable workflows for coding agents: cleaner commits, sharper decisions, browser-traffic inspection, macOS automation, and structured UK Global Talent guidance.
+Reusable workflows for coding agents: cleaner commits, sharper decisions, browser-traffic inspection, Codex Side coordination, and structured UK Global Talent guidance.
 
 ```bash
 npx skills add filip-pilar/skills --list
@@ -38,7 +38,8 @@ npx skills add filip-pilar/skills --list
 ### Codex Side companions
 
 These require Codex Side tasks and their linked-parent workflow. All three
-orchestration skills are manual-only and are intended to be invoked in order:
+orchestration skills are manual-only. The usual sequence is below; Reply is
+optional when a clear, current parent-ready prompt already exists:
 
 1. **`$sidekick` — understand and discuss.**
 2. **`$reply` — draft the exact parent prompt without sending.**
@@ -57,7 +58,7 @@ orchestration skills are manual-only and are intended to be invoked in order:
 | Skill | Best for |
 | --- | --- |
 | [`gtv-tech-eligibility`](skills/gtv-tech-eligibility/) | Assessing potential eligibility for the Digital Technology route and producing a reusable GTV Profile. |
-| [`gtv-tech-prepare`](skills/gtv-tech-prepare/) | Turning a GTV Profile into factual document-planning material. |
+| [`gtv-tech-prepare`](skills/gtv-tech-prepare/) | Turning an assessed GTV Profile or equivalent context into factual document-planning material. |
 | [`gtv-tech-review`](skills/gtv-tech-review/) | Reviewing self-written application documents from constructive and skeptical perspectives. |
 
 These workflows are not legal advice and intentionally do not generate paste-ready application prose. Always verify current official eligibility, evidence, fees, timing, and authorship requirements.
@@ -117,7 +118,10 @@ Be explicit about the selection: the current CLI may install every discovered sk
 
 ### Updating
 
-For installs from GitHub, the CLI records source and content metadata in `skills-lock.json`. Refresh project or global installs with:
+For project installs, the CLI records source and content metadata in
+`skills-lock.json`. Global installs use `~/.agents/.skill-lock.json`, or
+`$XDG_STATE_HOME/skills/.skill-lock.json` when that environment variable is set.
+Refresh project or global installs with:
 
 ```bash
 npx skills update --project
@@ -137,18 +141,23 @@ Review a skill and its bundled scripts before installing it. Pay particular atte
 | Skill | Additional requirements or effects |
 | --- | --- |
 | `codex-skill-usage-analytics` | An authenticated local Codex installation; performs credential-safe GET requests to undocumented ChatGPT analytics endpoints that may change. |
-| `dr-react` | Node.js, a package manager, repository access, and potentially networked `npx` execution. |
-| `gitprep` | Git and repository access; intentionally never pushes. |
-| `setup-cli-proxy-gateway` | macOS/Linux shell and provider authentication; may change listeners, services, credentials, and agent configuration. |
+| `gitprep` | Git and repository access; bare invocation plans only. Approved commits proceed within existing authority; publication is a separate request. |
 | `skill-builder` | Python and PyYAML for bundled validation scripts. |
-| `socket-audit` | Relevant package managers; online workflows may require network and Socket.dev access. |
 | `sidekick`, `reply`, `supervise` | Codex Side, an exact linked parent task, and manual invocation. |
 | `web-traffic-inspector` | Browser or Chrome control (or `agent-browser`), Python 3, and Node.js; undocumented website mechanisms may change. |
-| `wdyt` | An authenticated official Claude Code CLI; sends curated task context and selectively read repository content to Anthropic. |
 
 ## Development
 
 Every public skill lives at `skills/<skill-name>/SKILL.md`, with optional `agents/`, `assets/`, `references/`, `scripts/`, and `tests/` beside it.
+
+Start with the smallest package that delivers the behavior. References should hold
+substantial conditional knowledge; scripts should provide reliable execution; tests
+should protect meaningful failures. Routine instruction edits do not need a new
+template, test suite, or evaluation framework. Structural validation checks package
+integrity, not preferred editorial wording or model behavior.
+
+The analytics collector emits JSON; the agent handles report presentation.
+`--format json` remains supported, while `--format markdown` has been removed.
 
 Repository-specific agent guidance lives in [`AGENTS.md`](AGENTS.md). Install the
 pinned Python development dependency with:
@@ -181,7 +190,7 @@ and Node.js. It validates public skills, catalogue completeness,
 bundled-resource references, tracked-file hygiene, README links, maintainer
 commands, and fast deterministic tests.
 
-Before a substantial change, run:
+For substantial integration changes, run:
 
 ```bash
 ./scripts/check-full
@@ -193,7 +202,11 @@ For a release, additionally run:
 ./scripts/check-release
 ```
 
-The deeper checks start disposable loopback servers and run the browser-companion integration suite. Individual browser tests remain opt-in; unittest reports skips. `check-full --strict` is accepted for compatibility.
+The deeper checks start disposable loopback servers and run the companion
+integration suite. Individual browser tests remain opt-in and may be skipped;
+unittest reports their skip count. The final summary counts executed suites,
+not individual tests. `check-full --strict` remains accepted for compatibility
+and does not enable browser tests.
 
 `check-release` uses the current `npx skills` CLI and therefore requires network access. It requires a clean worktree by default; use `--allow-dirty` only to rehearse it locally. After pushing, verify that public discovery matches and GitHub's default branch is at the local commit:
 
@@ -201,7 +214,7 @@ The deeper checks start disposable loopback servers and run the browser-companio
 ./scripts/check-release --remote filip-pilar/skills
 ```
 
-Live-provider tests, real Messages checks, OAuth flows, and browser-enabled `agent-browser` tests remain explicit manual checks because they require credentials, permissions, or external state.
+Live-provider tests, OAuth flows, and browser-enabled `agent-browser` tests remain explicit manual checks because they require credentials, permissions, or external state.
 
 ### Test a skill while editing it
 
