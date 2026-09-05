@@ -446,7 +446,7 @@ enabled = false
         self.assertTrue(any("no dated rows" in warning for warning in warnings))
         self.assertTrue(any("truncated" in warning for warning in warnings))
 
-    def test_markdown_default_groups_by_provenance_without_source_paths(self):
+    def test_selected_view_excludes_historical_but_preserves_raw_metrics(self):
         client = FakeClient(
             {
                 fetch_usage.PROFILE_PATH: empty_profile(total=1),
@@ -464,20 +464,15 @@ enabled = false
             all_available=False,
             inventory=inventory(inventory_item("unobserved", ["/unused"])),
         )
-        markdown = fetch_usage.markdown_report(report)
-        self.assertIn("| unobserved |", markdown)
-        self.assertNotIn("| historical |", markdown)
-        self.assertIn("### Custom / user-installed", markdown)
-        self.assertIn("Installed via: local user installation.", markdown)
-        self.assertIn("| Skill | Uses | Active days | Last used | 30d | Mode |", markdown)
-        self.assertIn("| unobserved | 0 | 0 | 0 in range |", markdown)
-        self.assertNotIn("Source path", markdown)
-        self.assertNotIn("/unused", markdown)
-        self.assertNotIn("Coverage and limitations", markdown)
-        all_markdown = fetch_usage.markdown_report(report, view="all")
-        self.assertIn("| historical |", all_markdown)
+        self.assertEqual(
+            report["selected_view"]["metrics"]["skills"]["item_names"], ["unobserved"]
+        )
+        self.assertEqual(
+            {item["name"] for item in report["metrics"]["skills"]["items"]},
+            {"unobserved", "historical"},
+        )
 
-    def test_markdown_separates_plugin_packages_and_shows_marketplace(self):
+    def test_json_preserves_distinct_plugin_provenance(self):
         def plugin_item(name, plugin_identifier, marketplace):
             item = inventory_item(name, [f"/{name}"], "plugin", name.split(":")[0])
             item["distribution"] = "bundled_plugin"
@@ -515,15 +510,16 @@ enabled = false
                 plugin_item("browser:control", "browser@openai-bundled", "openai-bundled"),
             ),
         )
-        markdown = fetch_usage.markdown_report(report)
-        self.assertIn("### Bundled plugins", markdown)
-        self.assertIn("#### Browser", markdown)
-        self.assertIn("#### Sites", markdown)
-        self.assertIn("Installed via: `openai-bundled`", markdown)
-        self.assertIn("Developer: Example Developer", markdown)
-        self.assertIn("Origin: [https://example.test/repo]", markdown)
-        self.assertNotIn("sites@openai-bundled", markdown)
-        self.assertNotIn("/sites:build", markdown)
+        items = report["metrics"]["skills"]["items"]
+        self.assertEqual({item["name"] for item in items}, {"sites:build", "browser:control"})
+        for item in items:
+            installation = item["installations"][0]
+            self.assertEqual(installation["marketplace"], "openai-bundled")
+            self.assertEqual(installation["plugin_author"], "Example Developer")
+            self.assertEqual(installation["plugin_repository"], "https://example.test/repo")
+            self.assertEqual(
+                installation["plugin_identifier"], item["name"].split(":")[0] + "@openai-bundled"
+            )
 
     def test_timeline_views_aggregate_daily_weekly_and_monthly(self):
         items = [
@@ -585,6 +581,8 @@ enabled = false
 
     def test_default_arguments_focus_on_current_skills(self):
         args = fetch_usage.parse_args([])
+        self.assertEqual(args.format, "json")
+        self.assertEqual(fetch_usage.parse_args(["--format", "json"]).format, "json")
         self.assertEqual(args.kind, "skills")
         self.assertEqual(args.view, "current")
 

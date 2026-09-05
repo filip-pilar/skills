@@ -19,14 +19,15 @@ Unless the user asks for something else:
 - show one compact coverage line before the tables; and
 - mention only anomalies that affect the requested decision.
 
-Run:
+For the default report, run:
 
 ```bash
 python3 <skill-dir>/scripts/fetch_usage.py --format json
 ```
 
-Resolve the script relative to this `SKILL.md`. The collector writes only to
-stdout.
+Resolve the script relative to this `SKILL.md`. The collector writes JSON only to stdout; format it for the user using the
+reporting guidance below. `--format json` remains accepted; the former
+`--format markdown` renderer has been removed.
 
 ## Choose the right scope
 
@@ -58,56 +59,14 @@ current inventory and the skills exposed to the present task. Do not substitute
 every directory in a plugin cache. For a user-only cleanup, exclude system and
 plugin-contributed skills even when a plugin is currently active.
 
-## Report for scanning
+## Interpret and present
 
-Lead with the answer. A normal report should contain:
-
-1. one coverage line: returned dates and dated-row count;
-2. one summary line: items, observed items, and total uses;
-3. compact tables grouped by installation provenance; and
-4. one short note only when truncation, inventory failure, or identity ambiguity
-   changes the interpretation.
-
-For the default current-skills report, classify each item from inventory fields,
-not from its path or name:
-
-- **Custom / user-installed:** `distribution: standalone_user`;
-- **OpenAI system:** `distribution: system`;
-- **OpenAI runtime:** `distribution: runtime_plugin`;
-- **Bundled plugins:** `distribution: bundled_plugin`;
-- **Remote or configured plugins:** `distribution: remote_plugin` or
-  `configured_plugin`; and
-- **Multiple installations:** `distribution: multiple`.
-
-Within each plugin category, make a separate table for each `plugin_identifier`
-so unrelated plugins are not merged. Prefer the manifest's
-`plugin_display_name`; otherwise use the plugin's short identifier (for example,
-`sites` from `sites@openai-bundled`). Show its `marketplace`, developer, and
-repository or website origin when those fields are available. Fall back to
-namespace, then the full plugin identifier, without inventing a friendly name.
-Use `plugin_identifier` to group items, but do not display it when a clear plugin
-name is available unless the user asks for debugging details.
-
-Use columns `Skill`, `Uses`, `Active days`, `Last used`, `30d`, and `Mode`.
-Keep zero-use items in their provenance group at the bottom. If a group has no
-items, omit it. A provenance heading replaces a repeated source column.
-
-Do not show `source_paths` in a normal report. They are local implementation
-paths, not installation origins. Show paths only when the user explicitly asks
-for filesystem locations or inventory debugging. For provenance labels, use
-`distribution`, `installations[].marketplace`, and
-`installations[].plugin_identifier`, plus manifest display, author, repository,
-and website fields when present. Standalone user installations do not expose an
-upstream repository URL; call them `local user installation` rather than guessing
-a remote source.
-
-Use compact labels such as `0 in range`, `historical`, and `manual only`. Do not
-repeat generic caveats before and after the tables. The coverage line already
-defines the period represented by the numbers.
-
-Skills and plugins are separate overlapping metrics. Never add their totals.
-Plugin-level usage must not be assigned to contributed skills unless the
-telemetry identity joins exactly.
+For a usage inventory, read [reporting.md](references/reporting.md) for the
+provenance grouping and field meanings. For a narrow question, return only the
+relevant result and any limit that changes its interpretation; do not generate
+a full inventory by default. The collector's range and coverage define what the
+numbers establish. Skill and plugin totals overlap and must never be added;
+attribute plugin usage to a skill only with an exact telemetry identity join.
 
 ## Cleanup and invocation-policy requests
 
