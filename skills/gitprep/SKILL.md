@@ -5,50 +5,67 @@ description: Inspect repository and publication state, plan coherent commits, an
 
 # Gitprep
 
-Treat a bare `$gitprep` invocation as a complete request to inspect and propose a commit plan, not to mutate the repository. Preserve all user work: never revert, delete, rewrite, or silently stage unrelated changes. Keep GitHub state read-only unless the user separately requests an action, and never push during this workflow.
+A bare `$gitprep` requests inspection and a commit plan only. Before staging or
+committing, obtain approval for the complete plan unless the user has already
+authorized that scope. Preserve unrelated work; never silently stage, revert,
+delete, or rewrite it. Do not pull, merge, rebase, or push during this workflow.
 
-Use `git` for local repository operations. When read-only GitHub context materially clarifies the plan or verification state, prefer the connected GitHub app when it supports the needed operation; otherwise use authenticated `gh`. Skip remote context when irrelevant or unavailable, and prefer either supported route to raw HTTP.
+## Inspect and plan
 
-## Workflow
+Use `git` to establish working-tree and index changes, the current branch and
+upstream relationship, and relevant commit conventions. Inspect staged and
+unstaged diffs separately, focusing on relevant files or hunks for large changes.
+Report whether the branch is aligned, ahead, behind, diverged, or has no upstream,
+and identify local commits ahead of it. Comparisons with `@{u}` describe the
+locally recorded upstream; without fresh remote evidence, do not claim they
+establish current publication state. A clean working tree does not imply that
+all commits are published. If nothing is committable, report that state and stop.
 
-1. **Inspect read-only state.** Run `git status --short`, `git status -sb`, `git branch --show-current`, `git branch -vv`, `git remote -v`, staged and unstaged diff statistics, and recent commit subjects when useful. Inspect staged and unstaged diffs separately; for large changes, read focused files or hunks instead of dumping everything.
+When remote evidence materially helps, prefer the connected GitHub app for
+supported read-only operations, otherwise authenticated `gh`. Skip irrelevant or
+unavailable remote context and state any material uncertainty.
 
-   If an upstream exists, inspect `@{u}..HEAD` and `HEAD..@{u}`. Report whether the branch is aligned, ahead, behind, diverged, or has no upstream; list unpublished local commit subjects when ahead. A clean working tree does not imply a fully published branch. Do not pull, merge, or rebase as part of commit preparation. If no committable changes exist, report the repository and publication state and stop.
+Group changes by intent, splitting only when it improves review or rollback.
+Flag material hazards such as unrelated work, secrets, accidental deletions,
+partial changes, or inconsistent generated artifacts. Check changed or adjacent
+files for relevant documentation drift and misplaced local output; include any
+justified cleanup in the plan rather than performing it during inspection.
 
-2. **Build the plan.** Group changes by intent rather than file type. Prefer one commit for one coherent intent; split only when it materially improves review or rollback. Explicitly flag unrelated or accidental changes, secrets or local configuration, deletions, generated files, snapshots, migrations, symlinks, local assets, temporary files, formatting-only churn, manifest/lockfile mismatches, staged/unstaged mismatches, visible partial work or failing tests, and upstream risks.
+Present the exact files or hunks, proposed messages, split rationale when useful,
+material risks, upstream state, and relevant verification. Follow repository
+message conventions and describe the actual change with an imperative subject.
 
-   Before finalizing the plan, make one bounded readiness sweep for issues plausibly affected by the change: stale or duplicate plans/progress notes, documentation or `AGENTS.md` drift, disposable fixtures or test data, missing ignore coverage for new local output, and surprising file placement or naming. Inspect only relevant changed or adjacent files and repository conventions; do not turn commit preparation into a general cleanup project. Include justified cleanup in the complete plan rather than performing it first.
+## Execute authorized work
 
-   Propose the commit count, exact files or hunks per commit, message, split rationale, risks, upstream status, and recommended verification. Messages should be imperative and describe the actual behavior or capability; avoid vague labels such as `phase 1`, `misc`, `changes`, or `wip` unless requested. Ask the user to approve or modify the complete plan before any check that requires approval, staging, or commit.
+Choose checks from repository guidance and the changed behavior. Reuse applicable
+results; do not repeat or broaden checks without changes or unresolved concerns.
+Trivial changes need no extra checks unless repository conventions require them.
+Complete safe checks already authorized by context before requesting any remaining
+approval. Ask only when a check needs new authority, material cost, or consequential
+external effects; a tool category alone does not require renewed permission.
 
-3. **Choose proportionate checks.** Inspect project and task-runner files such as `package.json` and lockfiles, `Cargo.toml`, Python project files, `Makefile`, `justfile`, or `Taskfile.yml` to identify relevant lint, type, test, build, or format checks. Do not require checks for trivial or documentation-only changes unless repository convention does. Ask before slow, expensive, networked, browser, end-to-end, production-build, or escalated checks. Record checks the user skips.
+After plan approval, complete the authorized checks and commits without pausing
+for routine execution details. If a check fails, diagnose it and perform repairs
+already authorized by the conversation, then rerun affected checks. A commit-only
+request does not authorize code repairs. Do not commit with failing checks unless
+the user explicitly permits it; report any unresolved failure and needed action.
 
-4. **Execute only the approved plan.** Run the approved checks first. If one fails, stop unless the user explicitly authorizes committing anyway; report the command, failure, likely cause when evident, staged state, and recommended next action.
+Stage only approved paths or hunks and inspect the full staged diff and working
+tree before each commit. Use reliable non-interactive partial staging or ask if
+selection is materially ambiguous. Follow the actual host permission rules;
+request escalation only when needed and supported.
 
-   Stage only approved paths or hunks, preferring explicit paths. For partial staging, construct it non-interactively when reliable; otherwise ask rather than guess. Git metadata writes require the host approval or escalation flow after plan approval—use it intentionally instead of first probing a read-only sandbox. Before each commit, verify `git diff --cached --stat`, the full staged diff, and `git status --short`.
+Preserve approved intent and explicitly fixed messages. Routine wording refinements
+or safe retries that preserve scope need no renewed approval; verify whether a
+commit succeeded before retrying it. Obtain new authority for added scope, history
+rewrites, hook bypasses, or changes to explicit user choices.
 
-   Commit with the exact approved message after checks pass or are intentionally skipped. For multiple commits, repeat stage, verify, and commit. Do not change the message, amend, bypass hooks, retry differently, or add paths without renewed approval.
+Report commit hashes and messages, checks and skipped checks, remaining work, and
+the upstream relationship with its freshness limits. Completion means the approved
+commits exist and relevant checks are resolved, or a concrete impediment is reported.
 
-5. **Report the result.** Include commit hashes and messages, checks and outcomes, user-skipped checks, remaining uncommitted or intentionally unstaged work, and the final upstream state including unpublished commits. A push requires a separate user request after this workflow is complete.
+## Separate publication request
 
-## Publish handoff
-
-This skill never pushes, but it must leave a reliable handoff when the user
-separately requests publication after the commits exist:
-
-1. Prefer local `git push` for publishing local commit history. Use the GitHub
-   app for remote metadata, pull requests, and post-push verification; do not
-   reconstruct local commits through per-file connector writes.
-2. Treat a sandboxed `gh auth status` or Git authentication failure as
-   inconclusive because the sandbox may not have access to the host keychain.
-   Retry the same authentication check once through the host
-   approval/escalation flow before asking the user to log in.
-3. For an approved push, run `git push` through the host
-   approval/escalation flow so HTTPS Git can use the configured credential
-   helper. A GitHub app write failure does not preclude this direct Git path.
-4. Ask the user to authenticate only after the host-level authentication check
-   or direct push also fails. Never expose token values while diagnosing
-   authentication.
-5. After a successful push, verify that `HEAD` and `@{u}` resolve to the same
-   commit, report any remaining unpublished commits, and use the GitHub app for
-   an independent remote comparison when available.
+Gitprep never pushes. Only when the user separately requests publication after
+commit preparation, read [publication guidance](references/publication.md) for
+that authorized follow-up.
