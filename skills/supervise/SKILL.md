@@ -50,50 +50,38 @@ The parent performs the requested work. Independently inspect files, state, or
 safe focused checks when proportionate to verify important claims. Do not rely
 entirely on the parent's summary or on tests the parent just added. Check the
 highest-risk requirement directly when reasonable; otherwise state the
-verification limit.
+verification limit. Reuse credible evidence already available for the current
+state; repeat or broaden checks only when changes, failures, or unresolved
+uncertainty justify it.
 
 When a requested requirement is materially missing or incorrect, send a short,
 focused in-scope correction and wait again. Reassess after every response and
 continue correcting while a concrete path to completion remains.
 
-Stop and escalate rather than deciding for the user when continuing requires a
-genuine decision or tradeoff, new authority or permission, broader scope, an
-outside dependency, a response to material divergence or new findings, or when
-repeated lack of material progress leaves no reasonable path forward. State the
-specific completion condition or impediment.
+Continue through routine dependencies and new in-scope findings when they can be
+handled within existing authority, including waiting for relevant checks. Escalate
+when proceeding requires a consequential user decision, new authority, broader
+scope, or an outside change that cannot be obtained within that authority. Stop
+when repeated lack of material progress leaves no reasonable path forward. State
+the specific impediment rather than treating every new finding as a new approval.
 
 ## Reconcile the final handoff
 
-Before handing off, re-read the parent's newest completed response when
-possible and reconcile the whole supervised run: the prompt sent, material
-results and corrections, independent verification, the latest parent response,
-and why supervision stopped.
+Reconcile the sent prompt, material results and corrections, independent evidence,
+and latest completed parent response. Read that response if it is not already
+available and current. Use the latest settled evidence; do not revive corrected
+failures or superseded blockers.
 
-Communicate every settled fact whose omission could materially change the
-user's understanding, confidence, decision, or next action. Include:
+Lead with the practical result and an accurate completion state: done, partly
+done, blocked, or delivery uncertain. Preserve the work type, what was verified
+and its limits, unresolved or deferred work, material new findings even outside
+scope, why supervision stopped, and any real user action needed. Reporting an
+out-of-scope finding does not authorize work on it. Analysis is not implementation,
+and partial or unverified work must not sound wholly complete.
 
-- what changed or otherwise completed, stated with the correct work type;
-- what was verified and any meaningful verification limit;
-- unresolved, incomplete, or explicitly deferred work;
-- material new findings, including findings outside the sent prompt's scope;
-- why supervision stopped; and
-- any decision, permission, or action genuinely needed from the user.
-
-Including an out-of-scope finding does not authorize work on it. Prefer the
-latest settled evidence and do not revive failures or blockers later corrected.
-Preserve the scale and relationship of independently useful outcomes instead of
-reducing them to a generic success statement.
-
-Open with a clear completion state and practical result. Keep the meaningful
-distinctions represented by `Done`, `Partly done`, `Blocked`, and
-`Delivery uncertain`, but choose any concise wording or layout that communicates
-the state accurately. Do not make investigation, planning, review, diagnosis,
-or recommendation sound implemented, and do not describe partial or
-unverified work as wholly complete.
-
-Use optional sections such as `Checked`, `Still open`, `Recommended next step`,
-or `Needs from you` when they improve scanning. Compress routine logs and
-process detail, never decision-critical meaning.
+Compress routine logs and repetition, preserving facts that affect confidence or
+the next decision and the scale of independently useful outcomes. Use only the
+structure needed for that meaning; routine verified success may take one line.
 
 Supervise owns delivery, the correction loop, verification, completion status,
 and this handoff.
