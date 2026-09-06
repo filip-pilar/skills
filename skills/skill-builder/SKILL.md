@@ -5,26 +5,45 @@ description: Create, diagnose, improve, compress, evaluate, and release Codex sk
 
 # Skill Builder
 
-Resolve the target and intended outcome from the request. Audits, reviews, and diagnosis are report-only unless edits are requested. An authorized batch or diagnose-and-fix request needs no approval between skills or stages. Preserve unrelated work; ask only about material choices that context cannot settle.
+Audits, reviews, and diagnosis are report-only unless edits are requested.
+Authorized batches and diagnose-and-fix requests need no inter-stage approval.
+Preserve unrelated work; ask only about material choices context cannot settle,
+continuing clearly equivalent edits elsewhere.
 
-Read the complete target `SKILL.md` before behavioral edits and inspect relevant resources. For a new skill, check the destination for conflicts. Existing files show prior intent; the user's accepted outcome determines what should remain.
+Read the complete target `SKILL.md` and relevant resources before behavioral edits;
+check destination conflicts for new skills. Preserve accepted behavior outside the
+requested change; prior files do not override the user's accepted outcome.
 
 ## Build the smallest useful package
 
-Start with `SKILL.md` and required display metadata. Add a reference only for substantial conditional knowledge, a script for reliable execution that should not be reconstructed each time, and an asset for an actual runtime input. Do not scaffold empty directories, generic templates, evaluation frameworks, or a test suite by default.
+Start with `SKILL.md` and required display metadata. Add references for substantial
+conditional knowledge, scripts for reusable reliable execution, and assets for actual
+runtime inputs. Do not scaffold empty directories, generic templates, evaluation
+frameworks, or tests by default.
 
-Keep purpose, activation boundaries, essential workflow, completion criteria, and authorization constraints clear. Prefer outcome-oriented instructions and examples that resolve real ambiguity. Remove repeated platform guidance, obvious steps, rigid checkpoints, and unsupported edge cases. Let the agent choose routine methods and presentation.
+Preserve purpose, activation, essential workflow, completion, and authorization.
+Remove generic advice, repeated platform guidance, and unnecessary procedure;
+retain examples that resolve ambiguity. Moving redundancy into references or
+changing behavior to meet a size target is not compression.
 
-Invocation policy controls automatic selection. The description identifies the capability and relevant matching boundaries; `short_description` summarizes it for the UI; `default_prompt` demonstrates invocation; the body owns runtime behavior. Review their consistency without treating preferred wording as a structural requirement.
+Keep invocation policy, capability description, UI `short_description`, example
+`default_prompt`, and runtime body consistent. Editorial preferences are not
+structural requirements.
 
-For improvements, change what supports the requested outcome and preserve accepted behavior elsewhere. For compression, preserve behavior and authorization while deleting duplication and unnecessary machinery; moving text to references alone is not simplification. Continue clearly equivalent edits even if an unrelated ambiguity remains. Do not invent a behavioral choice to reach a size target.
+## Verify and deliver
 
-## Verify proportionately
+Run existing repository checks; otherwise use bundled
+`scripts/validate_skill.py <skill-directory>` for structure, links, and resources.
+Use `scripts/inspect_skill.py <skill-directory> --load <relative-reference>` when
+measuring a loading path helps. Add tests only for meaningful executable failures
+or regressions, not instruction wording or mirrored formatting logic. Keep generated
+evidence and logs outside packages; durable benchmark suites require explicit authority.
 
-Use existing repository checks. Otherwise run `scripts/validate_skill.py <skill-directory>` from this package for structure, links, and resource integrity. Use `scripts/inspect_skill.py <skill-directory> --load <relative-reference>` when measuring an actual loading path helps assess the change.
+Load [diagnose.md](references/diagnose.md) for surprising behavior or regressions,
+[evaluate.md](references/evaluate.md) for execution comparisons, and
+[release.md](references/release.md) only for requested distribution work.
 
-Test executable behavior where a failure matters: identity, data handling, side effects, parsing, or a known regression. Avoid tests that merely demand particular instruction phrases or mirror formatting code. Run relevant existing checks; add durable tests only when they earn their maintenance cost. Keep generated evidence, logs, and temporary evaluations outside distributable packages. Durable benchmark suites require explicit authorization.
-
-Use [diagnose.md](references/diagnose.md) for surprising behavior or regressions, [evaluate.md](references/evaluate.md) for execution comparisons, and [release.md](references/release.md) only for requested distribution work. Routine edits do not require these workflows.
-
-Report what changed, what was actually checked, and material uncertainty in plain language. Structural validity and fewer words do not establish behavioral equivalence. Do not install, synchronize, commit, push, or publish without authorization; live or consequential checks require their own applicable authority.
+Report changes, checks actually performed, and material uncertainty. Structural
+validity and fewer words do not prove behavioral equivalence. Installation,
+synchronization, commits, pushes, publication, and live or consequential checks
+require applicable authorization.
