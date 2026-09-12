@@ -53,27 +53,12 @@ entries. Treat cache status, hits, and misses in `coverage.cache` as operational
 evidence, not audit findings. If the Codex home is unavailable, report that
 limitation rather than searching unrelated locations.
 
-Treat its output as an evidence index, not a semantic verdict:
-
-- A direct user request for `$skill-name` establishes activation intent only.
-  It does not prove that the host injected or the model received the skill.
-- A matching `<skill><name>…</name><path>…</path>…</skill>` block in a
-  model-visible user-role context item establishes positive native-injection
-  evidence. Its attached body also establishes the activation's version.
-- A matching entry in the developer `<skills_instructions>` catalogue
-  establishes availability or exposure only, not activation.
-- An assistant announcement is a claim. It is not activation evidence.
-- A model-issued tool call that references the exact target `SKILL.md` path
-  establishes only a manual-access candidate. It is not proof of native host
-  injection, a successful read, or complete instruction acquisition.
-- Absence of a filesystem read does not count against native activation; host
-  injection does not require a model-issued read.
-- Without an attached skill body, keep file-reference turns in
-  `inferred_candidates` for adjudication. An announcement may accompany them
-  but is not required. Never count them as confirmed native activation.
-- Discussion, comparison, repository inventory, or output resemblance does not
-  establish activation.
-- Exclude subagents by default.
+Treat the output as an evidence index, not a semantic verdict. Before classifying
+returned episodes or comparing versions, read
+[activation-evidence.md](references/activation-evidence.md). It owns evidence types,
+version cohorts, and submission lifecycle. An explicit invocation establishes intent;
+only a captured matching skill body establishes confirmed native activation and its
+version. Missing retained evidence cannot establish absence.
 
 The extractor deliberately records neutral follow-up messages, compact
 assistant/tool activity, requested goal lifecycle actions, and turn states.
@@ -81,29 +66,8 @@ Review the underlying task only when needed to apply the audit rubric. Do not
 treat a question, tool call, long answer, or later user message as friction by
 itself. A requested goal status does not prove the tool call succeeded.
 
-## Resolve uncertain activation
-
-Missing retained injection evidence does not prove a skill was absent from the
-model request. Read [activation-evidence.md](references/activation-evidence.md)
-when activation is unverified, lifecycle differences matter, or an activation-gap
-claim is considered. Do not search unrelated history to manufacture certainty.
-
-## Respect version boundaries
-
-Analyze exact version cohorts separately. An `exact` cohort means the skill
-body attached to that confirmed activation has one content hash. `ambiguous`
-means multiple bodies were attached. An explicit request with no attached body
-is activation-unverified, not an unversioned activation.
-
-Read the captured contract for each exact cohort before judging it. Do not
-apply rules introduced by a later version to an earlier version. Compare
-versions only on criteria they genuinely share. Return `INSUFFICIENT EVIDENCE`
-for version claims based on ambiguous or activation-unverified episodes.
-
-Use `current_version.status` to distinguish field evidence for the present
-contract from historical evidence. Only `observed_confirmed_activation`
-establishes current native usage. If the current version is `unobserved`,
-report that before recommending changes to its contract.
+If extraction returns no usable episodes, report insufficient evidence and the
+coverage limit. Do not search unrelated history to manufacture certainty.
 
 ## Assess and report
 

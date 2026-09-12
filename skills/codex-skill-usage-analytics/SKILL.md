@@ -1,6 +1,6 @@
 ---
 name: codex-skill-usage-analytics
-description: Fetch and interpret current Codex skill and plugin invocation analytics, including usage, recency, installation source, invocation policy, and cleanup signals, from the authenticated ChatGPT backend.
+description: Report Codex skill and plugin usage from authenticated ChatGPT analytics. Use for usage inventories and telemetry-based cleanup questions, not task-history behavior audits.
 ---
 
 # Codex Skill Usage Analytics
