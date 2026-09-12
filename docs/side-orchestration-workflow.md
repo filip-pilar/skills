@@ -39,105 +39,26 @@ does not send it. A manual `$supervise` invocation authorizes Supervise to
 select and send the user's current intended prompt; supervision remains inside
 that prompt's authority.
 
-## Important behavior
+## Runtime contracts and behavioral checks
 
-### Sidekick
+The installed skills own execution behavior:
 
-Sidekick uses the inherited snapshot and refreshes when requested or when newer
-parent activity could materially affect the answer. Ordinary discussion of the
-available response does not require another read. It distinguishes parent facts,
-its own recommendations, and user decisions while preserving material status,
-findings, priorities, verification gaps, and unfinished work. It answers natural
-follow-ups without restarting a summary template or inventing approval questions.
+- [Sidekick](../skills/sidekick/SKILL.md) owns parent discussion and freshness.
+- [Reply](../skills/reply/SKILL.md) owns prompt synthesis and preserved authority.
+- [Supervise](../skills/supervise/SKILL.md) owns delivery, verification, corrections,
+  and the final handoff.
 
-### Reply
-
-Reply checks the parent before drafting and preserves settled intent, sequencing,
-and actual approval gates. It asks when missing decisions change the objective,
-scope, authority, or acceptance criteria. Routine implementation details can stay
-delegated to the parent within existing authority. Its output is one fenced prompt;
-drafting does not send it or approve unadopted recommendations.
-
-### Supervise
-
-Supervise selects the current intended prompt, checks parent state, and sends it
-once. Uncertain delivery stops the run without a retry. It follows only the linked
-parent and the supervised run, preserving the distinction between plan-only and
-end-to-end authority.
-
-It independently checks important claims proportionately, reusing credible current
-evidence and repeating checks only for changes, failures, or unresolved uncertainty.
-Corrections continue while a concrete in-scope path to completion remains. Routine
-dependencies and new in-scope findings do not themselves require approval. A new
-consequential decision, authority, scope, unavailable outside change, or repeated
-lack of progress can require a handoff to the user.
-
-The final handoff reconciles the latest results and evidence, identifies completion
-accurately, and preserves material verification limits, deferrals, new findings,
-and needed user action. Superseded failures stay superseded. Reporting out-of-scope
-findings does not authorize fixing them. A routine verified success can take one
-line; complex results retain the distinctions needed for the user's next decision.
-
-## Behavioral checks
-
-Cross-skill regression cases are listed in
-[focused prompt regression cases](skill-prompt-review-cases.md).
-
-These are behavioral evaluation scenarios, not claims established by the
-structural Python tests. Live linked-parent runs remain explicit integration
-checks; do not simulate delivery by messaging unrelated tasks.
-
-- A question about a term in the available parent response needs no refresh.
-- A requested refresh or potentially material parent update triggers a read.
-- Reply drafts with routine implementation details delegated, but asks about an
-  unresolved scope or authority choice.
-- Supervise waits for relevant CI and corrects an in-scope bug without inventing
-  approval gates; a dependency requiring new authority returns to the user.
-- Current credible check results are reused; a changed artifact or unresolved
-  high-risk claim justifies focused verification.
-
-When behavioral evaluation is warranted, select relevant cases from these examples:
-
-- Active, unblocked work does not sound complete or ask for unnecessary input.
-- A trivial completed task with no caveat or next work stays concise.
-- Completed analysis preserves material findings and priority while surfacing
-  one user-owned continuation decision rather than many approvals.
-- One real blocker remains explicit and easy to answer.
-- Completed implementation preserves material deferrals and verification gaps.
-- A long backlog is compressed without changing its count, tiers, independent
-  work, or recommended order.
-- A user correction receives a direct natural response without restarting the
-  summary template.
-- A long proposed backlog is not turned into a list of user approvals.
-- One genuine parent decision remains clear and easy to answer.
-- Reply keeps `plan first, then implement` as ordered work rather than a human
-  checkpoint.
-- Reply preserves an actual user-requested review checkpoint.
-- Supervise does not implement work authorized only for planning.
-- Supervise follows an end-to-end prompt through implementation and checks.
-- An uncertain send is not retried.
-- Missing work can receive a focused in-scope correction, while new scope
-  returns to the user.
-- A design assessment with no implementation preserves its systemic findings,
-  incompatibilities, and staged recommendation without sounding implemented.
-- A successful multi-part cleanup still reports a material unresolved mismatch,
-  unsafe repair boundary, recommended escalation, and explicit deferrals.
-- A trivial verified change still produces a one-line completion.
-- A corrected validation failure stays superseded when completed implementation
-  reaches a deployment approval boundary; the handoff preserves the completed
-  work and checks while identifying the undeployed state and exact approval.
-- Completed repository work still surfaces a settled external condition, its
-  practical consequence, and the responsible next action without claiming that
-  the external change was authorized or performed.
-
-Scenario outputs and live-provider logs stay outside the repository. The
-repository keeps only the contracts and deterministic package checks.
+Use [focused prompt regression cases](skill-prompt-review-cases.md) when a behavioral
+comparison is warranted. That document owns scenario expectations; it is not a
+mandatory checklist. Keep outputs and live-provider logs outside tracked packages.
+Structural tests do not establish model behavior, and live linked-parent checks
+require explicit authorization. Never message unrelated tasks to simulate delivery.
 
 ## Evidence and limitations
 
-The workflow was developed from local history audits and isolated Codex runs.
-Previous testing covered first-use Side context, parent refreshes, Reply
-revision, single-send behavior, interrupted runs, limited corrections, and
+Historical development used local history audits and isolated Codex runs. These
+records are not evidence of current GPT-6 Astra behavior. Previous testing covered
+first-use Side context, parent refreshes, Reply revision, single-send behavior, interrupted runs, limited corrections, and
 direct checks that caught a safety bug missed by parent-authored tests.
 
 Run the repository checks for contract changes. Use isolated behavioral runs

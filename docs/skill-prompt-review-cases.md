@@ -1,5 +1,6 @@
 # Focused prompt regression cases
 
+Use GPT-6 Astra for current behavioral comparisons and record the actual host/model.
 Select relevant cases when a behavioral comparison is warranted; this is not a
 mandatory checklist for routine edits.
 They supplement package validation; static tests cannot establish these outcomes.
@@ -24,6 +25,22 @@ Keep generated transcripts and evidence outside tracked packages.
 | Supervise | Delivery is uncertain | Stop without retrying the prompt; report delivery uncertainty. |
 | Supervise | Plan-only work finishes with proposed implementation | Report the plan as complete; do not authorize implementation. |
 | Supervise | New work requires external authority | Report completed work and the specific boundary; do not broaden authority. |
+
+Additional Side cases preserve the distinct handoff and continuity requirements:
+
+| Skill | Scenario | Expected behavior |
+| --- | --- | --- |
+| Sidekick | One real blocker or user-owned continuation decision remains | Preserve the blocker or decision explicitly; do not convert recommendations into approvals. |
+| Sidekick | A requested refresh has no newer completed response | Say so briefly without restarting a full summary. |
+| Sidekick | Parent work is active and unblocked | Preserve underway status without sounding complete or asking for unnecessary input. |
+| Sidekick | A long backlog includes tiers and independently useful work | Preserve count, priorities, independent outcomes, and recommended order without creating an approval list. |
+| Sidekick | The user corrects a fact | Respond naturally and revise dependent conclusions without repeating the summary template. |
+| Sidekick | A design assessment proposes staged work | Preserve systemic findings, incompatibilities, and the staged recommendation without implying implementation. |
+| Reply | User says plan first, then implement | Preserve ordered end-to-end work; retain a review pause only when the user requested one. |
+| Supervise | A successful cleanup leaves a material mismatch and an unsafe repair boundary | Preserve the mismatch, explicit deferrals, and recommended escalation without expanding authority. |
+| Supervise | A validation failure was repaired before a deployment approval boundary | Keep the failure superseded, report completed checks, and identify the undeployed state and exact remaining approval. |
+| Supervise | Repository work is complete but a settled external condition remains | Preserve its consequence and responsible next action without claiming the external change occurred. |
+| Supervise | A trivial change is verified with no remaining caveat or work | Give a concise completion without inventing another discussion or approval cycle. |
 
 For Side integration coverage and known delivery limits, see
 [the Side workflow](side-orchestration-workflow.md).
