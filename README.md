@@ -1,6 +1,6 @@
 # Agent Skills
 
-Reusable workflows for coding agents: cleaner commits, sharper decisions, browser-traffic inspection, Codex Side coordination, and structured UK Global Talent guidance.
+Reusable workflows for GPT-6 Astra in Codex: cleaner commits, sharper decisions, browser-traffic inspection, Codex Side coordination, and structured UK Global Talent guidance.
 
 ```bash
 npx skills add filip-pilar/skills --list
@@ -100,15 +100,6 @@ npx skills add filip-pilar/skills \
   --agent codex
 ```
 
-Target Claude Code instead:
-
-```bash
-npx skills add filip-pilar/skills \
-  --skill devils-advocate \
-  --agent claude-code \
-  --global
-```
-
 Omit `--global` for a project-scoped install. The CLI may share one installed copy between agent destinations with symlinks; add `--copy` when you explicitly want independent copies. A local-path install targeting only one agent is currently copied, so use the development symlink below when you need edits to appear live.
 
 Be explicit about the selection: the current CLI may install every discovered skill when `--skill` is omitted.
@@ -133,7 +124,7 @@ The current CLI does not update installs whose recorded source is a local path. 
 
 ## Compatibility and safety
 
-Most skills follow shared Agent Skills conventions and can be read by compatible agents. A few intentionally depend on Codex Side tasks, Codex tools, or host-specific metadata; each `SKILL.md` is the source of truth.
+The supported runtime is GPT-6 Astra in Codex. Packages use Agent Skills conventions, but other models and agents are outside the supported development and validation scope. Side workflows additionally require linked-parent support; each `SKILL.md` owns its runtime contract. Select GPT-6 Astra in the host: installing a skill does not select or enforce a model.
 
 Review a skill and its bundled scripts before installing it. Pay particular attention to workflows that can access repositories, browsers, messages, credentials, external services, or global configuration.
 
@@ -167,6 +158,13 @@ python3 -m pip install --requirement requirements-dev.txt
 
 ### Checks
 
+These tiers are the source of truth for maintainer validation. Choose by the change
+and reuse applicable results; do not run every tier for every edit. Documentation-only
+changes without runtime or package effects need content and relevant link/example
+review. Instruction changes can be reviewed against selected
+[behavioral scenarios](docs/skill-prompt-review-cases.md); passing structural tests
+does not demonstrate model behavior.
+
 The repository has focused iteration plus three deliberately separate validation layers:
 
 | Command | Purpose |
@@ -176,7 +174,8 @@ The repository has focused iteration plus three deliberately separate validation
 | `./scripts/check-full` | Everything above plus credential-free browser-companion integration tests. |
 | `./scripts/check-release` | Full validation plus current `npx skills` discovery and release-state checks. |
 
-Use the focused check while editing, then run the repository check before handoff:
+For each affected skill package, use the focused check. Also run the repository
+check for package, catalogue, or shared tooling changes:
 
 ```bash
 ./scripts/check-skill gitprep
@@ -224,7 +223,7 @@ For interactive dogfooding, activate one source skill in the ignored sandbox:
 cd local/sandbox
 ```
 
-Start the agent there. Source edits are visible immediately, and selecting another skill safely replaces the managed link. The command refuses to remove unmanaged sandbox entries or traverse symlinked sandbox directories.
+Start Codex there with GPT-6 Astra selected. Source edits are visible immediately, and selecting another skill safely replaces the managed link. The command refuses to remove unmanaged sandbox entries or traverse symlinked sandbox directories.
 
 Inspect or remove the active development skill with:
 

@@ -4,7 +4,11 @@ Use execution comparisons when a behavioral claim warrants them or the user requ
 
 Choose a few representative scenarios with observable outcomes: ordinary completion, the known regression, and relevant activation, authorization, or recovery boundaries. Judge behavior rather than phrase retention. Keep accepted behavior outside the intended change in scope.
 
-Compare immutable copies under equivalent model, tool, and context conditions. Give execution agents realistic requests and artifacts without leaking the answer key, suspected cause, or desired fix. Mock external side effects unless authorized. For subjective or variable outcomes, blind candidate identities, separate execution from judgment, repeat cases, or add a holdout when needed to support the claim; do not require these steps for deterministic checks.
+Compare immutable copies using GPT-6 Astra under equivalent
+tool and context conditions. Record the actual model and host; skill metadata does
+not select the model. Do not attribute results from other models to Astra.
+
+Give execution agents realistic requests and artifacts without leaking the answer key, suspected cause, or desired fix. Mock external side effects unless authorized. For subjective or variable outcomes, blind candidate identities, separate execution from judgment, repeat cases, or add a holdout when needed to support the claim; do not require these steps for deterministic checks.
 
 Keep prompts, outputs, and judgments temporary and outside the distributable package. A durable benchmark suite needs explicit authorization. Focused executable regression tests may remain when their maintenance cost is justified.
 

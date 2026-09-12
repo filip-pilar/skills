@@ -2,8 +2,9 @@
 
 ## Purpose
 
-This repository publishes reusable agent skills. Keep distributable skill
+This repository publishes skills for GPT-6 Astra in Codex. Keep distributable
 packages self-contained, safe to install, and economical in runtime context.
+Target Astra exclusively; do not add scaffolding for older models or other agents.
 
 ## Sources of truth
 
@@ -14,6 +15,12 @@ packages self-contained, safe to install, and economical in runtime context.
 - `README.md` owns the public catalogue, installation, and maintainer overview.
 - `local/`, `.evals/`, `.tmp/`, and root `.agents/` are ignored development
   state and are not durable repository guidance.
+- `docs/side-orchestration-workflow.md` explains the Side workflow; its skills own
+  runtime requirements. `docs/skill-prompt-review-cases.md` owns optional behavioral
+  scenarios, not test results or an execution checklist.
+- `legacy/` preserves retired contracts, not current instructions. Consult ignored
+  experiments or completed records only to resolve a concrete dependency or retain
+  an unfinished obligation; edit generated material at its actual source.
 
 Do not duplicate skill behavior in this file.
 
@@ -29,42 +36,31 @@ Do not duplicate skill behavior in this file.
   outside tracked skill packages.
 - When adding, removing, or renaming a public skill, update the README catalogue.
 - Wire every new deterministic test into the repository validation path.
+- Complete requested changes, relevant validation, and repairs caused by the change
+  without routine approval between phases. Stop when the requested outcome is met
+  or a concrete blocker needs user input; continue independent work when possible.
+- Keep descriptions specific to task selection and load references by need. Preserve
+  project knowledge and meaningful restrictions; leave routine execution to Astra.
 - Do not optimize instruction length at the expense of behavior, safety, or
   activation accuracy.
 
 ## Validation
 
-Scale validation to the change. For each affected skill package, run the focused
-validator and package tests:
+Use the [validation tiers in README.md](README.md#checks) according to the change.
+The focused and repository checks use disposable fixtures without production
+access. The full check adds local loopback integration tests. Run applicable checks
+and fix failures caused by authorized changes without further approval; reuse
+current results and expand checks only for new changes or unresolved risks.
 
-```bash
-./scripts/check-skill <name>
-```
-
-For package, catalogue, or shared tooling changes, also run:
-
-```bash
-./scripts/check-repo
-```
-
-For substantial integration changes, run the following, which includes
-`check-repo`:
-
-```bash
-./scripts/check-full
-```
-
-For documentation-only changes that do not affect skill behavior or package
-structure, check the affected content and any relevant links or examples.
-Rerun or broaden checks when failures, new edits, or unresolved risks justify it.
-
-Run `./scripts/check-release` only for an explicitly requested release check; it
-may require network access and a clean worktree. Live-provider, OAuth, browser,
-installation, and publication checks remain explicit because they can use
-credentials or modify external state.
+Documentation-only changes need content/link review unless they change runtime
+behavior or package structure. Release, live-provider, OAuth, browser, installation,
+and publication checks remain explicit because they can use credentials or modify
+external state.
 
 ## Change boundaries
 
 Do not install, synchronize, commit, push, publish, or change global agent
 configuration unless the user explicitly requests that action. Follow the
 repository's existing Conventional Commit style when commits are requested.
+
+Use `codex/` for new branches. Keep each requested commit a coherent fix.

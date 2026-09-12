@@ -27,7 +27,8 @@ retain examples that resolve ambiguity. Moving redundancy into references or
 changing behavior to meet a size target is not compression.
 
 Keep invocation policy, capability description, UI `short_description`, example
-`default_prompt`, and runtime body consistent. Editorial preferences are not
+`default_prompt`, and runtime body consistent. Describe the specific tasks that
+should select the skill, without adjacent-topic triggers or an inventory of every capability. Editorial preferences are not
 structural requirements.
 
 ## Verify and deliver
