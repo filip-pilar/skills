@@ -6,7 +6,7 @@ usage() {
 Usage: ./scripts/check-skill <skill-name>
 
 Validate one public skill and run its deterministic Python and Node.js tests.
-Credentialed, live-provider, and standalone shell integration tests are not run.
+Integration, credentialed, and live-provider tests are not run.
 USAGE
 }
 
@@ -54,16 +54,22 @@ python3 "$validator" "$skill_dir"
 python_tests=()
 node_tests=()
 tests_dir="$skill_dir/tests"
+# Keep the focused tier aligned with check-repo. Companion integration belongs
+# to check-full, including browser tests that can be enabled by the environment.
+python_pattern='test_*.py'
+if [[ "$skill" == 'web-traffic-inspector' ]]; then
+  python_pattern='test_scaffold_prototype.py'
+fi
 if [[ -d "$tests_dir" ]]; then
   shopt -s nullglob
-  python_tests=("$tests_dir"/test_*.py)
+  python_tests=("$tests_dir"/$python_pattern)
   node_tests=("$tests_dir"/test_*.mjs)
   shopt -u nullglob
 fi
 
 if [[ ${#python_tests[@]} -gt 0 ]]; then
   PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover \
-    -s "$tests_dir" -p 'test_*.py'
+    -s "$tests_dir" -p "$python_pattern"
 fi
 
 if [[ ${#node_tests[@]} -gt 0 ]]; then

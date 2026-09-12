@@ -182,9 +182,11 @@ check for package, catalogue, or shared tooling changes:
 ./scripts/check-repo
 ```
 
-The focused command excludes credentialed, live-provider, and standalone shell
-integration tests. The repository check requires Git, Python 3 with PyYAML,
-and Node.js. It validates public skills, catalogue completeness,
+The focused command excludes integration and live-provider tests. For Web Traffic
+Inspector it runs scaffold tests only; companion integration belongs to `check-full`,
+even when `WTI_AGENT_BROWSER_INTEGRATION` is set in the environment.
+
+The repository check requires Git, Python 3 with PyYAML, and Node.js. It validates public skills, catalogue completeness,
 bundled-resource references, tracked-file hygiene, README links, maintainer
 commands, and fast deterministic tests.
 

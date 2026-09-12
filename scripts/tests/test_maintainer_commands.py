@@ -230,6 +230,26 @@ class CheckSkillTests(unittest.TestCase):
             result.stdout,
         )
 
+    def test_focused_traffic_check_excludes_integration_even_when_enabled(self) -> None:
+        target = self.repo / "skills" / "web-traffic-inspector"
+        skill(target, "web-traffic-inspector")
+        tests = target / "tests"
+        tests.mkdir()
+        (tests / "test_scaffold_prototype.py").write_text(
+            "import unittest\nclass Scaffold(unittest.TestCase):\n"
+            "    def test_fixture(self):\n        pass\n", encoding="utf-8",
+        )
+        (tests / "test_companion_integration.py").write_text(
+            "raise AssertionError('integration must not be imported')\n",
+            encoding="utf-8",
+        )
+        environment = os.environ.copy()
+        environment["WTI_AGENT_BROWSER_INTEGRATION"] = "1"
+        result = run(str(self.repo / "scripts" / "check-skill"),
+                     "web-traffic-inspector", cwd=self.repo, env=environment)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("python_files=1 node_files=0", result.stdout)
+
     def test_unknown_and_malformed_names_fail(self) -> None:
         unknown = self.command("missing")
         self.assertEqual(unknown.returncode, 1)
