@@ -1,0 +1,6 @@
+interface:
+  display_name: "Transcribe"
+  short_description: "Transcribe English audio locally on your Mac"
+  default_prompt: "Use $transcribe to transcribe this recording into a durable Markdown file."
+policy:
+  allow_implicit_invocation: false
