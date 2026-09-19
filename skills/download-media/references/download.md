@@ -18,12 +18,15 @@ Prefer the original audio track when the source distinguishes it from dubs, unle
 the user requests another language. Select streams from current metadata by their
 properties; format IDs are source-specific and can change between extractions.
 
-Use `--ignore-config --no-cache-dir --no-playlist` with yt-dlp, argument arrays
-rather than shell interpolation, and `--` before the source URL. Bound retries.
+Use the verified environment and yt-dlp's default player clients. Use
+`--ignore-config --no-cache-dir --no-playlist --abort-on-unavailable-fragments`,
+argument arrays rather than shell interpolation, and `--` before the source URL.
+Enable Node explicitly when relying on it; bound network retries as described in
+the [runtime notes](runtime.md#failures).
 When obtaining an excerpt, prefer a section download when reliable for that
 source; avoid downloading a long complete recording just for a short excerpt.
 Multiple overlapping selections can share an appropriate source download.
-For HTTP 403, follow the [bounded recovery guidance](runtime.md#failures) before
+For HTTP 403, follow the [diagnosis and recovery guidance](runtime.md#failures) before
 declaring the source unavailable.
 
 Whole-second selection is the UI precision, not permission to cut at the nearest

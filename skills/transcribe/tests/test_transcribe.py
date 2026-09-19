@@ -67,7 +67,8 @@ class Workflow(unittest.TestCase):
         self.audio = self.root / 'input.wav'
         self.audio.write_bytes(b'test fixture')
         self.args = Namespace(source=str(self.audio), destination=str(self.root / 'out'),
-                              speakers=False, mp3=False, rerun=False, refresh_source=False)
+                              speakers=False, mp3=False, rerun=False, refresh_source=False,
+                              audio_format=None)
         stdout = contextlib.redirect_stdout(io.StringIO())
         stderr = contextlib.redirect_stderr(io.StringIO())
         stdout.__enter__(); stderr.__enter__()
@@ -157,6 +158,49 @@ class Workflow(unittest.TestCase):
             count = len(self.calls)
             t.process(self.args)
             self.assertEqual(len(self.calls), count)
+
+    def test_url_failures_stop_for_diagnosis_and_selected_recovery_can_refresh(self):
+        self.args.source = 'https://example.test/recording'
+        failed_stage = 'metadata'
+        requests = []
+        original = self.command
+
+        def download(args, log=None):
+            if args[0] != '/test/yt-dlp':
+                return original(args, log)
+            stage = 'metadata' if '--dump-single-json' in args else 'media'
+            choice = args[args.index('-f') + 1]
+            requests.append((stage, choice))
+            if stage == failed_stage:
+                raise RuntimeError('HTTP Error 403: Forbidden')
+            if stage == 'metadata':
+                return json.dumps({'title': 'Recording', 'id': 'recording'})
+            path = Path(args[args.index('-o') + 1].replace('%(format_id)s', 'fixture').replace('%(ext)s', 'm4a'))
+            path.write_bytes(choice.encode())
+            Path(args[args.index('--print-to-file') + 2]).write_text(str(path))
+            return ''
+
+        with patch.object(t, 'downloader', return_value=['/test/yt-dlp']) as setup, \
+                patch.object(t, 'command', side_effect=download):
+            for failed_stage in ('metadata', 'media'):
+                requests.clear()
+                setup.reset_mock()
+                with self.assertRaisesRegex(RuntimeError, '403'):
+                    t.process(self.args)
+                setup.assert_called_once_with()
+                self.assertEqual(sum(stage == failed_stage for stage, _ in requests), 1)
+                self.assertFalse(list((self.root / 'out').glob('*/transcript.md')))
+
+            failed_stage = None
+            t.process(self.args)
+            self.args.audio_format = 'verified-original-audio'
+            requests.clear()
+            t.process(self.args)
+            self.assertEqual(requests, [('metadata', self.args.audio_format), ('media', self.args.audio_format)])
+            meta = t.read_json(self.folder() / 'metadata.json')
+            self.assertEqual(meta['source']['url'], self.args.source)
+            self.assertEqual(meta['status'], 'complete')
+            self.assertEqual((self.folder() / meta['source']['audio_file']).read_bytes(), self.args.audio_format.encode())
 
     def test_duration_mismatch_stays_incomplete(self):
         original = self.command

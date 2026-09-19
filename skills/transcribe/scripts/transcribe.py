@@ -70,6 +70,8 @@ def command(args, log=None):
     result = subprocess.run([str(a) for a in args], text=True, capture_output=True)
     if result.returncode:
         raise RuntimeError(f'{Path(str(args[0])).name} failed ({result.returncode}): {result.stderr[-3000:]}')
+    if result.stderr.strip():
+        say(result.stderr.rstrip())
     return result.stdout
 
 
@@ -105,17 +107,17 @@ def runtime():
     return binary
 
 
-def downloader(update=False):
+def downloader():
     # Isolated installation: never modify the user's system yt-dlp.
     env = CACHE / 'yt-dlp'
     py = env / 'bin' / 'python'
     if not py.exists():
         command([sys.executable, '-m', 'venv', env])
-        update = True
-    if update:
-        say('Installing/updating yt-dlp in the skill cache.')
-        command([py, '-m', 'pip', 'install', '--upgrade', 'yt-dlp[default]'], CACHE / 'setup.log')
-    return [str(py), '-m', 'yt_dlp', '--ignore-config', '--no-playlist', '--no-warnings', '--no-progress', '--retries', '3', '--fragment-retries', '3']
+        say('Installing yt-dlp in the skill cache.')
+        command([py, '-m', 'pip', 'install', '--upgrade', '--pre', 'yt-dlp[default]'], CACHE / 'setup.log')
+    return [str(py), '-m', 'yt_dlp', '--ignore-config', '--no-cache-dir', '--no-playlist',
+            '--js-runtimes', 'node', '--no-progress', '--retries', '3', '--fragment-retries', '3',
+            '--extractor-retries', '3', '--abort-on-unavailable-fragments']
 
 
 def slug(title):
@@ -212,6 +214,9 @@ def execute(args):
 def process(args):
     source_arg = args.source
     is_url = urlsplit(source_arg).scheme in ('https', 'http')
+    if args.audio_format and not is_url:
+        raise RuntimeError('--audio-format applies only to URL downloads.')
+    refresh_source = args.refresh_source or bool(args.audio_format)
     root = Path(args.destination).expanduser().resolve()
     root.mkdir(parents=True, exist_ok=True)
     source_id = identity({'url': source_arg}) if is_url else None
@@ -227,18 +232,15 @@ def process(args):
                     break
             except (OSError, ValueError):
                 continue
-        if old and not args.refresh_source:
+        if old and not refresh_source:
             source = old['source']
             audio = folder / source['audio_file']
             if not file_matches(audio, source.get('sha256')):
                 old = None
-        if old is None or args.refresh_source:
+        if old is None or refresh_source:
             dl = downloader()
-            try:
-                info = json.loads(command(dl + ['--dump-single-json', '--skip-download', '--', source_arg]))
-            except RuntimeError:
-                dl = downloader(update=True)
-                info = json.loads(command(dl + ['--dump-single-json', '--skip-download', '--', source_arg]))
+            selection = ['-f', args.audio_format or 'bestaudio/best']
+            info = json.loads(command(dl + selection + ['--dump-single-json', '--skip-download', '--', source_arg]))
             if info.get('_type') in ('playlist', 'multi_video') or info.get('is_live') or info.get('live_status') in ('is_live', 'is_upcoming'):
                 raise RuntimeError('Provide one completed recording; playlists and ongoing/upcoming livestreams are not transcribed implicitly.')
             title = info.get('title') or info.get('id') or 'recording'
@@ -248,12 +250,9 @@ def process(args):
             temporary.mkdir(exist_ok=True)
             report = temporary / 'download-path.txt'
             report.unlink(missing_ok=True)
-            opts = ['-f', 'bestaudio/best', '--no-write-subs', '--no-write-auto-subs', '--print-to-file', 'after_move:filepath', str(report), '-o', str(temporary / 'source.%(ext)s'), '--', source_arg]
-            try:
-                command(dl + opts, folder / 'run.log')
-            except RuntimeError:
-                report.unlink(missing_ok=True)
-                command(downloader(update=True) + opts, folder / 'run.log')
+            # Different formats must not resume one another's partial downloads.
+            opts = selection + ['--no-write-subs', '--no-write-auto-subs', '--print-to-file', 'after_move:filepath', str(report), '-o', str(temporary / 'source.%(format_id)s.%(ext)s'), '--', source_arg]
+            command(dl + opts, folder / 'run.log')
             downloaded = Path(report.read_text().strip().splitlines()[-1]).resolve()
             if downloaded.parent != temporary.resolve() or not downloaded.is_file():
                 raise RuntimeError('Download did not produce the expected source file.')
@@ -386,6 +385,7 @@ def main():
     parser.add_argument('--mp3', action='store_true', help='Also export MP3, if source is not already MP3')
     parser.add_argument('--rerun', action='store_true', help='Rerun recognition using retained source audio')
     parser.add_argument('--refresh-source', action='store_true', help='Fetch URL audio again, then check/recompute recognition')
+    parser.add_argument('--audio-format', help='Select a verified yt-dlp audio format for this URL; implies --refresh-source')
     args = parser.parse_args()
     try:
         execute(args)

@@ -209,6 +209,7 @@ def main():
             raw = json.loads(args.metadata.read_text(encoding='utf-8'))
         elif kind == 'url':
             raw = run([tool('yt-dlp'), '--ignore-config', '--no-cache-dir', '--no-playlist',
+                       '--js-runtimes', 'node',
                        '--no-progress', '--skip-download', '--dump-single-json', '--retries', '3',
                        '--extractor-retries', '3', '--', source_location])
         else:

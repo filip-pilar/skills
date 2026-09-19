@@ -7,6 +7,39 @@ installed Visualize skill when presenting them; do not install a plugin silently
 The HTML does not fetch metadata, embed a remote player, browse folders, or run a
 download. Its button asks the agent to execute the selected configuration.
 
+## Setup
+
+Check the executables actually used by this task before first use: Python,
+FFmpeg/ffprobe, and yt-dlp for URLs. Reuse working tools and help install missing
+dependencies through the host's normal permission mechanism; do not stop at a
+missing-tool error. On a Mac with Homebrew, `brew install ffmpeg` supplies both
+media utilities. They are executables, not the similarly named Python packages.
+
+For missing or outdated yt-dlp, use an isolated environment owned by this skill,
+such as `~/Library/Caches/codex-download-media/yt-dlp`, created with `python3 -m venv`.
+Install with that environment's Python: `-m pip install -U --pre 'yt-dlp[default]'`.
+This includes the matching EJS challenge solver and follows yt-dlp's recommended
+nightly channel. Reuse a working installation; do not upgrade on every request or
+modify another skill's environment or global tools to fix this skill. Put its
+`bin` directory on this process's PATH, or extract metadata with its executable
+and pass `--metadata` to the helper. Use the same environment for downloading.
+
+YouTube also needs a supported JavaScript runtime. Reuse compatible Deno or Node;
+if neither is available, install Deno (on Homebrew, `brew install deno`). Deno is
+enabled by yt-dlp by default. The helper also enables Node with `--js-runtimes node`;
+use that option for agent-run commands when relying on Node. Do not rely on a
+global yt-dlp configuration: this skill ignores it. Check runtime versions and
+matching EJS components against the [official setup guide](https://github.com/yt-dlp/yt-dlp/wiki/EJS).
+For a new or changed environment, inspect verbose diagnostics during the first
+metadata extraction, resolve setup warnings, and reuse that metadata for the panel.
+Skip downloader setup for local files.
+
+Keep yt-dlp's default player clients. Do not pin client lists, import browser
+cookies, or install token-provider plugins as routine setup. Its
+[update guidance](https://github.com/yt-dlp/yt-dlp#update) and
+[YouTube guidance](https://github.com/yt-dlp/yt-dlp/wiki/Extractors#youtube) own these
+changing details; consult them when the installed setup or diagnostics need it.
+
 ## Preparation inputs
 
 `scripts/prepare.py` accepts a URL or an explicitly supplied local media path.
@@ -46,33 +79,28 @@ access through the agent instead. Keep authentication material out of widget sta
 
 ## Failures
 
-If dependencies are missing, use an existing environment first. A task-local or
-user-cache virtual environment can isolate yt-dlp setup when installation is
-authorized; do not modify another skill's runtime or global tool versions.
-FFmpeg is a system executable, not the similarly named Python package. Some sites
-also need a JavaScript runtime supported by the installed yt-dlp version.
+Use bounded network retries (`--retries 3 --fragment-retries 3 --extractor-retries 3`)
+and `--abort-on-unavailable-fragments` so missing segments cannot silently produce
+an incomplete recording. A 403 is a symptom, not a diagnosis. Inspect the actual
+error and relevant diagnostics before choosing a recovery action. Fix missing
+runtime/EJS components, update a stale isolated downloader, or refresh expired
+metadata when the evidence supports it. Do not update and repeat every failed
+command automatically. Metadata success does not establish media access, and
+missing duration/stream details need inspection before rendering the panel.
 
-For extractor failures, inspect the concise error and the installed tool's help.
-Unknown duration or missing stream details need further inspection before rendering
-an accurate timeline. Successful metadata extraction does not establish media access.
+If a particular stream or download method is blocked, choose a viable alternative
+from fresh metadata while preserving requested quality, timing, and original audio.
+The requested output codec/container need not match the downloaded source; FFmpeg
+can convert it. Do not hard-code format IDs or routinely rotate player clients.
+For YouTube token diagnostics, consult the current
+[PO Token guide](https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide): these tokens are
+separate from JavaScript challenge solving. Do not infer missing tokens or login
+from 403 alone. Stop on DRM or explicit access requirements; use account cookies
+only for user-directed authentication when actually needed.
 
-For media HTTP 403, make at most two recovery attempts after the initial failure,
-each addressing a plausible cause; do not repeatedly run the same blocked command.
-Check the version and required JavaScript runtime/components. Prefer a newer
-existing environment; update an isolated installation only when authorized. Refresh
-metadata and format choices before retrying if the tool or stream URLs changed.
-
-If direct media URLs remain blocked, inspect fresh metadata for another available
-delivery method, such as YouTube's HLS streams. Choose compatible streams at the
-requested resolution with the original audio; do not hard-code format IDs, lower
-resolution, or switch to a dub. HLS audio metadata can omit its codec: inspect the
-actual stream and verify the requested output codecs. For a short recording, a
-normal yt-dlp download followed by local trimming can also be reasonable when only
-FFmpeg's section-download path fails. Choose the relevant fallback within the same
-two-attempt budget. Do not promise that every 403 is recoverable.
-
-Stop on explicit login, DRM, or other access requirements. Do not import browser
-cookies automatically or interpret 403 alone as proof that login is required.
+Make at most two targeted recovery attempts after the initial failure, each based
+on new evidence or a concrete correction. This is a limit, not a sequence to run
+for every error. If nothing relevant can change, stop instead of cycling commands.
 
 Keep quick recovery quiet. If it takes extra time, say what is happening plainly,
 for example: “The first download method was blocked. I’m trying another.” On

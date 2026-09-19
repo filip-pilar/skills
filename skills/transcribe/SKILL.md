@@ -9,6 +9,8 @@ Deliver transcription only: a durable `transcript.md` with readable paragraphs a
 
 Once the recording is unambiguous, proceed with the defaults through delivery. Resolve routine choices without another planning or confirmation round; ask when missing input prevents correct execution.
 
+Before first use, follow the [setup guidance](references/runtime.md#setup) and resolve missing dependencies within the request and host permissions. Reuse a verified environment; check YouTube's JavaScript support before a fresh URL download. Local files and verified retained audio do not need downloader setup.
+
 Run the bundled helper from this skill's directory, or use its absolute path elsewhere:
 
 ```sh

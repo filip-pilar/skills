@@ -140,8 +140,8 @@ Review a skill and its bundled scripts before installing it. Pay particular atte
 | `codex-skill-usage-analytics` | An authenticated local Codex installation; performs credential-safe GET requests to undocumented ChatGPT analytics endpoints that may change. |
 | `gitprep` | Git and repository access; bare invocation plans only. Approved commits proceed within existing authority; publication is a separate request. |
 | `skill-builder` | Python and PyYAML for bundled validation scripts. |
-| `download-media` | Local shell, Python 3.10+, yt-dlp, and FFmpeg/ffprobe; Visualize for inline controls, with text fallback. Saves only selected media to Downloads. |
-| `transcribe` | Apple Silicon, macOS 14+, Python 3.10+, ffmpeg, and Swift 6.2+ for the first build; model weights and URL downloads need initial network access. |
+| `download-media` | Local shell, Python 3.10+, yt-dlp, and FFmpeg/ffprobe; supported JavaScript runtime and EJS for YouTube. Helps set up missing tools. Visualize for inline controls, with text fallback. Saves only selected media to Downloads. |
+| `transcribe` | Apple Silicon, macOS 14+, Python 3.10+, ffmpeg, and Swift 6.2+ for the first build; supported JavaScript runtime and EJS for YouTube. Helps set up missing tools; model weights and URL downloads need initial network access. |
 | `sidekick`, `reply`, `supervise` | Codex Side, an exact linked parent task, and manual invocation. |
 | `web-traffic-inspector` | Browser or Chrome control (or `agent-browser`), Python 3, and Node.js; undocumented website mechanisms may change. |
 
