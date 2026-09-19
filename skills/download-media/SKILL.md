@@ -37,14 +37,19 @@ is plain text. No URL input, destination selector, filename preview, size estima
 selected-duration label, or “Full length” button. Audio-only disables the resolution
 control in place. Menus and confirmations overlay rather than move the layout.
 
-The Download button submits all selected values through a follow-up message;
-saved widget state alone never authorizes a download. With no interactive surface,
-present the resolved settings briefly in text. Execute immediately when the user
-explicitly asks to skip the panel/use defaults.
+Present the panel as the configuration step, with a brief line about the selection:
+“Your 10–17 second MP4 selection is ready below.” Keep internal workflow rules out
+of routine user-facing copy; the panel is not a permissions or error screen.
+
+The Download button sends a readable request containing the source, clip ranges,
+and shared output settings. Saved widget state is best-effort UI state, not a
+download request. With no interactive surface, present the resolved settings
+briefly in text. Execute immediately when the user explicitly asks to skip the
+panel/use defaults.
 
 ## Download
 
-A confirmed configuration from this panel continues this skill directly; do not
+A submitted selection from this panel continues this skill directly; do not
 reopen the panel or ask for another routine confirmation. Follow
 [download and reuse rules](references/download.md) for accurate clipping, explicit
 codecs, filenames, collision handling, and reuse. Astra chooses the commands;
