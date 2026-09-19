@@ -111,6 +111,6 @@ Offer a later retry or a local source file when appropriate; do not ask for an
 upload before trying available recovery. Include the HTTP code when useful, but
 keep signed URLs, raw logs, and unverified claims about bans out of the response.
 
-Reinspect a changed source; if showing controls, regenerate them from its metadata.
+For a changed source, inspect it and generate a new card from its metadata.
 Rendered options are a snapshot, so refresh expired stream metadata at download
 time without silently changing the user's requested output.
