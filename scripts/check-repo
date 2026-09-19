@@ -130,5 +130,6 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$skills_dir/skill-usa
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$skills_dir/web-traffic-inspector/tests" -p 'test_scaffold_prototype.py'
 
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$skills_dir/transcribe/tests" -p 'test_*.py'
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$skills_dir/download-media/tests" -p 'test_*.py'
 
 printf 'repository_check=passed skills=%s\n' "${#skill_files[@]}"

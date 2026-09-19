@@ -1,0 +1,6 @@
+interface:
+  display_name: "Download Media"
+  short_description: "Choose and download video or audio clips"
+  default_prompt: "Use $download-media to prepare this source for downloading, with the requested clip ranges and output settings."
+policy:
+  allow_implicit_invocation: false

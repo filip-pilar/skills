@@ -28,10 +28,11 @@ npx skills add filip-pilar/skills --list
 | [`skill-usage-auditor`](skills/skill-usage-auditor/) | Auditing one custom skill against its contract using version-pinned local Codex task evidence. |
 | [`skill-builder`](skills/skill-builder/) | Creating, diagnosing, improving, evaluating, and releasing skills with explicit evidence and authority boundaries. |
 
-### Audio
+### Media
 
 | Skill | Best for |
 | --- | --- |
+| [`download-media`](skills/download-media/) | Choosing and downloading whole recordings or multiple video/audio clips through compact interactive controls; manual invocation only. |
 | [`transcribe`](skills/transcribe/) | Transcribing English recording URLs and local audio/video into durable Markdown on Apple Silicon, with optional speaker labels. |
 
 ### Engineering and integration
@@ -130,7 +131,7 @@ The current CLI does not update installs whose recorded source is a local path. 
 
 ## Compatibility and safety
 
-The supported runtime is GPT-6 Astra in Codex. Transcribe also supports ChatGPT Work Local when it has access to the Apple Silicon Mac shell; its native pipeline is validated on macOS. Packages use Agent Skills conventions, but other models and agents are outside the supported development and validation scope. Side workflows additionally require linked-parent support; each `SKILL.md` owns its runtime contract. Select GPT-6 Astra in the host: installing a skill does not select or enforce a model.
+The supported runtime is GPT-6 Astra in Codex. Download Media and Transcribe also support ChatGPT Work Local with local shell access; Transcribe requires an Apple Silicon Mac and its native pipeline is validated on macOS. Packages use Agent Skills conventions, but other models and agents are outside the supported development and validation scope. Side workflows additionally require linked-parent support; each `SKILL.md` owns its runtime contract. Select GPT-6 Astra in the host: installing a skill does not select or enforce a model.
 
 Review a skill and its bundled scripts before installing it. Pay particular attention to workflows that can access repositories, browsers, messages, credentials, external services, or global configuration.
 
@@ -139,6 +140,7 @@ Review a skill and its bundled scripts before installing it. Pay particular atte
 | `codex-skill-usage-analytics` | An authenticated local Codex installation; performs credential-safe GET requests to undocumented ChatGPT analytics endpoints that may change. |
 | `gitprep` | Git and repository access; bare invocation plans only. Approved commits proceed within existing authority; publication is a separate request. |
 | `skill-builder` | Python and PyYAML for bundled validation scripts. |
+| `download-media` | Local shell, Python 3.10+, yt-dlp, and FFmpeg/ffprobe; Visualize for inline controls, with text fallback. Saves only selected media to Downloads. |
 | `transcribe` | Apple Silicon, macOS 14+, Python 3.10+, ffmpeg, and Swift 6.2+ for the first build; model weights and URL downloads need initial network access. |
 | `sidekick`, `reply`, `supervise` | Codex Side, an exact linked parent task, and manual invocation. |
 | `web-traffic-inspector` | Browser or Chrome control (or `agent-browser`), Python 3, and Node.js; undocumented website mechanisms may change. |
