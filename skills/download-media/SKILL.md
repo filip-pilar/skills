@@ -14,7 +14,16 @@ Before first use, follow the [setup guidance](references/runtime.md#setup) and
 resolve missing dependencies within the request and host permissions. Reuse a
 verified environment; check YouTube's JavaScript support before fetching options.
 
-## Configure
+## Choose the interaction
+
+Offer the compact download card by default as an editable interface. It is
+optional: the user's download request already authorizes the requested work.
+This skill adds no approval requirement or mandatory checkpoint. A resolved
+download request can run directly; the user need not say “skip the panel”.
+Use the card when it helps the user choose or adjust settings, or they ask for it.
+A Download-button submission executes immediately using its selected values.
+
+## Prepare the card
 
 Interpret the user's wording into source, whole-second in/out ranges, content,
 resolution, and format. For example, “50s to 1 minute 20, sound only” means an
@@ -41,15 +50,16 @@ is plain text. No URL input, destination selector, filename preview, size estima
 selected-duration label, or “Full length” button. Audio-only disables the resolution
 control in place. Menus and confirmations overlay rather than move the layout.
 
-Present the panel as the configuration step, with a brief line about the selection:
-“Your 10–17 second MP4 selection is ready below.” Keep internal workflow rules out
-of routine user-facing copy; the panel is not a permissions or error screen.
+When presenting a card, the complete response is one short introduction followed
+by the inline controls. For example: “Your 10–17 second MP4 selection is ready below.”
+The button already labels the next action; omit a trailing explanation or repeated
+click instruction. Discuss the user's media and settings, not skill mechanics.
 
 The Download button sends a readable request containing the source, clip ranges,
 and shared output settings. Saved widget state is best-effort UI state, not a
-download request. With no interactive surface, present the resolved settings
-briefly in text. Execute immediately when the user explicitly asks to skip the
-panel/use defaults.
+download request. With no interactive surface, use the requested settings and
+defaults to execute directly; ask only if missing information prevents a correct
+download. Explicit requests to download now or use defaults also execute directly.
 
 ## Download
 
