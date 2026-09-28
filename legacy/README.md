@@ -21,9 +21,11 @@ no replacement is designated:
 | `setup-cli-proxy-gateway` | [Package](skills/setup-cli-proxy-gateway/) |
 | `socket-audit` | [Package](skills/socket-audit/) |
 
-TLDR was also archived on 2026-09-05. Use
-[`Sidekick`](../skills/sidekick/) for concise parent-task discussion; its historical
-package is preserved at [`skills/tldr/`](skills/tldr/).
+The former Side-task TLDR was also archived on 2026-09-05. Use
+[`Sidekick`](../skills/sidekick/) for concise parent-task discussion; that
+historical package is preserved at [`skills/tldr/`](skills/tldr/). The current
+[`tldr`](../skills/tldr/) is a different skill for explaining a message with
+generated image cards.
 
 These copies are historical source material, not supported or distributable
 public skills. They intentionally keep their original names, metadata, tests,
