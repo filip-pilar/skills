@@ -12,7 +12,6 @@ Reusable workflows for GPT-6 Astra in Codex: cleaner commits, sharper decisions,
 | --- | --- |
 | [`devils-advocate`](skills/devils-advocate/) | Pressure-testing a plan, decision, argument, or piece of research without inventing objections. |
 | [`gitprep`](skills/gitprep/) | Inspecting repository and publication state, planning coherent commits, and creating only approved commits. |
-| [`product-vision-to-prd`](skills/product-vision-to-prd/) | Developing a broad product vision through one adaptive interview into a persistent, product-focused PRD. |
 
 ### Media
 

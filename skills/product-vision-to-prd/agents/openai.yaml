@@ -1,7 +1,0 @@
-interface:
-  display_name: "Product Vision to PRD"
-  short_description: "Turn a product vision into a persistent PRD"
-  default_prompt: "Use $product-vision-to-prd to develop this product vision into a complete Markdown PRD, asking only about consequential gaps."
-
-policy:
-  allow_implicit_invocation: false
