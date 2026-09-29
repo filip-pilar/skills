@@ -1,7 +1,7 @@
 interface:
   display_name: "Devil’s Advocate"
   short_description: "Pressure-test ideas without empty contrarianism"
-  default_prompt: "Use $devils-advocate to take the strongest realistic opposing position, pressure-test this proposal, and deliver a candid verdict."
+  default_prompt: "Use $devils-advocate to pressure-test this proposal and give a candid, evidence-based verdict."
 
 policy:
   allow_implicit_invocation: false

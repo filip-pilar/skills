@@ -1,0 +1,7 @@
+interface:
+  display_name: "Codex Skill Analytics"
+  short_description: "Show skill usage, recency, and installation sources"
+  default_prompt: "Use $codex-skill-analytics to show which skills I use and how often."
+
+policy:
+  allow_implicit_invocation: false

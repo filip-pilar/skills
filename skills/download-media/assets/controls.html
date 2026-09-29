@@ -11,22 +11,6 @@
 #clip-set button:disabled,#clip-set select:disabled {cursor:default;opacity:.5;}
 #clip-set .output {display:grid;grid-template-columns:minmax(0,1.15fr) 88px minmax(0,1.2fr) 162px;gap:8px;align-items:end;}
 #clip-set .output .field {display:grid;gap:4px;min-width:0;}
-#clip-set .picker {display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:6px 12px;text-align:left;}
-#clip-set .picker-value {overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-#clip-set .chevron {display:block;width:6px;height:6px;flex:none;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:translateY(-2px) rotate(45deg);opacity:.65;margin-right:1px;}
-#clip-set .picker[aria-expanded=true] .chevron {transform:translateY(2px) rotate(225deg);}
-#clip-set .popover {position:absolute;z-index:5;padding:5px;background:light-dark(#fff,#2b2d32);border:1px solid var(--clip-line);border-radius:9px;box-shadow:0 5px 18px light-dark(#1f24301a,#00000055);}
-#clip-set .popover[hidden] {display:none!important;}
-#clip-set .menu-option {display:flex;align-items:center;justify-content:space-between;gap:15px;width:100%;text-align:left;border:0;background:transparent;padding:7px 10px;height:34px;border-radius:5px;}
-#clip-set .menu-option:hover,#clip-set .menu-option:focus-visible {background:light-dark(#eef0f3,#3e424b);}
-#clip-set .menu-option[aria-checked=true] {font-weight:500;background:light-dark(#f1f2f5,#383c44);}
-#clip-set .menu-option+.menu-option {margin-top:2px;}
-#clip-set #cs-menu[data-kind=resolution] {display:grid;grid-template-columns:repeat(3,1fr);gap:3px;}
-#clip-set #cs-menu[data-kind=resolution] .menu-option {justify-content:center;margin:0;}
-#clip-set .confirm-title {font-weight:500;margin:5px 6px 10px;}
-#clip-set .confirm-actions {display:flex;justify-content:flex-end;gap:6px;padding:0 3px 3px;}
-#clip-set .confirm-actions button {height:30px;padding:4px 10px;font-size:12px;}
-#clip-set #cs-confirm-remove {background:light-dark(#27292e,#ededee);color:light-dark(#fff,#222327);border-color:transparent;}
 #clip-set #cs-submit {width:100%;background:light-dark(#27292e,#ededee);color:light-dark(#fff,#222327);border-color:transparent;font-weight:500;}
 #clip-set .clipbar {display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:14px;border-bottom:1px solid var(--clip-line);}
 #clip-set #cs-tabs {display:contents;}
@@ -64,9 +48,9 @@
 <div class="shell">
  <div class="heading"><span id="cs-title"></span></div>
  <div class="output" role="group" aria-label="Output settings shared by all clips">
-  <div class="field"><span class="muted" id="cs-content-label">Content · all clips</span><button type="button" class="picker" id="cs-content" aria-haspopup="menu" aria-expanded="false" aria-controls="cs-menu" aria-labelledby="cs-content-label cs-content-value"><span class="picker-value" id="cs-content-value">Video + audio</span><span class="chevron" aria-hidden="true"></span></button></div>
-  <div class="field"><span class="muted" id="cs-resolution-label">Resolution</span><button type="button" class="picker" id="cs-resolution" aria-haspopup="menu" aria-expanded="false" aria-controls="cs-menu" aria-labelledby="cs-resolution-label cs-resolution-value"><span class="picker-value" id="cs-resolution-value">1080p</span><span class="chevron" aria-hidden="true"></span></button></div>
-  <div class="field"><span class="muted" id="cs-format-label">Format</span><button type="button" class="picker" id="cs-format" aria-haspopup="menu" aria-expanded="false" aria-controls="cs-menu" aria-labelledby="cs-format-label cs-format-value"><span class="picker-value" id="cs-format-value">MP4 · H.264</span><span class="chevron" aria-hidden="true"></span></button></div>
+  <div class="field"><label class="muted" for="cs-content">Content · all clips</label><select id="cs-content"></select></div>
+  <div class="field"><label class="muted" for="cs-resolution">Resolution</label><select id="cs-resolution"></select></div>
+  <div class="field"><label class="muted" for="cs-format">Format</label><select id="cs-format"></select></div>
   <button type="button" id="cs-submit">Download clip</button>
  </div>
  <div class="clipbar" role="group" aria-label="Clips"><div id="cs-tabs"></div><button type="button" class="text-action" id="cs-add">+ Add clip</button></div>
@@ -81,8 +65,6 @@
  </div>
  <div class="ticks muted" id="cs-ticks" aria-hidden="true"></div>
  <div id="cs-status" role="status" aria-live="polite"></div>
- <div id="cs-menu" class="popover" role="menu" hidden></div>
- <div id="cs-confirm" class="popover" role="dialog" aria-labelledby="cs-confirm-title" hidden><div class="confirm-title" id="cs-confirm-title"></div><div class="confirm-actions"><button type="button" id="cs-confirm-cancel">Cancel</button><button type="button" id="cs-confirm-remove">Remove</button></div></div>
 </div>
 <script>
 (()=>{
@@ -92,8 +74,6 @@
  const audioFormats=source.audio_formats;
  let state=JSON.parse(JSON.stringify(source.initial));
  let pending=false;
- let menuKind=null,removeId=null,popoverAnchor=null;
- const pickerOptions={};
  const round=n=>Math.round(n);
  const stamp=n=>{const seconds=Math.round(n);return String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');};
  const parse=s=>{const parts=s.trim().split(':');return parts.length<=3&&parts.every((v,i)=>/^\d+$/.test(v)&&(i===0||Number(v)<60))?parts.reduce((n,v)=>n*60+Number(v),0):NaN;};
@@ -104,27 +84,15 @@
  const validClip=c=>c&&Number.isFinite(c.start)&&Number.isFinite(c.end)&&c.start>=0&&c.end<=source.duration&&c.end>c.start;
  function restore(saved){
   if(saved?.source!==source.key)return;
-  if(saved.version===3&&validClip(saved.settings)){const s=saved.settings,start=Math.min(source.duration-1,round(s.start));state.clips=[{id:1,start,end:Math.max(start+1,round(s.end))}];state.content=['audio','video','video-audio'].includes(s.content)?s.content:'video-audio';state.resolution=s.resolution||1080;state[formatKey()]=s.format;return;}
   const s=saved.settings;
   if(saved.version!==4||!s||!Array.isArray(s.clips)||!s.clips.length||!s.clips.every(c=>validClip(c)&&Number.isInteger(c.id)&&c.id>0)||new Set(s.clips.map(c=>c.id)).size!==s.clips.length||!source.available_content.includes(s.content))return;
   state={clips:s.clips.map(c=>{const start=Math.min(source.duration-1,round(c.start));return {id:c.id,start,end:Math.max(start+1,round(c.end))};}),active:s.clips.some(c=>c.id===s.active)?s.active:s.clips[0].id,nextId:Math.max(...s.clips.map(c=>c.id))+1,content:s.content,resolution:s.resolution,videoFormat:s.videoFormat,audioFormat:s.audioFormat};
  }
  restore(window.openai?.widgetState?.modelContent);
  function save(){window.openai?.setWidgetState?.({modelContent:{version:4,source:source.key,settings:state},privateContent:null}).catch(()=>{});}
- function fill(button,options,value){pickerOptions[button.id.slice(3)]=options.map(([v,t])=>[String(v),t]);button.value=String(value);el(button.id.slice(3)+'-value').textContent=options.find(([v])=>String(v)===String(value))?.[1]||'—';}
- function closePopover(focus=false){const anchor=popoverAnchor;el('menu').hidden=true;el('confirm').hidden=true;for(const key of ['content','resolution','format'])el(key).setAttribute('aria-expanded','false');menuKind=null;removeId=null;popoverAnchor=null;if(focus&&anchor?.isConnected)anchor.focus();}
- function positionPopover(pop,anchor,width){
-  const shell=root.querySelector('.shell'),s=shell.getBoundingClientRect(),a=anchor.getBoundingClientRect();
-  pop.style.width=Math.min(width,s.width-16)+'px';pop.hidden=false;
-  const p=pop.getBoundingClientRect();let top=a.bottom-s.top+5;if(top+p.height>s.height-7)top=a.top-s.top-p.height-5;
-  pop.style.left=Math.max(7,Math.min(a.left-s.left,s.width-p.width-8))+'px';pop.style.top=Math.max(7,top)+'px';
- }
- function openMenu(key){
-  if(el(key).disabled)return;
-  if(menuKind===key){closePopover(true);return;}closePopover();menuKind=key;popoverAnchor=el(key);el(key).setAttribute('aria-expanded','true');
-  const menu=el('menu');menu.dataset.kind=key;menu.setAttribute('aria-labelledby','cs-'+key+'-label');
-  menu.replaceChildren(...pickerOptions[key].map(([value,label])=>{const b=document.createElement('button');b.type='button';b.className='menu-option';b.dataset.value=value;b.setAttribute('role','menuitemradio');b.setAttribute('aria-checked',String(value===el(key).value));const text=document.createElement('span');text.textContent=label;b.append(text);if(key!=='resolution'){const check=document.createElement('span');check.textContent=value===el(key).value?'✓':'';check.setAttribute('aria-hidden','true');b.append(check);}return b;}));
-  positionPopover(menu,popoverAnchor,key==='resolution'?255:Math.max(190,popoverAnchor.getBoundingClientRect().width));menu.querySelector('[aria-checked=true]')?.focus();
+ function fill(select,options,value){
+  select.replaceChildren(...options.map(([v,label])=>{const option=document.createElement('option');option.value=String(v);option.textContent=label;return option;}));
+  select.value=String(value);
  }
  function renderTabs(){
   const ids=state.clips.map(c=>c.id).join(',');
@@ -157,30 +125,31 @@
  function readTimes(){const start=parse(el('in').value),end=parse(el('out').value);if(!validClip({start,end})){el('status').textContent='Use whole seconds with In before Out, within 00:00–'+stamp(source.duration)+'.';return false;}active().start=start;active().end=end;clear();return true;}
  for(const key of ['in','out'])el(key).addEventListener('change',()=>{if(readTimes()){render();save();}});
  for(const key of ['content','format','resolution']){
-  el(key).addEventListener('click',()=>openMenu(key));
-  el(key).addEventListener('keydown',e=>{if(['ArrowDown','ArrowUp'].includes(e.key)){e.preventDefault();openMenu(key);}});
+  el(key).addEventListener('change',()=>{
+   const value=el(key).value;
+   if(!readTimes()){render();return;}
+   if(key==='content')state.content=value;
+   else if(key==='format')state[formatKey()]=value;
+   else state.resolution=Number(value);
+   render();save();
+  });
  }
- el('menu').addEventListener('click',e=>{const b=e.target.closest('.menu-option');if(!b)return;const key=menuKind,value=b.dataset.value;closePopover(true);if(!readTimes())return;if(key==='content')state.content=value;else if(key==='format')state[formatKey()]=value;else state.resolution=Number(value);render();save();});
- el('menu').addEventListener('keydown',e=>{const buttons=[...el('menu').querySelectorAll('button')],index=buttons.indexOf(document.activeElement);if(['ArrowDown','ArrowUp','ArrowLeft','ArrowRight','Home','End'].includes(e.key)){e.preventDefault();const next=e.key==='Home'?0:e.key==='End'?buttons.length-1:(index+(['ArrowUp','ArrowLeft'].includes(e.key)?-1:1)+buttons.length)%buttons.length;buttons[next].focus();}else if(e.key==='Tab')closePopover(true);});
- root.addEventListener('keydown',e=>{if(e.key==='Escape'&&(menuKind||removeId!==null)){e.preventDefault();closePopover(true);}});
- document.addEventListener('pointerdown',e=>{if((menuKind||removeId!==null)&&!e.target.closest('#cs-menu,#cs-confirm')&&e.target!==popoverAnchor&&!popoverAnchor?.contains(e.target))closePopover();});
- window.addEventListener('resize',()=>closePopover());
  el('tabs').addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;
   const id=Number(b.dataset.id);
   if(b.dataset.action==='remove'){
    if(state.clips.length===1||(id!==state.active&&!readTimes()))return;
-   closePopover();removeId=id;popoverAnchor=b;el('confirm-title').textContent='Remove Clip '+(state.clips.findIndex(c=>c.id===id)+1)+'?';positionPopover(el('confirm'),b,194);el('confirm-cancel').focus();return;
+   const index=state.clips.findIndex(c=>c.id===id);
+   state.clips.splice(index,1);
+   if(state.active===id)state.active=state.clips[Math.min(index,state.clips.length-1)].id;
+   clear();render();save();el('tabs').querySelector('[aria-pressed=true]').focus();return;
   }
   if(!readTimes())return;state.active=id;render();save();
  });
  el('add').addEventListener('click',()=>{
   if(!readTimes())return;
-  closePopover();const c={id:state.nextId++,start:0,end:source.duration};state.clips.push(c);state.active=c.id;render();save();el('in').focus();
+  const c={id:state.nextId++,start:0,end:source.duration};state.clips.push(c);state.active=c.id;render();save();el('in').focus();
  });
- el('confirm-cancel').addEventListener('click',()=>closePopover(true));
- el('confirm-remove').addEventListener('click',()=>{const id=removeId;closePopover();const i=state.clips.findIndex(c=>c.id===id);if(i<0||state.clips.length===1)return;state.clips.splice(i,1);if(state.active===id)state.active=state.clips[Math.min(i,state.clips.length-1)].id;clear();render();save();el('tabs').querySelector('[aria-pressed=true]').focus();});
- el('confirm').addEventListener('keydown',e=>{if(e.key==='Tab'&&((!e.shiftKey&&document.activeElement===el('confirm-remove'))||(e.shiftKey&&document.activeElement===el('confirm-cancel')))){e.preventDefault();(e.shiftKey?el('confirm-remove'):el('confirm-cancel')).focus();}});
  el('start-slider').addEventListener('input',()=>{active().start=round(Math.max(0,Math.min(Number(el('start-slider').value),active().end-1)));clear();render();});
  el('end-slider').addEventListener('input',()=>{active().end=round(Math.min(source.duration,Math.max(Number(el('end-slider').value),active().start+1)));clear();render();});
  for(const k of ['start-slider','end-slider'])el(k).addEventListener('change',save);
@@ -204,7 +173,7 @@
  const step=[1,5,10,15,30,60,120,300,600,1800,3600].find(n=>source.duration/n<=5)||Math.ceil(source.duration/5);
  const marks=[0];for(let n=step;n<source.duration-step*.5;n+=step)marks.push(n);marks.push(source.duration);
  el('ticks').replaceChildren(...marks.map(time=>{const tick=document.createElement('span');tick.className='tick';tick.textContent=stamp(time).replace(/^0/,'');tick.style.left=(100*time/source.duration)+'%';return tick;}));
- window.addEventListener('openai:set_globals',e=>{if(e.detail?.globals?.widgetState){closePopover();restore(e.detail.globals.widgetState.modelContent);render();}});
+ window.addEventListener('openai:set_globals',e=>{if(e.detail?.globals?.widgetState){restore(e.detail.globals.widgetState.modelContent);render();}});
  render();
 })();
 </script>

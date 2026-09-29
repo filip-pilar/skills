@@ -1,20 +1,8 @@
 # Agent Skills
 
-Reusable workflows for GPT-6 Astra in Codex: cleaner commits, sharper decisions, browser-traffic inspection, Codex Side coordination, and structured UK Global Talent guidance.
-
-```bash
-npx skills add filip-pilar/skills --list
-```
+Reusable workflows for GPT-6 Astra in Codex: cleaner commits, sharper decisions, media tools, and browser-traffic inspection.
 
 [Browse the skills](#skills) · [Choose how to install](#install) · [Develop locally](#development)
-
-## Start here
-
-| If you want to… | Start with |
-| --- | --- |
-| Prepare a repository for a clean, intentional commit | [`gitprep`](skills/gitprep/) |
-| Create, diagnose, or refine an agent skill | [`skill-builder`](skills/skill-builder/) |
-| Orchestrate a Codex parent from Side | [`sidekick`](skills/sidekick/) → [`reply`](skills/reply/) → [`supervise`](skills/supervise/) |
 
 ## Skills
 
@@ -25,8 +13,6 @@ npx skills add filip-pilar/skills --list
 | [`devils-advocate`](skills/devils-advocate/) | Pressure-testing a plan, decision, argument, or piece of research without inventing objections. |
 | [`gitprep`](skills/gitprep/) | Inspecting repository and publication state, planning coherent commits, and creating only approved commits. |
 | [`product-vision-to-prd`](skills/product-vision-to-prd/) | Developing a broad product vision through one adaptive interview into a persistent, product-focused PRD. |
-| [`skill-usage-auditor`](skills/skill-usage-auditor/) | Auditing one custom skill against its contract using version-pinned local Codex task evidence. |
-| [`skill-builder`](skills/skill-builder/) | Creating, diagnosing, improving, evaluating, and releasing skills with explicit evidence and authority boundaries. |
 
 ### Media
 
@@ -40,39 +26,12 @@ npx skills add filip-pilar/skills --list
 
 | Skill | Best for |
 | --- | --- |
-| [`codex-skill-usage-analytics`](skills/codex-skill-usage-analytics/) | Cross-referencing current Codex skills with daily skill and plugin invocation analytics from the authenticated private ChatGPT backend. |
+| [`codex-skill-analytics`](skills/codex-skill-analytics/) | Cross-referencing current Codex skills with daily skill and plugin invocation analytics from the authenticated private ChatGPT backend. |
 | [`web-traffic-inspector`](skills/web-traffic-inspector/) | Inspecting browser traffic and building disposable HTML proof-prototypes for observed website actions. |
-
-### Codex Side companions
-
-These require Codex Side tasks and their linked-parent workflow. All three
-orchestration skills are manual-only. The usual sequence is below; Reply is
-optional when a clear, current parent-ready prompt already exists:
-
-1. **`$sidekick` — understand and discuss.**
-2. **`$reply` — draft the exact parent prompt without sending.**
-3. **`$supervise` — send, follow, verify, correct, and hand off accurately.**
-
-| Skill | Best for |
-| --- | --- |
-| [`sidekick`](skills/sidekick/) | Explaining what a linked parent completed, what remains, and any user-owned decision or next move. |
-| [`reply`](skills/reply/) | Turning settled Side discussion into one clear parent prompt in the user's voice without sending it. |
-| [`supervise`](skills/supervise/) | Selecting and sending the user's current intended parent prompt, following and verifying the work, continuing in-scope corrections, and preserving decision-critical meaning in the completion handoff. |
-| [`recover-side-thread`](skills/recover-side-thread/) | Finding and reconstructing an expired or closed Side chat from local Side-tab state and logs, supplemented by visible evidence, while refusing normal Codex tasks. |
-
-### UK Global Talent Visa
-
-| Skill | Best for |
-| --- | --- |
-| [`gtv-tech-eligibility`](skills/gtv-tech-eligibility/) | Assessing potential eligibility for the Digital Technology route and producing a reusable GTV Profile. |
-| [`gtv-tech-prepare`](skills/gtv-tech-prepare/) | Turning an assessed GTV Profile or equivalent context into factual document-planning material. |
-| [`gtv-tech-review`](skills/gtv-tech-review/) | Reviewing self-written application documents from constructive and skeptical perspectives. |
-
-These workflows are not legal advice and intentionally do not generate paste-ready application prose. Always verify current official eligibility, evidence, fees, timing, and authorship requirements.
 
 ## Archived skills
 
-Retired packages are preserved unchanged under [`legacy/skills/`](legacy/skills/).
+Archived packages live under [`legacy/skills/`](legacy/skills/).
 See the [archive catalogue](legacy/README.md) for the list; they are outside the
 supported public collection and its validation path.
 
@@ -108,7 +67,7 @@ npx skills add filip-pilar/skills \
   --agent codex
 ```
 
-Omit `--global` for a project-scoped install. The CLI may share one installed copy between agent destinations with symlinks; add `--copy` when you explicitly want independent copies. A local-path install targeting only one agent is currently copied, so use the development symlink below when you need edits to appear live.
+Omit `--global` for a project-scoped install. The CLI may share one installed copy between agent destinations with symlinks; add `--copy` when you explicitly want independent copies. Use the development symlink below when you need source edits to appear live.
 
 Be explicit about the selection: the current CLI may install every discovered skill when `--skill` is omitted.
 
@@ -116,9 +75,6 @@ Be explicit about the selection: the current CLI may install every discovered sk
 
 ### Updating
 
-For project installs, the CLI records source and content metadata in
-`skills-lock.json`. Global installs use `~/.agents/.skill-lock.json`, or
-`$XDG_STATE_HOME/skills/.skill-lock.json` when that environment variable is set.
 Refresh project or global installs with:
 
 ```bash
@@ -126,125 +82,71 @@ npx skills update --project
 npx skills update --global
 ```
 
-Pass a skill name to update only that skill, such as `npx skills update gitprep`. Review `skills-lock.json` before committing it to another project.
-
-The current CLI does not update installs whose recorded source is a local path. Re-run `skills add` to refresh a copied local install, or use a source symlink for live development.
+Pass a skill name to select it, such as `npx skills update --global gitprep`.
+For installer behavior and further options, use the
+[skills CLI documentation](https://github.com/vercel-labs/skills#skills-update).
 
 ## Compatibility and safety
 
-The supported runtime is GPT-6 Astra in Codex. Download Media and Transcribe also support ChatGPT Work Local with local shell access; Transcribe requires an Apple Silicon Mac and its native pipeline is validated on macOS. Packages use Agent Skills conventions, but other models and agents are outside the supported development and validation scope. Side workflows additionally require linked-parent support; each `SKILL.md` owns its runtime contract. Select GPT-6 Astra in the host: installing a skill does not select or enforce a model.
+The supported runtime is GPT-6 Astra in Codex. Download Media and Transcribe also support ChatGPT Work Local with local shell access; Transcribe requires an Apple Silicon Mac and its native pipeline is validated on macOS. Packages use Agent Skills conventions, but other models and agents are outside the supported development and validation scope. Each `SKILL.md` owns its runtime contract. Select GPT-6 Astra in the host: installing a skill does not select or enforce a model.
 
 Review a skill and its bundled scripts before installing it. Pay particular attention to workflows that can access repositories, browsers, messages, credentials, external services, or global configuration.
 
 | Skill | Additional requirements or effects |
 | --- | --- |
-| `codex-skill-usage-analytics` | An authenticated local Codex installation; performs credential-safe GET requests to undocumented ChatGPT analytics endpoints that may change. |
-| `gitprep` | Git and repository access; bare invocation plans only. Approved commits proceed within existing authority; publication is a separate request. |
-| `skill-builder` | Python and PyYAML for bundled validation scripts. |
+| `codex-skill-analytics` | Python 3.11+ and an authenticated local Codex installation; performs credential-safe GET requests to undocumented ChatGPT analytics endpoints that may change. |
+| `gitprep` | Git and repository access; bare invocation plans only. Commits and publication require authorization. |
 | `tldr` | Built-in image generation in Codex; generates one or more image cards when invoked. |
 | `download-media` | Local shell, Python 3.10+, yt-dlp, and FFmpeg/ffprobe; supported JavaScript runtime and EJS for YouTube. Helps set up missing tools. Visualize for inline controls, with text fallback. Saves only selected media to Downloads. |
 | `transcribe` | Apple Silicon, macOS 14+, Python 3.10+, ffmpeg, and Swift 6.2+ for the first build; supported JavaScript runtime and EJS for YouTube. Helps set up missing tools; model weights and URL downloads need initial network access. |
-| `sidekick`, `reply`, `supervise` | Codex Side, an exact linked parent task, and manual invocation. |
-| `web-traffic-inspector` | Browser or Chrome control (or `agent-browser`), Python 3, and Node.js; undocumented website mechanisms may change. |
+| `web-traffic-inspector` | Browser control and Python 3.10+; companions require Node.js 18+, and browser execution also requires `agent-browser`. |
 
 ## Development
 
-Every public skill lives at `skills/<skill-name>/SKILL.md`, with optional `agents/`, `assets/`, `references/`, `scripts/`, and `tests/` beside it.
-
-Start with the smallest package that delivers the behavior. References should hold
-substantial conditional knowledge; scripts should provide reliable execution; tests
-should protect meaningful failures. Routine instruction edits do not need a new
-template, test suite, or evaluation framework. Structural validation checks package
-integrity, not preferred editorial wording or model behavior.
-
-The analytics collector emits compact JSON for the selected view; `--details`
-includes full histories, inventory, and diagnostics. The usage auditor's JSON
-also omits diagnostic metadata unless `--details` is requested.
-
-Repository-specific agent guidance lives in [`AGENTS.md`](AGENTS.md). Install the
-pinned Python development dependency with:
-
-```bash
-python3 -m pip install --requirement requirements-dev.txt
-```
+Package layout and repository rules live in [`AGENTS.md`](AGENTS.md).
 
 ### Checks
 
-These tiers are the source of truth for maintainer validation. Choose by the change
-and reuse applicable results; do not run every tier for every edit. Documentation-only
-changes without runtime or package effects need content and relevant link/example
-review. Instruction changes can be reviewed against selected
-[behavioral scenarios](docs/skill-prompt-review-cases.md); passing structural tests
-does not demonstrate model behavior.
-
-The repository has focused iteration plus three deliberately separate validation layers:
+Use the smallest check relevant to the change and reuse its result:
 
 | Command | Purpose |
 | --- | --- |
-| `./scripts/check-skill <name>` | Validate one skill and run its deterministic Python and Node.js package tests. |
-| `./scripts/check-repo` | Fast, deterministic, network-free structure and regression checks. |
-| `./scripts/check-full` | Everything above plus credential-free browser-companion integration tests. |
-| `./scripts/check-release` | Full validation plus current `npx skills` discovery and release-state checks. |
+| `./scripts/check-repo` | Check skill names, catalogue, README links, and file hygiene. |
+| `./scripts/check-release` | Repository checks plus current `npx skills` discovery and release-state verification. |
 
-For each affected skill package, use the focused check. Also run the repository
-check for package, catalogue, or shared tooling changes:
+Documentation changes need content and link review. Package, catalogue, and shared
+tooling changes need `check-repo`, which uses Git and Python 3's standard library
+without credentials or external services.
 
-```bash
-./scripts/check-skill gitprep
-./scripts/check-repo
-```
+Check executable changes with targeted temporary fixtures. For skill behavior,
+rerun a representative workflow from the request, supplied files, or examples and
+inspect its outcome; usage counts do not establish quality. Keep evidence outside
+packages. Live-provider, OAuth, browser, installation, and publication checks need
+applicable authorization.
 
-The focused command excludes integration and live-provider tests. For Web Traffic
-Inspector it runs scaffold tests only; companion integration belongs to `check-full`,
-even when `WTI_AGENT_BROWSER_INTEGRATION` is set in the environment.
-
-The repository check requires Git, Python 3 with PyYAML, and Node.js. It validates public skills, catalogue completeness,
-bundled-resource references, tracked-file hygiene, README links, maintainer
-commands, and fast deterministic tests.
-
-For substantial integration changes, run:
-
-```bash
-./scripts/check-full
-```
-
-For a release, additionally run:
-
-```bash
-./scripts/check-release
-```
-
-The deeper checks start disposable loopback servers and run the companion
-integration suite. Individual browser tests remain opt-in and may be skipped;
-unittest reports their skip count. The final summary counts executed suites,
-not individual tests. `check-full --strict` remains accepted for compatibility
-and does not enable browser tests.
-
-`check-release` uses the current `npx skills` CLI and therefore requires network access. It requires a clean worktree by default; use `--allow-dirty` only to rehearse it locally. After pushing, verify that public discovery matches and GitHub's default branch is at the local commit:
+`check-release` uses the current `npx skills` CLI and requires network access and a
+clean worktree; use `--allow-dirty` only for local rehearsal. After an authorized
+push, verify public discovery and the default branch against the local commit:
 
 ```bash
 ./scripts/check-release --remote filip-pilar/skills
 ```
 
-Live-provider tests, OAuth flows, and browser-enabled `agent-browser` tests remain explicit manual checks because they require credentials, permissions, or external state.
-
 ### Test a skill while editing it
 
-For interactive dogfooding, activate one source skill in the ignored sandbox:
+For routine behavior checks, invoke the source `SKILL.md` by its absolute path in
+Codex. To check project discovery with live source edits, start from the repository
+root and create a disposable project:
 
 ```bash
-./scripts/dev-skill gitprep
-cd local/sandbox
+skill_sandbox=$(mktemp -d)
+mkdir -p "$skill_sandbox/.agents/skills"
+ln -s "$PWD/skills/gitprep" "$skill_sandbox/.agents/skills/gitprep"
+cd "$skill_sandbox"
 ```
 
-Start Codex there with GPT-6 Astra selected. Source edits are visible immediately, and selecting another skill safely replaces the managed link. The command refuses to remove unmanaged sandbox entries or traverse symlinked sandbox directories.
-
-Inspect or remove the active development skill with:
-
-```bash
-./scripts/dev-skill --status
-./scripts/dev-skill --remove
-```
+Start Codex there with GPT-6 Astra selected. This adds the chosen source skill to
+that project; globally installed skills may still be available.
 
 Use the normal installer and `skills update` when testing the copied or published installation path instead.
 

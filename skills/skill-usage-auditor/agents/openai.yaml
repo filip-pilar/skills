@@ -1,7 +1,0 @@
-interface:
-  display_name: "Skill Usage Auditor"
-  short_description: "Audit a skill's behavior in past Codex tasks"
-  default_prompt: "Use $skill-usage-auditor to assess one named skill's past Codex tasks and recommend any supported improvements."
-
-policy:
-  allow_implicit_invocation: false

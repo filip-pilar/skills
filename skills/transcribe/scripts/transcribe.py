@@ -19,7 +19,6 @@ from urllib.parse import urlsplit
 SKILL = Path(__file__).resolve().parents[1]
 CACHE = Path(os.environ.get('TRANSCRIBE_CACHE', '~/Library/Caches/codex-transcribe')).expanduser()
 MODEL = 'FluidInference/parakeet-unified-en-0.6b-coreml'
-REVISION = 'b68f484789d81fda21efbf81e2ca9fcfd9dc22aa'
 FORMAT_VERSION = 2
 
 
@@ -279,7 +278,9 @@ def process(args):
     meta_path = folder / 'metadata.json'
     if old is None and meta_path.exists():
         old = read_json(meta_path)
-    settings = {'model': MODEL, 'fluid_audio_revision': REVISION, 'runtime_key': runtime_key(),
+    revision = next(pin['state']['revision'] for pin in read_json(SKILL / 'runtime' / 'Package.resolved')['pins']
+                    if pin['identity'] == 'fluidaudio')
+    settings = {'model': MODEL, 'fluid_audio_revision': revision, 'runtime_key': runtime_key(),
                 'mode': 'offline-15s', 'encoder_precision': 'int8', 'compute': 'cpuAndNeuralEngine',
                 'language': 'en', 'speakers': args.speakers, 'format_version': FORMAT_VERSION}
     if args.speakers:

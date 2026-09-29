@@ -1,4 +1,6 @@
-# Side orchestration workflow
+# Archived Side orchestration workflow
+
+Retired on 2026-09-29; retained for historical reference only.
 
 ## How to use it
 
@@ -43,12 +45,12 @@ that prompt's authority.
 
 The installed skills own execution behavior:
 
-- [Sidekick](../skills/sidekick/SKILL.md) owns parent discussion and freshness.
-- [Reply](../skills/reply/SKILL.md) owns prompt synthesis and preserved authority.
-- [Supervise](../skills/supervise/SKILL.md) owns delivery, verification, corrections,
+- [Sidekick](../skills/side-suite-2026-09-29/sidekick/SKILL.md) owns parent discussion and freshness.
+- [Reply](../skills/side-suite-2026-09-29/reply/SKILL.md) owns prompt synthesis and preserved authority.
+- [Supervise](../skills/side-suite-2026-09-29/supervise/SKILL.md) owns delivery, verification, corrections,
   and the final handoff.
 
-Use [focused prompt regression cases](skill-prompt-review-cases.md) when a behavioral
+Use [focused prompt regression cases](side-prompt-review-cases.md) when a behavioral
 comparison is warranted. That document owns scenario expectations; it is not a
 mandatory checklist. Keep outputs and live-provider logs outside tracked packages.
 Structural tests do not establish model behavior, and live linked-parent checks
@@ -89,5 +91,5 @@ The permanent workflow began on 2026-08-19 from these experimental packages:
 | `side-run` | `supervise` |
 
 Earlier `sidekick`, `reply`, and `co-prompt` packages remain under
-[`legacy/skills/`](../legacy/skills/) for historical inspection. They are not
+[`legacy/skills/`](../skills/) for historical inspection. They are not
 supported or installed by this workflow.

@@ -20,7 +20,7 @@ view and its coverage. Selected totals exclude the endpoint's `Other` bucket.
 ## Inventory and provenance
 
 The collector discovers standalone skills from the active Codex and Agents skill
-roots. It discovers plugin skills only from explicitly enabled plugins or remote
+roots, excluding project-scoped skills. It discovers plugin skills only from explicitly enabled plugins or remote
 plugin roots with a current install marker. Disabled skills and stale cache-only
 packages are excluded.
 
@@ -45,21 +45,23 @@ explicit install action.
 
 ## Identity
 
-Exact names and telemetry IDs are the strongest joins. Shared normalized names,
-declared predecessors, or similar plugin IDs are leads only. They cannot reliably
-distinguish a rename, update, reinstall, fork, or unrelated collision.
+Inventory joins use exact skill names; differently named skills retain separate
+counts. Telemetry IDs remain available as evidence, but the collector does not
+infer renames from similar names or shared IDs.
 
-Renames, including `codex-usage-analytics` to `codex-skill-usage-analytics`, retain
-separate counts.
+Rows carry an `id` as well as a display name, including daily/weekly/monthly
+timelines. Distinct plugin IDs remain separate even when their labels match.
+Plugin-only queries skip the skill inventory. The `user`, `unobserved`,
+`historical`, and `duplicates` views require skill inventory.
 
 When a plugin aggregate has no exact join to its current contributed skills,
 report the plugin count separately. Do not distribute it across the skills.
 
 ## Profile cross-check
 
-Profile totals and daily analytics can use different ranges, caching, or
-aggregation. Show a difference only when the user requests an audit or it
-materially changes a conclusion; do not force the two totals to reconcile.
+The profile endpoint is used only for `--all-available` (to find the earliest
+activity date) or `--details` (for a cross-check). Its totals can use different
+ranges, caching, or aggregation from daily analytics; do not force them to reconcile.
 
 ## Endpoint drift
 

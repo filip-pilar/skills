@@ -9,16 +9,13 @@ import { spawn } from "node:child_process";
 const CONFIG = __WTI_COMPANION_CONFIG__;
 const DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const MAX_REQUEST_BYTES = 1_000_000;
-const MAX_RESPONSE_BYTES = 5_000_000;
+__WTI_DATA_GUARDS__
 const MAX_PROJECTED_BYTES = 1_000_000;
 const MAX_PROJECTED_NODES = 20_000;
 const MAX_PROJECTED_DEPTH = 20;
 const MAX_PROJECTED_ARRAY_ITEMS = 2_000;
 const MAX_PROJECTED_OBJECT_KEYS = 200;
-const SECRET_KEY = /(?:authorization|cookie|password|passwd|secret|credential|session|private.?key|access.?token|refresh.?token|api.?key)/i;
-const RUNTIME = CONFIG.runtime || {
-  authMode: "none", session: "wti-demo", profile: "", cdp: "", prepare: true, runtimeHeadersStdin: false
-};
+const RUNTIME = CONFIG.runtime;
 
 function usage() {
   console.log(`Usage: node browser-companion.mjs [options]\n\nConfigured authentication posture: ${RUNTIME.authMode}\n\nOptions:\n  --port <number>                 Loopback port; 0 chooses an available port (configured default: ${CONFIG.localPort})\n  --session <name>                agent-browser session name\n  --profile <path>                Dedicated agent-browser profile for interactive login\n  --cdp <port-or-url>             Connect agent-browser to an approved CDP endpoint\n  --no-prepare                    Do not open the configured target page\n  --runtime-headers-stdin         Read a JSON header object from stdin into memory\n  --help                          Show this help\n`);
@@ -77,8 +74,12 @@ function runAgentBrowser(args, timeoutMs = 60_000) {
       child.kill("SIGTERM");
       reject(new Error("agent-browser timed out."));
     }, timeoutMs);
-    child.stdout.on("data", (chunk) => { stdout += chunk; });
-    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.stdout.on("data", (chunk) => {
+      if (stdout.length + chunk.length > MAX_RESPONSE_BYTES * 2) {
+        child.kill("SIGTERM"); reject(new Error("Browser output exceeded the size limit."));
+      } else stdout += chunk;
+    });
+    child.stderr.on("data", (chunk) => { if (stderr.length < 10_000) stderr += chunk; });
     child.on("error", (error) => {
       clearTimeout(timer);
       reject(error.code === "ENOENT" ? new Error("agent-browser is not installed or is not on PATH.") : error);
@@ -118,8 +119,7 @@ function interpolate(value, inputs) {
 function validateInputs(inputs) {
   if (!inputs || typeof inputs !== "object" || Array.isArray(inputs)) throw new Error("Request must contain an inputs object.");
   const definitions = new Map(CONFIG.inputDefinitions.map((definition) => [definition.name, definition]));
-  const runtimeNames = new Set(CONFIG.runtimeInputNames || []);
-  if (Object.keys(inputs).some((name) => !definitions.has(name) && !runtimeNames.has(name))) throw new Error("Request contains an unknown input.");
+  if (Object.keys(inputs).some((name) => !definitions.has(name))) throw new Error("Request contains an unknown input.");
   for (const definition of CONFIG.inputDefinitions) {
     const value = inputs[definition.name];
     const missing = value === undefined || value === null || value === "";
@@ -147,19 +147,11 @@ function validateInputs(inputs) {
     }
     if (definition.pattern && !(new RegExp(definition.pattern)).test(value)) throw new Error(`Input ${definition.name} does not match the allowed format.`);
   }
-  for (const name of runtimeNames) {
-    if (!(name in inputs)) continue;
-    const value = inputs[name];
-    if (!["string", "number", "boolean"].includes(typeof value) || (typeof value === "string" && value.length > 10_000)) {
-      throw new Error(`Runtime input ${name} has an invalid value.`);
-    }
-  }
   return inputs;
 }
 
 function requestFromInputs(inputs, runtimeHeaders, requestKey = "main") {
-  const definitions = CONFIG.requests || { main: CONFIG.request, search: CONFIG.request };
-  const definition = definitions[requestKey];
+  const definition = Object.hasOwn(CONFIG.requests, requestKey) ? CONFIG.requests[requestKey] : null;
   if (!definition) throw new Error("Request stage is not allowlisted.");
   const request = interpolate(definition, inputs);
   const url = new URL(request.url);
@@ -176,40 +168,11 @@ function requestFromInputs(inputs, runtimeHeaders, requestKey = "main") {
   return { url: url.href, method: request.method, headers, body, credentials: request.credentials || "include" };
 }
 
-async function readBoundedResponse(response) {
-  const chunks = [];
-  let bytes = 0;
-  if (response.body) {
-    for await (const chunk of response.body) {
-      bytes += chunk.length;
-      if (bytes > MAX_RESPONSE_BYTES) throw new Error(`Response exceeded ${MAX_RESPONSE_BYTES} bytes.`);
-      chunks.push(chunk);
-    }
-  }
-  const text = Buffer.concat(chunks).toString("utf8");
-  let body = text;
-  try { body = text === "" ? null : JSON.parse(text); } catch {}
-  return { body, headers: Object.fromEntries(response.headers.entries()) };
-}
-
 async function executeNode(request) {
   const response = await fetch(request.url, {
-    method: request.method,
-    headers: request.headers,
-    body: request.body,
-    redirect: "manual"
+    method: request.method, headers: request.headers, body: request.body, redirect: "manual"
   });
-  const { body, headers } = await readBoundedResponse(response);
-  if (response.status >= 300 && response.status < 400) {
-    const location = response.headers.get("location");
-    if (location && !CONFIG.allowedEndpointOrigins.includes(new URL(location, request.url).origin)) {
-      throw new Error("The endpoint redirected to an origin that is not allowlisted.");
-    }
-  }
-  return {
-    request: { url: request.url, method: request.method },
-    response: { ok: response.ok, status: response.status, statusText: response.statusText, url: response.url, headers, body }
-  };
+  return { request: { url: request.url, method: request.method }, response: await responseData(response) };
 }
 
 async function activeBrowserUrl(session) {
@@ -267,20 +230,9 @@ async function executeBrowser(request, session) {
       credentials: request.credentials,
       redirect: "manual"
     });
-    const text = await response.text();
-    let body = text;
-    try { body = text === "" ? null : JSON.parse(text); } catch {}
-    return {
-      request: { url: request.url, method: request.method },
-      response: {
-        ok: response.ok,
-        status: response.status,
-        statusText: response.statusText,
-        url: response.url,
-        headers: Object.fromEntries(response.headers.entries()),
-        body
-      }
-    };
+    const MAX_RESPONSE_BYTES = ${MAX_RESPONSE_BYTES};
+    const responseData = ${responseData.toString()};
+    return { request: { url: request.url, method: request.method }, response: await responseData(response) };
   })()`;
   const output = await runAgentBrowser(["--session", session, "--json", "eval", expression], 120_000);
   const result = unwrapAgentJson(output);
@@ -343,21 +295,14 @@ function assertAllowlistedRequest(request) {
   return request;
 }
 
-// WTI-CUSTOMIZE: companion:start
+// Optional fixed request chain; use the guarded executors in context.
 async function customExecute(context) {
   return undefined;
 }
 
-function customizeCompanionResult(result, context) {
-  return result;
-}
-// WTI-CUSTOMIZE: companion:end
-
-// WTI-CUSTOMIZE: page-runtime:start
 async function projectPageRuntime({ inputs, evaluate }) {
   throw new Error("WTI_PAGE_RUNTIME_RECIPE_REQUIRED: replace this fixed generated recipe with a narrowly projected JSON extraction.");
 }
-// WTI-CUSTOMIZE: page-runtime:end
 
 async function executePageRuntime(inputs, session) {
   const activePage = await assertActiveBrowserPage(session, true);
@@ -382,22 +327,8 @@ async function executePageRuntime(inputs, session) {
   };
 }
 
-function sanitize(value, key = "", seen = new WeakSet(), depth = 0) {
-  if (SECRET_KEY.test(key)) return "[REDACTED]";
-  if (value === null || typeof value !== "object") return value;
-  if (seen.has(value)) return "[CIRCULAR]";
-  if (depth > 20) return "[MAX DEPTH]";
-  seen.add(value);
-  try {
-    if (Array.isArray(value)) return value.slice(0, 5_000).map((item) => sanitize(item, "", seen, depth + 1));
-    return Object.fromEntries(Object.entries(value).slice(0, 5_000).map(([childKey, childValue]) => [childKey, sanitize(childValue, childKey, seen, depth + 1)]));
-  } finally {
-    seen.delete(value);
-  }
-}
-
 function sendJson(response, status, value) {
-  const body = JSON.stringify(sanitize(value));
+  const body = safeJson(value);
   response.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
     "Content-Length": Buffer.byteLength(body),
@@ -471,7 +402,7 @@ async function main() {
       response.end(request.method === "HEAD" ? undefined : body);
       return;
     }
-    if (request.method === "GET" && url.pathname === "/__wti/config") { sendJson(response, 200, { token }); return; }
+    if (request.method === "GET" && url.pathname === "/__wti/config") { sendJson(response, 200, { requestToken: token }); return; }
     if (request.method !== "POST" || url.pathname !== "/__wti/execute") { sendJson(response, 404, { error: "Not found." }); return; }
     if (request.headers.origin !== localOrigin) { sendJson(response, 403, { error: "Origin is not allowed." }); return; }
     if (request.headers["x-wti-token"] !== token) { sendJson(response, 403, { error: "Request token is invalid." }); return; }
@@ -481,17 +412,16 @@ async function main() {
     try {
       const payload = await readJsonRequest(request);
       validateInputs(payload?.inputs);
+      if (CONFIG.sideEffect && payload.acknowledged !== true) throw new Error("Acknowledge this execution first.");
       const requestKey = payload.requestKey || "main";
       if (typeof requestKey !== "string") throw new Error("Request stage must be a string.");
-      let context;
       let executed;
       if (CONFIG.mechanismKind === "page-runtime-extraction") {
         if (requestKey !== "main") throw new Error("Page-runtime extraction supports only the fixed main stage.");
-        context = { inputs: payload.inputs, requestKey, request: undefined };
         executed = await executePageRuntime(payload.inputs, options.session);
       } else {
         const built = requestFromInputs(payload.inputs, runtimeHeaders, requestKey);
-        context = {
+        const context = {
           inputs: payload.inputs,
           requestKey,
           request: built,
@@ -503,8 +433,7 @@ async function main() {
           ? (CONFIG.transport === "browser" ? await executeBrowser(built, options.session) : await executeNode(built))
           : customResult;
       }
-      const result = await customizeCompanionResult(executed, context);
-      sendJson(response, 200, result);
+      sendJson(response, 200, executed);
     } catch (error) {
       sendJson(response, 502, { error: error instanceof Error ? error.message : String(error) });
     } finally {
@@ -522,6 +451,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error));
+  console.error(safeData(error instanceof Error ? error.message : String(error)));
   process.exitCode = 1;
 });

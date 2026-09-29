@@ -1,74 +1,35 @@
 ---
 name: product-vision-to-prd
-description: Develop a broad product vision into a coherent, opinionated, product-focused PRD and persist it as a reusable Markdown artifact.
+description: Develop a product vision into a product-focused Markdown PRD and revise the same artifact as the vision evolves.
 ---
 
 # Product Vision to PRD
 
-A bare `$product-vision-to-prd` is a complete request when the conversation
-contains a product idea. Deliver a finished, product-focused Markdown PRD;
-do not implement the product or produce a technical specification.
+A bare invocation uses the product idea in the conversation. Deliver a complete
+Markdown PRD, not an implementation or technical specification.
 
-## Resolve the persistent artifact
+Use the user's path, otherwise the previously used or unambiguously matching
+PRD, otherwise `product-vision-prd.md` in the working directory. Revise that
+artifact on later invocations, preserving valid decisions and replacing
+superseded claims. Resolve ambiguous ownership or an unwritable path rather
+than overwriting another product or silently creating a duplicate.
 
-Choose the path in order:
+If gaps could change product identity or direction, ask one compact batch of
+questions and accept natural, incomplete answers. Resolve consequential forks
+before finalizing; make routine product choices and label assumptions yourself.
 
-1. The user's explicit path.
-2. The path previously created, edited, or linked for this product.
-3. An existing Markdown PRD unambiguously belonging to this product.
-4. `product-vision-prd.md` in the current working directory.
+Develop a coherent product argument around the audience, broken status quo,
+distinctive experience, principles, non-goals, and how people receive lasting
+value. Remove or combine features that weaken the thesis. Address trust,
+responsibilities, incentives, and reversibility where they shape the product.
+Describe an enduring vision and a credible path of learning toward it, rather
+than reducing the ambition to an MVP or feature backlog.
 
-Read an existing artifact completely. Update it on later invocations unless a
-new one is requested, preserving valid decisions and replacing superseded claims.
-Never overwrite another product's file. Resolve ambiguous paths with other
-consequential questions. Do not create placeholders while awaiting interview
-answers. If unwritable, request access or a writable path; do not silently create
-a duplicate or claim an unwritten artifact.
+Separate founder beliefs and hypotheses from verified facts, especially market,
+competitor, and capability claims. Include technical constraints only when they
+change feasibility, trust, behavior, or sequencing; omit architecture and routine
+engineering detail. Choose sections that serve the argument, not a fixed template.
 
-## Establish and develop the vision
-
-Briefly synthesize known context, inferences, and consequential gaps. If gaps
-remain, load [interview-design.md](references/interview-design.md) for one compact,
-adaptive interview that accepts natural, incomplete, or out-of-order answers.
-Otherwise state necessary assumptions and proceed. Do not repeat known questions
-or delegate routine product decisions to the user.
-
-Continue independent analysis while answers are pending, but do not finalize an
-artifact whose identity depends on them. Afterward, work through completion without
-section approvals. Ask again only for ambiguities that would create fundamentally
-different products; batch those founder-level forks and explain their consequences.
-
-Before drafting or revising, load
-[product-quality-rubric.md](references/product-quality-rubric.md). Use it as a
-quality check, not a template, scorecard, or prescribed sequence of passes.
-Preserve founder intent while combining, removing, or deprioritizing weakening
-ideas. Develop a coherent product argument and enduring vision with a credible
-path toward it, rather than reducing it to an MVP. Revise while identity,
-experience, coherence, trust, or direction materially improves; stop at mere polish.
-
-## Evidence and scope
-
-Distinguish founder beliefs, hypotheses, inferences, and verified facts. Research
-material factual claims proportionately when allowed; honor no-browse constraints
-and obtain authority for paid or consequential external actions. Label unverifiable
-claims as hypotheses or validation questions, including claims about competitors,
-validation, or technical capability.
-
-Keep architecture, databases, frameworks, APIs, schemas, deployment, and routine
-engineering out. Include technical constraints only when they affect feasibility,
-trust, behavior, or sequencing, and Codex, Sites, skills, or recurring loops only
-when supported by the vision. Do not produce a backlog, exhaustive feature matrix,
-or implementation brief. Phases must preserve the thesis and identify learning
-without invented delivery certainty.
-
-## Deliver
-
-Produce a self-contained product argument with only useful sections. End with a
-short **Founder judgment** section of remaining consequential assumptions or
-decisions; say when none remain. Do not add routine implementation questions or
-request PRD approval.
-
-Write the complete artifact and verify it against the rubric, excluding technical
-implementation detail and brainstorming transcripts. Respond with a concise summary
-of the thesis, material changes, and remaining founder judgment, plus an accurate
-artifact link. Do not duplicate the PRD in conversation unless asked.
+Make remaining material assumptions and decisions easy to find. Write the
+finished artifact and return its link with a concise account of the thesis and
+material changes.

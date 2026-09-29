@@ -1,12 +1,12 @@
 ---
-name: codex-skill-usage-analytics
+name: codex-skill-analytics
 description: Report skill and plugin usage counts, recency, and installation sources from Codex analytics.
 ---
 
-# Codex Skill Usage Analytics
+# Codex Skill Analytics
 
-Answer usage and cleanup questions with a read-only report. Run the bundled
-collector relative to this file:
+Answer usage and cleanup questions with a read-only report. Requires Python 3.11+
+and a locally authenticated Codex installation. Run the bundled collector:
 
 ```bash
 python3 <skill-dir>/scripts/fetch_usage.py
@@ -21,8 +21,8 @@ Present the requested result with its returned date coverage. Include counts,
 recency, active days, and invocation policy where useful; keep installation
 sources distinguishable without exposing local paths in ordinary reports.
 `invocation_mode` describes configured permission for automatic selection, not
-how past calls were invoked. Skills accessible to this task are the intersection
-of current inventory and its exposed skills.
+how past calls were invoked. Inventory describes local installations, not which
+skills are exposed to this chat.
 
 Counts do not establish quality or justify removal by themselves. Skill and
 plugin totals overlap: never add them or assign plugin counts to skills without
@@ -33,7 +33,7 @@ Recommend cleanup or policy changes only when asked, considering overlap,
 dependencies, unique value, and whether automatic activation helps correctness
 or adds unwanted work. User-only cleanup excludes system and plugin skills.
 
-Keep credentials and live responses out of reports and tracked packages. The
+Keep credentials and raw provider responses out of reports and tracked packages. The
 collector uses authenticated GETs to a fixed ChatGPT origin; on authentication
 failure, have the user sign in through Codex. Never request or expose tokens,
 cookies, account identifiers, or raw authentication files.

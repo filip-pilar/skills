@@ -1,38 +1,22 @@
 # Archived skills
 
-Packages under `legacy/skills/` are historical source material. The original
-Side packages were retired on 2026-08-19 when their permanent suite was introduced.
+These snapshots are historical source material, outside the supported public
+collection. Dates below record retirement, not a recommendation to install them.
 
-| Retired package | Replacement |
-| --- | --- |
-| `sidekick` | [`sidekick`](../skills/sidekick/) — understand and discuss |
-| `reply` | [`reply`](../skills/reply/) — draft without sending |
-| `co-prompt` | [`sidekick`](../skills/sidekick/) — its thinking-only role was absorbed into Sidekick |
+| Retired | Snapshot | Packages |
+| --- | --- | --- |
+| 2026-08-19 | Original Side helpers | [sidekick](skills/sidekick/), [reply](skills/reply/), [co-prompt](skills/co-prompt/) |
+| 2026-09-05 | Catalogue pruning | [wdyt](skills/wdyt/), [catchup](skills/catchup/), [dr-react](skills/dr-react/), [lockin](skills/lockin/), [setup-cli-proxy-gateway](skills/setup-cli-proxy-gateway/), [socket-audit](skills/socket-audit/) |
+| 2026-09-05 | Side-task TLDR | [tldr](skills/tldr/) |
+| 2026-09-29 | Later Side suite | [sidekick](skills/side-suite-2026-09-29/sidekick/), [reply](skills/side-suite-2026-09-29/reply/), [supervise](skills/side-suite-2026-09-29/supervise/), [recover-side-thread](skills/side-suite-2026-09-29/recover-side-thread/) |
+| 2026-09-29 | Global Talent Visa | [gtv-tech-eligibility](skills/gtv-tech-eligibility/), [gtv-tech-prepare](skills/gtv-tech-prepare/), [gtv-tech-review](skills/gtv-tech-review/) |
 
-The following packages were archived on 2026-09-05 during catalogue pruning;
-no replacement is designated:
+The later Side suite superseded the original helpers and was subsequently retired
+without an active replacement. Its [workflow](docs/side-orchestration-workflow.md)
+and [review scenarios](docs/side-prompt-review-cases.md) are retained with it.
+The active [TLDR](../skills/tldr/) explains content with image cards; it is a
+different skill from the archived Side-task TLDR.
 
-| Archived package | Source |
-| --- | --- |
-| `wdyt` | [Package](skills/wdyt/) |
-| `catchup` | [Package](skills/catchup/) |
-| `dr-react` | [Package](skills/dr-react/) |
-| `lockin` | [Package](skills/lockin/) |
-| `setup-cli-proxy-gateway` | [Package](skills/setup-cli-proxy-gateway/) |
-| `socket-audit` | [Package](skills/socket-audit/) |
-
-The former Side-task TLDR was also archived on 2026-09-05. Use
-[`Sidekick`](../skills/sidekick/) for concise parent-task discussion; that
-historical package is preserved at [`skills/tldr/`](skills/tldr/). The current
-[`tldr`](../skills/tldr/) is a different skill for explaining a message with
-generated image cards.
-
-These copies are historical source material, not supported or distributable
-public skills. They intentionally keep their original names, metadata, tests,
-and runtime contracts intact. Do not install them alongside the current public
-packages.
-
-To inspect an old contract, read its package directly or use Git history on the
-path. To restore one for research, copy it into an isolated temporary directory
-under a distinct name; do not place it back under `skills/` or overwrite a
-current global installation without making a new explicit product decision.
+Package contents preserve their historical instructions and metadata. Consult the
+snapshot or Git history for an old contract; use the root [catalogue](../README.md#skills)
+for the active collection.

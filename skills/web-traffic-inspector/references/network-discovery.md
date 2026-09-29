@@ -1,185 +1,91 @@
 # Network discovery
 
-Use this guide to isolate the mechanism behind one user-visible action. Capture narrowly and preserve only sanitized evidence.
+Capture one visible action and follow each meaningful stage. Start or clear the
+capture immediately before it. Correlate timing, changed inputs, initiators,
+response fields, and the visible result; nearby telemetry is not sufficient.
+A click can change a modal or selection without navigating. Preserve selected
+objects and dependent request chains rather than taking the first matching call.
 
-## Establish a clean comparison
+## Data projection
 
-Record the visible pre-action state, current page URL without sensitive query values, and the expected result. Start a fresh capture cursor or clear the request log immediately before the action. When noise is high, compare:
+Browser tooling owns interaction mechanics; this skill limits captured data.
+Before writing to model-visible output or a file, construct a new object from
+explicitly allowlisted fields:
 
-1. an idle capture without the action;
-2. one capture containing the action;
-3. a second action using one harmless changed input, when repeating it is safe.
+- URLs: origin and path; query names/values only when necessary and non-secret.
+- Headers: names by default, values only from an explicit safe allowlist.
+- Bodies: keys/types by default, stable non-secret values only as needed.
+- Correlation: request IDs, methods, resource types, status, media type, counts,
+  booleans, and bounded domain fields.
 
-The useful request usually changes at the same time and carries the changed input or returns the visible result. Analytics, feature flags, ads, telemetry, and prefetches often occur nearby but do not satisfy both conditions.
-
-Capture each meaningful UI stage separately. Search suggestions, full search results, a selected result, and selected-result details may use different requests. Do not stop at the first request containing the query when it cannot produce the user's intended result.
-
-## Browser/Chrome CDP route
-
-Use the Browser skill's higher-level APIs for navigation and UI interaction. That skill owns mechanics; this guide owns what target-site data may become model-visible. Browser documentation examples that inspect page state do not override this boundary.
-
-### Safe target-page inspection
-
-Do not pass a target page's `domSnapshot()` result to `nodeRepl.write` or another model-visible output, including after `split`, `filter`, `slice`, regular-expression matching, truncation, or redaction. A matching snapshot line can still contain unrelated links, hidden attributes, tracking queries, CSRF/session values, or personal content. Do not print `outerHTML`, `innerHTML`, broad locator attributes, or serialized DOM nodes either.
-
-Inspect the target with scoped locators or an in-page evaluation that returns a newly constructed object of expected primitives. Define the fields before reading the page. For a public results page, the pattern is:
+Do not print raw events, `postData`, headers, URLs, DOM snapshots or their filtered
+lines, HTML, form values, or serialized DOM nodes and then attempt redaction.
+For page inspection, use scoped locators or a projection such as this public-page
+example, adapting the literal selectors to the observed component:
 
 ```js
-const safeState = await tab.playwright.evaluate(() => {
-  const cleanText = (value, limit = 200) =>
-    typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, limit) : null;
-  const canonicalUrl = (value) => {
-    try {
-      const url = new URL(value, location.href);
-      return { origin: url.origin, path: url.pathname };
-    } catch {
-      return null;
-    }
-  };
-  const heading = document.querySelector("h1");
-  const cards = Array.from(document.querySelectorAll("[data-result-card]")).slice(0, 20);
+const state = await tab.playwright.evaluate(() => {
+  const rows = [...document.querySelectorAll("[data-result-card]")].slice(0, 20);
   return {
-    location: { origin: location.origin, path: location.pathname },
-    heading: cleanText(heading?.textContent),
-    resultCount: cards.length,
-    results: cards.map((card) => ({
-      title: cleanText(card.querySelector("[data-title]")?.textContent),
-      link: canonicalUrl(card.querySelector("a")?.href),
+    origin: location.origin,
+    path: location.pathname,
+    results: rows.map(row => ({
+      title: row.querySelector("[data-title]")?.textContent?.trim().slice(0, 200) || ""
     })),
-    hasNext: Boolean(document.querySelector("[rel=next]")),
+    hasNext: Boolean(document.querySelector("[rel=next]"))
   };
 });
-nodeRepl.write(safeState);
+nodeRepl.write(state);
 ```
 
-Replace the illustrative selectors with narrowly scoped selectors for the observed page. Add a query parameter only when its name and value are individually established as necessary and non-secret. For authenticated or personal pages, return only the user-authorized aggregate fields—usually counts, booleans, bounded status labels, origin, and path—not titles, identifiers, links, or free text. On the generated loopback prototype, inspect specific status/result/raw elements rather than the whole document.
+On signed-in pages, project only the fields needed for the user-authorized task;
+exclude credentials and unrelated personal content. Use the same scope when
+inspecting the generated prototype. If a capture exposes secrets, stop that
+capture route and correct its projection before continuing.
 
-When the selected tab advertises `cdp`, obtain and read that capability's current documentation before using it. The typical capture sequence is:
+## Capture surfaces
 
-1. navigate a fresh or claimed tab to the target HTTP(S) page;
-2. enable the CDP Network domain if the capability permits `Network.enable`;
-3. call `readEvents()` once to obtain a cursor, filtered to the smallest useful event set and with `timeoutMs: 0` or the smallest supported timeout so idle traffic cannot stall the capture;
-4. perform the action through normal browser UI controls;
-5. read events after the cursor, paging with the returned cursor while `hasMore` is true;
-6. correlate `requestId` across request, response, loading-finished, and loading-failed events;
-7. after loading finishes, request the response body with `Network.getResponseBody` when permitted and useful, before navigation or buffer eviction makes it unavailable.
+Use advertised tab-scoped CDP capabilities when available. Enable Network,
+establish a cursor with a nonblocking read, perform the action, then page through
+new events. Correlate `requestId` across request, response, finish, and failure.
+Fetch a needed response body after loading finishes and before navigation or
+buffer eviction. Use only commands advertised by that browser surface; eviction
+or truncation means missing evidence, not permission to guess.
 
-Useful event methods commonly include:
+For `agent-browser`, check installed help and use a named session. Start tracking
+before the action (`network requests --clear`); the log may contain only metadata.
+Use supported CDP or a bounded in-page fetch/XHR wrapper for missing body evidence
+when permitted. Temporary traces belong outside the deliverable and must follow
+the same data-minimization boundary. Recheck scoped page state after a navigation
+timeout before repeating a possibly completed action.
 
-- `Network.requestWillBeSent`
-- `Network.requestWillBeSentExtraInfo`
-- `Network.responseReceived`
-- `Network.responseReceivedExtraInfo`
-- `Network.loadingFinished`
-- `Network.loadingFailed`
-- `Network.webSocketCreated`
-- `Network.webSocketFrameSent`
-- `Network.webSocketFrameReceived`
-- `Target.attachedToTarget`
+## Mechanism-specific evidence
 
-Treat these names as a protocol map, not a promise that every backend permits every command. Follow the capability's advertised surface. A `truncated` event result means older evidence was evicted; repeat with a tighter filter instead of guessing.
+- **HTTP:** method, stable URL/query/body shape, required non-secret headers,
+  credentials mode, and useful response fields. Check parseability and a domain
+  field; a 200 access/consent page is not a successful replay.
+- **GraphQL:** operation, changed variables, and minimal query. A persisted-query
+  hash is not established as reusable without replay evidence.
+- **Jobs/polling:** separate creation from status/result retrieval. Distinguish
+  domain status from page flags; expose observation time, interval, and request
+  budget. Keep polling off by default and stop on terminal outcomes or budget.
+  Do not claim a transition that was never observed.
+- **SSE/WebSocket:** identify subscription, progress, terminal, and error shapes;
+  bound connections and retries.
+- **Media:** distinguish direct, signed, blob, and streamed resources. Keep
+  transient URLs in runtime memory and validate derived origins/paths before
+  following them; a browser-only success is not an anonymous relay success.
+- **Client-only:** demonstrate the bounded transformation without inventing an
+  endpoint. For extraction from a prepared page, use
+  [page-runtime.md](page-runtime.md) when HTTP replay is insufficient.
 
-If a navigation helper times out, inspect a canonical origin/path, title when non-sensitive, and scoped structured state before repeating the action. The navigation may have succeeded while only the wait failed. Prefer a fresh tab or locator after a browser-session reset instead of retrying a possibly consequential stale action. Once a prototype contains a large raw JSON view, inspect scoped status/result/raw elements rather than serializing the document.
+Inspect secondary requests for hidden effects such as marking messages read or
+updating viewer state. Exclude them from replay unless they are the authorized
+action. Correlation remains a hypothesis until safe replay or controlled
+observation supports it.
 
-CDP request events may contain authorization, cookies, signed query values, CSRF/session form fields, or private payload fields. Treat every event object as tainted until projected. Before any `nodeRepl.write`, console output, report, or file write, build a new deny-by-default object from explicit safe fields:
-
-- reduce URLs to origin plus path, adding only individually allowlisted non-secret query parameters;
-- emit header names by default, and values only for an explicit safe header allowlist;
-- emit request-body keys and types by default, and values only for fields already established as stable, necessary, and non-secret;
-- use request IDs, methods, resource types, status, media type, counts, booleans, and bounded domain fields for correlation;
-- inspect DOM with scoped locators or the structured pattern above; never print snapshot strings or lines, hidden/form input values, or unplanned attributes.
-
-Never print raw event objects, raw URLs, `postData`, request headers, form payloads, DOM snapshots, snapshot-derived text lines, or HTML and then try to redact the output afterward. If an unexpected sensitive value reaches model-visible output, stop that capture route, do not repeat or quote the value, clear it from mutable tool state when possible, and record the incident generically. Do not persist it in the prototype or findings.
-
-## `agent-browser` route
-
-Check `agent-browser --version` and relevant `--help` output first. Use a named session so commands share the same browser. A focused sequence is:
-
-```bash
-agent-browser --session <name> network requests --clear
-agent-browser --session <name> open <url>
-agent-browser --session <name> network requests
-# perform the action
-agent-browser --session <name> network requests --filter <stable-fragment>
-```
-
-Installed versions may start tracking only when `network requests` is first called, so clear/start tracking before the action. Do not assume its public log includes POST data or response bodies. If those are absent, use one of these routes:
-
-- Browser/Chrome CDP capture;
-- a bounded in-page wrapper installed before the action for `fetch`/XHR when permitted and safe;
-- an `agent-browser trace` inspected as a temporary local artifact;
-- the site's visible result plus a controlled replay of the identified request.
-
-Do not save browser state, cookies, a trace, scaffold spec, or probe page inside the generated prototype. Keep temporary discovery material outside the deliverable and delete it once it is no longer needed.
-
-## Identify the mechanism type
-
-### HTTP JSON or form request
-
-Extract method, URL template, query parameters, content type, body shape, required non-secret headers, credentials behavior, and response fields. Separate stable values from session-bound values and per-request signatures.
-
-Do not equate transport success with mechanism success. Confirm the response media type or parseability and at least one expected domain field. A `200` response containing consent HTML, access verification, an anti-bot page, or an empty signature-bound body is a failed or partial replay.
-
-### GraphQL
-
-Record the operation name, variables, endpoint, and only the minimal query text required. Distinguish persisted-query hashes from reusable query documents. Do not treat a captured hash as stable without replay evidence.
-
-When a page is noisy, project candidate traffic by GraphQL operation name, changed variables, request ID, and bounded response fields rather than retaining broad post-navigation windows. Tracked clickouts, advertising, and lazy-loaded cards are not part of the mechanism unless they drive the requested result.
-
-### Polling or asynchronous jobs
-
-Model creation and status/result retrieval as separate steps. Capture job identifiers and terminal states. Distinguish container/page “live” flags from the domain event's actual status. The prototype should show observation time and freshness, keep polling off by default, expose its interval and request budget, and stop on success, terminal failure, timeout, cancellation, or budget exhaustion. Do not claim update behavior when no real transition was observed.
-
-### SSE or WebSocket
-
-Capture the initial HTTP upgrade or stream request and representative message shapes. Identify subscribe, progress, terminal, and error messages. Use a companion only when browser origin/authentication requires it. Never leave an unbounded connection or retry loop.
-
-### Downloads and media
-
-Determine whether the visible asset is a direct URL, signed URL, blob, data URL, streamed response, or a second fetch. Treat signed URLs as expiring response data, not constants to embed.
-
-For bootstrap → signed-resource chains, record the bootstrap and resource as separate stages. Validate a derived URL's exact expected origin and path before following it, keep it only in runtime memory, and redact its query from errors and raw output. A replay that works only in the original browser context is not equivalent to an anonymous relay replay.
-
-### Client-only behavior
-
-If no useful network request exists, inspect the bounded client-side transformation. Prototype the algorithm or browser API and say explicitly that the result is client-only; do not invent an endpoint.
-
-### Page-runtime extraction
-
-Use page runtime only after useful HTTP replay is absent or demonstrably insufficient.
-Identify the smallest fixed ready condition and narrow JSON projection that proves
-the visible result. If this mode is needed, read [page-runtime.md](page-runtime.md)
-before implementing the fixed recipe; the general data-projection and no-secret
-boundaries above still apply during discovery.
-
-## Assess scraping and integration readiness
-
-After isolating the mechanism, record only observed reuse evidence:
-
-- useful record fields and candidate stable identifiers;
-- pagination, cursors, continuation tokens, result caps, lazy loading, or virtualization;
-- observed completeness, ordering, duplicates, and deduplication keys;
-- required locale, market, filter, page, consent, and authentication state;
-- caching, rate-limit signals, access controls, anti-bot behavior, and recognizable empty/error/access-page shapes;
-- fields that appear stable versus request-, session-, locale-, or time-volatile.
-
-For a harmless read-only target, run a structural repeatability check when it materially improves confidence: observe the same fixed action twice, or vary exactly one harmless input, then compare bounded allowlisted summaries such as top-level type, field names, record count, stable IDs, continuation presence, and ordering. Do not serialize, retain, or diff raw traffic/DOM/HTML to do this. Report the comparison and its limits. Skip it for side effects, generation/cost, personal or authenticated records, barriers, rate-limit risk, or any target where repetition is not clearly safe.
-
-## Classify the visible transition
-
-Do not assume a click navigates. Compare the URL and relevant DOM state before and after the action and classify it as navigation, inline expansion, modal/drawer, in-place selection, or client-only change. An unchanged URL can still accompany the decisive request. Preserve a meaningful selected object or identifier in the prototype instead of automatically using the first candidate.
-
-## Isolation checklist
-
-A candidate is strong when it has several of these signals:
-
-- begins immediately after the action;
-- contains the changed user input or a derived stable identifier;
-- returns the content rendered in the result;
-- has an initiator associated with the action's application code;
-- disappears in the idle comparison;
-- reproduces the result under a harmless controlled replay.
-
-Document request chains rather than forcing a single-endpoint story when the action genuinely requires multiple dependent steps.
-
-Also inspect secondary or background requests for hidden external effects. Operation names or fields such as `markAsRead`, subscribe, acknowledge, impression, recent-view, or viewer-state updates can make a seemingly read-only navigation consequential. Record and exclude them from replay unless they are the user-authorized target action.
+For reuse questions, record relevant fields/IDs, pagination, ordering,
+completeness, required state, and observed cache/rate/access constraints. A
+second bounded read or one changed input may establish repeatability when safe;
+avoid repeating mutations or paid actions, and respect access and rate limits.
+Compare projected shapes and identifiers, not raw captures.

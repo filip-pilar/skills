@@ -23,31 +23,17 @@ SENSITIVE_NAME = re.compile(
     r"(?:^|[-_])(?:authorization|cookie|password|passwd|secret|credential|session|private[-_]?key|access[-_]?token|refresh[-_]?token|api[-_]?key|signature)(?:$|[-_])",
     re.IGNORECASE,
 )
-ALLOWED_TOP = {
-    "title", "description", "demonstrates", "constraints", "mode", "sideEffect",
-    "actionLabel", "localPort", "verification", "inputs", "request", "renderer",
-    "workflow", "companion", "mechanismKind",
-}
+ALLOWED_TOP = {"title", "mode", "sideEffect", "localPort", "inputs", "requests", "companion", "mechanismKind"}
 ALLOWED_INPUT = {
     "name", "label", "type", "required", "placeholder", "value", "options",
     "min", "max", "step", "minLength", "maxLength", "pattern",
 }
-ALLOWED_VERIFICATION = {"status", "relationship", "summary"}
 ALLOWED_REQUEST = {"url", "method", "headers", "query", "body", "credentials"}
-ALLOWED_RENDERER = {"type", "itemsPath", "titlePath", "subtitlePath", "imagePath", "hrefPath"}
-ALLOWED_WORKFLOW = {
-    "type", "itemsPath", "valuePath", "titlePath", "subtitlePath", "imagePath",
-    "hrefPath", "selectionActionLabel", "detailRequest", "detailRenderer",
-}
-ALLOWED_COMPANION = {"transport", "targetUrl", "targetStatePolicy", "allowedPageOrigins", "allowedEndpointOrigins", "runtime"}
+ALLOWED_COMPANION = {"targetUrl", "targetStatePolicy", "allowedPageOrigins", "allowedEndpointOrigins", "runtime"}
 ALLOWED_RUNTIME = {"authMode", "session", "profile", "cdp"}
 INPUT_TYPES = {"text", "textarea", "number", "url", "select", "checkbox"}
 METHODS = {"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"}
-RENDERERS = {"auto", "cards", "images", "table", "text"}
 MODES = {"direct", "relay", "browser"}
-WORKFLOWS = {"single", "search-select-detail"}
-VERIFICATION_STATUSES = {"verified", "partial", "blocked", "provisional"}
-MECHANISM_RELATIONSHIPS = {"same-mechanism", "equivalent-substitute", "captured-evidence-only"}
 MECHANISM_KINDS = {"http-replay", "page-runtime-extraction"}
 TARGET_STATE_POLICIES = {"exact", "allow-consumed", "allow-query-to-fragment"}
 AUTH_MODES = {"none", "existing-session", "interactive-profile", "cdp", "runtime-headers"}
@@ -194,27 +180,8 @@ def validate_inputs(spec: dict[str, Any]) -> list[str]:
     return names
 
 
-def validate_verification(spec: dict[str, Any]) -> None:
-    verification = require_object(spec.get("verification", {
-        "status": "provisional",
-        "relationship": "same-mechanism",
-        "summary": "Verification provenance has not yet been recorded.",
-    }), "verification")
-    reject_unknown(verification, ALLOWED_VERIFICATION, "verification")
-    status = require_text(verification, "status", "verification.status")
-    if status not in VERIFICATION_STATUSES:
-        fail(f"verification.status must be one of: {', '.join(sorted(VERIFICATION_STATUSES))}.")
-    relationship = require_text(verification, "relationship", "verification.relationship")
-    if relationship not in MECHANISM_RELATIONSHIPS:
-        fail(f"verification.relationship must be one of: {', '.join(sorted(MECHANISM_RELATIONSHIPS))}.")
-    if status == "verified" and relationship == "captured-evidence-only":
-        fail("verification.status verified cannot use captured-evidence-only relationship.")
-    verification["summary"] = require_text(verification, "summary", "verification.summary")
-    spec["verification"] = verification
-
-
-def validate_request(spec: dict[str, Any], input_names: list[str]) -> tuple[dict[str, Any], str]:
-    request = require_object(spec.get("request"), "request")
+def validate_request(raw: Any, input_names: list[str]) -> tuple[dict[str, Any], str]:
+    request = require_object(raw, "request")
     reject_unknown(request, ALLOWED_REQUEST, "request")
     url = require_text(request, "url", "request.url")
     endpoint_origin, url_query = parse_http_url(url, "request.url")
@@ -250,70 +217,6 @@ def validate_request(spec: dict[str, Any], input_names: list[str]) -> tuple[dict
     if unknown_placeholders:
         fail(f"Request uses unknown input placeholder(s): {', '.join(unknown_placeholders)}.")
     return request, endpoint_origin
-
-
-def validate_renderer(spec: dict[str, Any]) -> None:
-    renderer = spec.get("renderer", {"type": "auto"})
-    renderer = require_object(renderer, "renderer")
-    reject_unknown(renderer, ALLOWED_RENDERER, "renderer")
-    renderer_type = renderer.get("type", "auto")
-    if renderer_type not in RENDERERS:
-        fail(f"renderer.type must be one of: {', '.join(sorted(RENDERERS))}.")
-    for key, value in renderer.items():
-        if key != "type" and (not isinstance(value, str) or not value.strip()):
-            fail(f"renderer.{key} must be a non-empty dot-separated path.")
-        if key != "type" and not all(NAME_PATTERN.fullmatch(part) for part in value.split(".")):
-            fail(f"renderer.{key} contains an invalid path component.")
-    spec["renderer"] = renderer
-
-
-def validate_renderer_object(raw: Any, label: str) -> dict[str, Any]:
-    wrapper = {"renderer": raw}
-    try:
-        validate_renderer(wrapper)
-    except SpecError as error:
-        message = str(error).replace("renderer", label, 1)
-        fail(message)
-    return wrapper["renderer"]
-
-
-def validate_path(value: dict[str, Any], key: str, label: str, required: bool = False) -> None:
-    if key not in value:
-        if required:
-            fail(f"{label}.{key} must be a non-empty dot-separated path.")
-        return
-    path = value[key]
-    if not isinstance(path, str) or not path.strip():
-        fail(f"{label}.{key} must be a non-empty dot-separated path.")
-    if not all(NAME_PATTERN.fullmatch(part) for part in path.split(".")):
-        fail(f"{label}.{key} contains an invalid path component.")
-
-
-def validate_workflow(spec: dict[str, Any], input_names: list[str]) -> tuple[dict[str, Any], list[tuple[str, dict[str, Any], str]]]:
-    raw = spec.get("workflow", {"type": "single"})
-    workflow = require_object(raw, "workflow")
-    reject_unknown(workflow, ALLOWED_WORKFLOW, "workflow")
-    workflow_type = require_text(workflow, "type", "workflow.type")
-    if workflow_type not in WORKFLOWS:
-        fail(f"workflow.type must be one of: {', '.join(sorted(WORKFLOWS))}.")
-    workflow["type"] = workflow_type
-    if workflow_type == "single":
-        if set(workflow) != {"type"}:
-            fail("workflow type single does not accept additional fields.")
-        spec["workflow"] = workflow
-        return workflow, []
-
-    for key in ("itemsPath", "valuePath", "titlePath"):
-        validate_path(workflow, key, "workflow", required=True)
-    for key in ("subtitlePath", "imagePath", "hrefPath"):
-        validate_path(workflow, key, "workflow")
-    workflow["selectionActionLabel"] = require_text(workflow, "selectionActionLabel", "workflow.selectionActionLabel")
-    detail_request_wrapper = {"request": workflow.get("detailRequest")}
-    detail_request, detail_origin = validate_request(detail_request_wrapper, [*input_names, "selectedValue"])
-    workflow["detailRequest"] = detail_request
-    workflow["detailRenderer"] = validate_renderer_object(workflow.get("detailRenderer", {"type": "auto"}), "workflow.detailRenderer")
-    spec["workflow"] = workflow
-    return workflow, [("detail", detail_request, detail_origin)]
 
 
 def validate_cdp(value: str) -> str:
@@ -389,7 +292,7 @@ def validate_runtime(raw: Any, transport: str) -> dict[str, Any]:
     }
 
 
-def validate_companion(spec: dict[str, Any], endpoint_origin: str | None) -> dict[str, Any] | None:
+def validate_companion(spec: dict[str, Any], required_origins: set[str]) -> dict[str, Any] | None:
     mode = spec["mode"]
     raw = spec.get("companion")
     if mode == "direct":
@@ -398,19 +301,15 @@ def validate_companion(spec: dict[str, Any], endpoint_origin: str | None) -> dic
         return None
     companion = require_object(raw, "companion")
     reject_unknown(companion, ALLOWED_COMPANION, "companion")
-    transport = require_text(companion, "transport", "companion.transport")
-    expected = "browser" if mode == "browser" else "node"
-    if transport != expected:
-        fail(f"mode {mode} requires companion.transport {expected}.")
+    transport = "browser" if mode == "browser" else "node"
+    companion["transport"] = transport
     companion["runtime"] = validate_runtime(companion.get("runtime"), transport)
-    endpoint_origins = companion.get("allowedEndpointOrigins", [endpoint_origin] if endpoint_origin else [])
+    endpoint_origins = companion.get("allowedEndpointOrigins", sorted(required_origins))
     if not isinstance(endpoint_origins, list):
         fail("companion.allowedEndpointOrigins must be an array.")
-    if endpoint_origin and not endpoint_origins:
-        fail("companion.allowedEndpointOrigins must be a non-empty array for HTTP replay.")
     normalized_endpoints = [parse_http_url(origin, "companion.allowedEndpointOrigins entry")[0] for origin in endpoint_origins]
-    if endpoint_origin and endpoint_origin not in normalized_endpoints:
-        fail("companion.allowedEndpointOrigins must include request.url's origin.")
+    if required_origins - set(normalized_endpoints):
+        fail("All fixed request origins must be allowlisted.")
     companion["allowedEndpointOrigins"] = sorted(set(normalized_endpoints))
     if transport == "browser":
         target_url = require_text(companion, "targetUrl", "companion.targetUrl")
@@ -442,89 +341,63 @@ def validate_companion(spec: dict[str, Any], endpoint_origin: str | None) -> dic
 
 
 def validate_spec(raw: Any) -> tuple[dict[str, Any], dict[str, Any] | None]:
-    spec = require_object(raw, "spec")
-    spec = json.loads(json.dumps(spec))
+    spec = json.loads(json.dumps(require_object(raw, "spec")))
     reject_unknown(spec, ALLOWED_TOP, "spec")
-    for key in ("title", "description", "demonstrates", "constraints", "actionLabel"):
-        spec[key] = require_text(spec, key)
-    mode = require_text(spec, "mode")
-    if mode not in MODES:
-        fail(f"mode must be one of: {', '.join(sorted(MODES))}.")
-    spec["mode"] = mode
+    spec["title"] = require_text(spec, "title")
+    if spec.get("mode") not in MODES:
+        fail("mode must be direct, relay, or browser.")
     if not isinstance(spec.get("sideEffect"), bool):
         fail("sideEffect must be a boolean.")
-    mechanism_kind = spec.get("mechanismKind", "http-replay")
-    if mechanism_kind not in MECHANISM_KINDS:
-        fail(f"mechanismKind must be one of: {', '.join(sorted(MECHANISM_KINDS))}.")
-    spec["mechanismKind"] = mechanism_kind
-    local_port = spec.get("localPort", 8000 if mode == "direct" else 8765)
-    if isinstance(local_port, bool) or not isinstance(local_port, int) or not 1024 <= local_port <= 65535:
+    spec.setdefault("localPort", 8765)
+    port = spec["localPort"]
+    if isinstance(port, bool) or not isinstance(port, int) or not 1024 <= port <= 65535:
         fail("localPort must be an integer from 1024 through 65535.")
-    spec["localPort"] = local_port
-    validate_verification(spec)
+    spec.setdefault("mechanismKind", "http-replay")
+    if spec["mechanismKind"] not in MECHANISM_KINDS:
+        fail("Unknown mechanismKind.")
     input_names = validate_inputs(spec)
-    if mechanism_kind == "page-runtime-extraction":
-        if mode != "browser":
-            fail("mechanismKind page-runtime-extraction requires mode browser.")
-        if "request" in spec:
-            fail("mechanismKind page-runtime-extraction does not accept request; the generated fixed page recipe is the only execution path.")
-        for definition in spec["inputs"]:
-            normalized_name = definition["name"].lower()
-            if definition["type"] == "url" or normalized_name in PAGE_RUNTIME_FORBIDDEN_INPUT_NAMES:
-                fail("Page-runtime inputs must be action data, not JavaScript, selectors, or target URLs.")
-        request = None
-        endpoint_origin = None
+    requests = {}
+    origins = set()
+    if spec["mechanismKind"] == "page-runtime-extraction":
+        if spec["mode"] != "browser" or "requests" in spec:
+            fail("Page extraction requires browser mode and no requests.")
+        for item in spec["inputs"]:
+            if item["type"] == "url" or item["name"].lower() in PAGE_RUNTIME_FORBIDDEN_INPUT_NAMES:
+                fail("Page inputs must be action data, not code, selectors, or URLs.")
     else:
-        request, endpoint_origin = validate_request(spec, input_names)
-        spec["request"] = request
-    validate_renderer(spec)
-    workflow, workflow_requests = validate_workflow(spec, input_names)
-    if mechanism_kind == "page-runtime-extraction" and workflow["type"] != "single":
-        fail("Page-runtime extraction supports only the bounded single workflow.")
-    companion = validate_companion(spec, endpoint_origin)
-    if companion and companion["targetStatePolicy"] == "allow-consumed":
-        target = urlparse(companion["targetUrl"])
-        if mechanism_kind != "page-runtime-extraction":
-            fail("companion.targetStatePolicy allow-consumed is only valid for page-runtime extraction.")
-        if not target.query and not target.fragment:
-            fail("companion.targetStatePolicy allow-consumed requires fixed query or fragment state to consume.")
-    if companion and companion["targetStatePolicy"] == "allow-query-to-fragment":
-        target = urlparse(companion["targetUrl"])
-        if mechanism_kind != "page-runtime-extraction":
-            fail("companion.targetStatePolicy allow-query-to-fragment is only valid for page-runtime extraction.")
-        if not target.query or target.fragment:
-            fail("companion.targetStatePolicy allow-query-to-fragment requires fixed query state and no configured fragment.")
-    companion_config = None
-    if companion:
-        requests = {} if request is None else {"main": request, "search": request}
-        endpoint_origins = set() if endpoint_origin is None else {endpoint_origin}
-        for request_key, workflow_request, workflow_origin in workflow_requests:
-            requests[request_key] = workflow_request
-            endpoint_origins.add(workflow_origin)
-        missing_origins = endpoint_origins - set(companion["allowedEndpointOrigins"])
-        if missing_origins:
-            fail(f"companion.allowedEndpointOrigins must include workflow request origin(s): {', '.join(sorted(missing_origins))}.")
-        target = urlparse(companion["targetUrl"])
-        companion_config = {
-            "transport": companion["transport"],
-            "targetUrl": companion["targetUrl"],
-            "targetPath": target.path or "/",
-            "targetSearchParams": parse_qsl(target.query, keep_blank_values=True),
-            "targetFragment": unquote(target.fragment),
-            "targetStatePolicy": companion["targetStatePolicy"],
-            "allowedPageOrigins": companion["allowedPageOrigins"],
-            "allowedEndpointOrigins": companion["allowedEndpointOrigins"],
-            "inputNames": input_names,
-            "runtimeInputNames": ["selectedValue"] if workflow["type"] == "search-select-detail" else [],
-            "inputDefinitions": spec["inputs"],
-            "localPort": spec["localPort"],
-            "sideEffect": spec["sideEffect"],
-            "mechanismKind": mechanism_kind,
-            "runtime": companion["runtime"],
-            "request": request,
-            "requests": requests,
-        }
-    return spec, companion_config
+        definitions = require_object(spec.get("requests"), "requests")
+        if "main" not in definitions:
+            fail("requests must define a fixed main operation.")
+        for name, definition in definitions.items():
+            if not NAME_PATTERN.fullmatch(name):
+                fail("Request names must start with a letter and contain letters, numbers, underscores, or hyphens.")
+            request, origin = validate_request(definition, input_names)
+            requests[name] = request
+            origins.add(origin)
+        spec["requests"] = requests
+    companion = validate_companion(spec, origins)
+    if not companion:
+        return spec, None
+    target = urlparse(companion["targetUrl"])
+    policy = companion["targetStatePolicy"]
+    if policy != "exact":
+        if spec["mechanismKind"] != "page-runtime-extraction":
+            fail("Alternate page-state policies are only valid for page extraction.")
+        if policy == "allow-consumed" and not (target.query or target.fragment):
+            fail("allow-consumed requires fixed query or fragment state.")
+        if policy == "allow-query-to-fragment" and (not target.query or target.fragment):
+            fail("allow-query-to-fragment requires a fixed query and no fragment.")
+    return spec, {
+        **companion,
+        "targetPath": target.path or "/",
+        "targetSearchParams": parse_qsl(target.query, keep_blank_values=True),
+        "targetFragment": unquote(target.fragment),
+        "inputDefinitions": spec["inputs"],
+        "localPort": spec["localPort"],
+        "sideEffect": spec["sideEffect"],
+        "mechanismKind": spec["mechanismKind"],
+        "requests": requests,
+    }
 
 
 def render_template(path: Path, replacements: dict[str, str]) -> str:
@@ -540,9 +413,7 @@ def render_template(path: Path, replacements: dict[str, str]) -> str:
     return rendered
 
 
-def atomic_write(path: Path, content: str, force: bool) -> None:
-    if path.exists() and not force:
-        fail(f"Refusing to overwrite existing file: {path}. Use --force to replace generated files.")
+def atomic_write(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     try:
@@ -555,74 +426,50 @@ def atomic_write(path: Path, content: str, force: bool) -> None:
 
 
 def build(spec_path: Path, output: Path, force: bool) -> list[Path]:
-    try:
-        raw = json.loads(spec_path.read_text(encoding="utf-8"))
-    except FileNotFoundError as error:
-        fail(f"Spec file does not exist: {spec_path}.")
-    except json.JSONDecodeError as error:
-        fail(f"Spec is not valid JSON: line {error.lineno}, column {error.colno}.")
+    raw = json.loads(spec_path.read_text(encoding="utf-8"))
     spec, companion = validate_spec(raw)
     document_title = spec["title"].replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    demo_spec = json.loads(json.dumps(spec))
-    if companion:
-        demo_spec["companion"]["runtime"] = {"authMode": companion["runtime"]["authMode"]}
-    demo = render_template(
-        ASSETS / "demo-template.html",
-        {
-            "__WTI_DOCUMENT_TITLE__": document_title,
-            "__WTI_DEMO_CONFIG__": json_for_inline_script(demo_spec),
-        },
-    )
+    public = {key: spec[key] for key in ("title", "mode", "sideEffect", "inputs", "mechanismKind")}
     if spec["mode"] == "direct":
+        public["requests"] = spec["requests"]
+    guards = (ASSETS / "data-guards.js").read_text(encoding="utf-8")
+    demo = render_template(ASSETS / "demo-template.html", {
+        "__WTI_DOCUMENT_TITLE__": document_title,
+        "__WTI_DEMO_CONFIG__": json_for_inline_script(public),
+        "__WTI_DATA_GUARDS__": guards,
+    })
+    if companion:
+        run_command = shlex.join(["node", str(output / "browser-companion.mjs")])
+        demo_url = f"http://127.0.0.1:{spec['localPort']}/"
+    else:
         run_command = f"python3 -m http.server {spec['localPort']} --bind 127.0.0.1 --directory {shlex.quote(str(output))}"
         demo_url = f"http://127.0.0.1:{spec['localPort']}/demo.html"
-    else:
-        command = ["node", str(output / "browser-companion.mjs"), "--port", str(spec["localPort"])]
-        runtime = companion["runtime"]
-        if companion["transport"] == "browser":
-            command.extend(["--session", runtime["session"]])
-            if runtime["authMode"] == "interactive-profile":
-                command.extend(["--profile", runtime["profile"]])
-            elif runtime["authMode"] == "cdp":
-                command.extend(["--cdp", runtime["cdp"]])
-            elif runtime["authMode"] == "existing-session":
-                command.append("--no-prepare")
-        elif runtime["runtimeHeadersStdin"]:
-            command.append("--runtime-headers-stdin")
-        run_command = shlex.join(command)
-        demo_url = f"http://127.0.0.1:{spec['localPort']}/"
-    findings = render_template(
-        ASSETS / "findings-template.md",
-        {
-            "__WTI_FINDINGS_TITLE__": spec["title"],
-            "__WTI_FINDINGS_MODE__": spec["mode"],
-            "__WTI_FINDINGS_MECHANISM_KIND__": spec["mechanismKind"],
-            "__WTI_FINDINGS_DEMONSTRATES__": spec["demonstrates"],
-            "__WTI_FINDINGS_CONSTRAINTS__": spec["constraints"],
-            "__WTI_FINDINGS_VERIFICATION_STATUS__": spec["verification"]["status"],
-            "__WTI_FINDINGS_MECHANISM_RELATIONSHIP__": spec["verification"]["relationship"],
-            "__WTI_FINDINGS_VERIFICATION_SUMMARY__": spec["verification"]["summary"],
-            "__WTI_RUN_COMMAND__": run_command,
-            "__WTI_DEMO_URL__": demo_url,
-        },
-    )
-    generated = [output / "demo.html", output / "FINDINGS.md"]
-    pending: list[tuple[Path, str]] = [(generated[0], demo), (generated[1], findings)]
+    findings = f"""# {spec['title']}
+
+<!-- WTI-FINDINGS: Describe the observed mechanism, useful result, actual verification, and remaining limitations. Distinguish live replay from substitutes or captured evidence. -->
+
+Run from a local terminal:
+
+```bash
+{run_command}
+```
+
+Open: {demo_url}
+"""
+    pending = [(output / "demo.html", demo), (output / "FINDINGS.md", findings)]
     if companion:
-        companion_source = render_template(
-            ASSETS / "browser-companion-template.mjs",
-            {"__WTI_COMPANION_CONFIG__": json.dumps(companion, ensure_ascii=False, separators=(",", ":"))},
-        )
-        generated.append(output / "browser-companion.mjs")
-        pending.append((generated[-1], companion_source))
+        pending.append((output / "browser-companion.mjs", render_template(
+            ASSETS / "browser-companion-template.mjs", {
+                "__WTI_COMPANION_CONFIG__": json.dumps(companion, ensure_ascii=False, separators=(",", ":")),
+                "__WTI_DATA_GUARDS__": guards,
+            },
+        )))
     for path, _ in pending:
         if path.exists() and not force:
             fail(f"Refusing to overwrite existing file: {path}. Use --force to replace generated files.")
     for path, content in pending:
-        atomic_write(path, content, force=True)
-    if companion:
-        generated[-1].chmod(generated[-1].stat().st_mode | 0o111)
-    return generated
+        atomic_write(path, content)
+    return [path for path, _ in pending]
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -637,7 +484,7 @@ def main(argv: list[str] | None = None) -> int:
     arguments = parse_args(argv or sys.argv[1:])
     try:
         generated = build(arguments.spec.resolve(), arguments.out.resolve(), arguments.force)
-    except (OSError, SpecError) as error:
+    except (OSError, ValueError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
     for path in generated:

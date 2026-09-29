@@ -28,10 +28,7 @@ ALLOWED_PATHS = frozenset((PROFILE_PATH, SKILL_PATH, PLUGIN_PATH))
 MAX_WINDOW_DAYS = 365
 ITEM_LIMIT = 1000
 MAX_RESPONSE_BYTES = 8 * 1024 * 1024
-SCHEMA_VERSION = 4
-KNOWN_SKILL_RENAMES = {
-    "codex-skill-usage-analytics": ("codex-usage-analytics",),
-}
+SCHEMA_VERSION = 6
 VIEWS = (
     "current",
     "user",
@@ -43,7 +40,6 @@ VIEWS = (
     "unobserved",
     "historical",
     "duplicates",
-    "possible-renames",
 )
 SORTS = (
     "most-used",
@@ -166,7 +162,7 @@ class ApiClient:
                 "Accept": "application/json",
                 "Authorization": f"Bearer {self._auth.access_token}",
                 "ChatGPT-Account-Id": self._auth.account_id,
-                "User-Agent": "codex-skill-usage-analytics/2",
+                "User-Agent": "codex-skill-analytics/2",
             },
         )
         try:
@@ -436,7 +432,6 @@ def _installation(
         "namespace": namespace,
         "source": source,
         "path": str(path),
-        "source_path": str(path),
         "marketplace": marketplace,
         "plugin_identifier": plugin_identifier,
         "plugin_display_name": plugin_display_name,
@@ -620,7 +615,7 @@ def discover_inventory(
                     invocation_modes[0] if len(invocation_modes) == 1 else "mixed"
                 ),
                 "source_paths": sorted(
-                    {item["source_path"] for item in grouped_installations}
+                    {item["path"] for item in grouped_installations}
                 ),
                 "installation_count": len(grouped_installations),
                 "duplicate_installation": len(grouped_installations) > 1,
@@ -650,10 +645,6 @@ def metric_config(kind: str) -> tuple[str, str, str]:
     if kind == "plugins":
         return PLUGIN_PATH, "top_plugin_limit", "plugin_usage_overviews"
     raise UsageAnalyticsError(f"unsupported metric kind {kind!r}")
-
-
-def _round_rate(value: float) -> float:
-    return round(value, 4)
 
 
 def _recent_count(daily: list[dict[str, Any]], end: dt.date, days: int) -> int:
@@ -688,53 +679,27 @@ def _finalize_record(record: dict[str, Any], end: dt.date) -> dict[str, Any] | N
     active_days = len(daily)
     identifiers = sorted(record["identifiers"])
     item = {
+        "id": record["id"],
         "name": record["name"],
         "count": total,
         "first_observed": first_observed,
-        "last_observed": last_observed,
         "last_used": last_observed,
         "identifiers": identifiers,
         "display_names": sorted(record["display_names"]),
         "marketplaces": sorted(record["marketplaces"]),
         "active_days": active_days,
         "days_since_last_use": (end - last_date).days,
-        "uses_per_active_day": _round_rate(total / active_days),
-        "uses_per_week_since_first_observed": _round_rate(total / elapsed_weeks),
+        "uses_per_active_day": round(total / active_days, 4),
+        "uses_per_week_since_first_observed": round(total / elapsed_weeks, 4),
         "uses_last_7_days": _recent_count(daily, end, 7),
         "uses_last_30_days": _recent_count(daily, end, 30),
         "uses_last_90_days": _recent_count(daily, end, 90),
         "daily": daily,
         "identity_flags": [],
-        "possible_renames": [],
     }
     if len(identifiers) > 1:
         item["identity_flags"].append("multiple_identifiers_for_name")
     return item
-
-
-def _analyze_identifier_names(items: list[dict[str, Any]]) -> None:
-    names_by_identifier: dict[str, set[str]] = defaultdict(set)
-    for item in items:
-        for identifier in item.get("identifiers", []):
-            names_by_identifier[identifier].add(item["name"])
-    for identifier, names in names_by_identifier.items():
-        if len(names) < 2:
-            continue
-        for item in items:
-            if identifier not in item.get("identifiers", []):
-                continue
-            if "identifier_observed_with_multiple_names" not in item["identity_flags"]:
-                item["identity_flags"].append(
-                    "identifier_observed_with_multiple_names"
-                )
-            for other_name in sorted(names - {item["name"]}):
-                candidate = {
-                    "name": other_name,
-                    "evidence": "shared_telemetry_identifier",
-                    "identifier": identifier,
-                }
-                if candidate not in item["possible_renames"]:
-                    item["possible_renames"].append(candidate)
 
 
 def collect_metric(
@@ -824,6 +789,7 @@ def collect_metric(
                 record = records.setdefault(
                     key,
                     {
+                        "id": stable_id,
                         "name": name,
                         "identifiers": set(),
                         "display_names": set(),
@@ -850,7 +816,6 @@ def collect_metric(
         for record in records.values()
         if (finalized := _finalize_record(record, end)) is not None
     ]
-    _analyze_identifier_names(items)
     items.sort(key=lambda item: (-item["count"], item["name"].casefold()))
     other_items = [item for item in items if item["name"].casefold() == "other"]
     other_count = sum(item["count"] for item in other_items)
@@ -873,169 +838,72 @@ def collect_metric(
     }
 
 
-def _normalized_base_name(name: str) -> str:
-    base = name.rsplit(":", 1)[-1]
-    return re.sub(r"[^a-z0-9]+", "", base.casefold())
-
-
-def _empty_inventory_item(
-    inventory_item: dict[str, Any],
-    possible_predecessors: list[dict[str, Any]],
-) -> dict[str, Any]:
-    status = (
-        "not_observed_under_current_name"
-        if possible_predecessors
-        else "no_invocation_returned_during_coverage"
-    )
-    flags = ["possible_renamed_predecessor"] if possible_predecessors else []
-    if inventory_item["duplicate_installation"]:
-        flags.append("duplicate_current_installation")
-    marketplaces = sorted(
-        {
-            installation["marketplace"]
-            for installation in inventory_item["installations"]
-            if installation.get("marketplace")
-        }
-    )
-    return {
-        "name": inventory_item["name"],
-        "count": 0,
-        "first_observed": None,
-        "last_observed": None,
-        "last_used": None,
-        "identifiers": [],
-        "display_names": [],
-        "marketplaces": marketplaces,
-        "active_days": 0,
-        "days_since_last_use": None,
-        "uses_per_active_day": None,
-        "uses_per_week_since_first_observed": None,
-        "uses_last_7_days": 0,
-        "uses_last_30_days": 0,
-        "uses_last_90_days": 0,
-        "daily": [],
-        "identity_flags": flags,
-        "possible_renames": possible_predecessors,
-        "current_available": True,
-        "inventory_status": "current_unobserved",
-        "observation_status": status,
-        "source": inventory_item["source"],
-        "sources": inventory_item["sources"],
-        "distribution": inventory_item.get("distribution", "standalone_user"),
-        "distributions": inventory_item.get(
-            "distributions", [inventory_item.get("distribution", "standalone_user")]
-        ),
-        "invocation_mode": inventory_item.get(
-            "invocation_mode", "automatic_or_manual"
-        ),
-        "source_paths": inventory_item.get(
-            "source_paths",
-            [item["path"] for item in inventory_item["installations"]],
-        ),
-        "namespace": inventory_item["namespace"],
-        "base_name": inventory_item["base_name"],
-        "installation_count": inventory_item["installation_count"],
-        "duplicate_installation": inventory_item["duplicate_installation"],
-        "installations": inventory_item["installations"],
-    }
-
-
 def merge_skill_inventory(
     metric: dict[str, Any],
     inventory: dict[str, Any],
 ) -> None:
-    current_items = inventory.get("current_skills", []) if inventory.get("enabled") else []
+    current_items = inventory["current_skills"]
     current_by_name = {item["name"]: item for item in current_items}
     observed_by_name = {item["name"]: item for item in metric["items"]}
-    historical_by_normalized: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for item in metric["items"]:
-        if item["name"] not in current_by_name:
-            historical_by_normalized[_normalized_base_name(item["name"])].append(item)
 
     for item in metric["items"]:
-        inventory_item = current_by_name.get(item["name"])
-        if inventory_item is None:
-            is_plugin = ":" in item["name"]
-            item.update(
-                {
-                    "current_available": False,
-                    "inventory_status": "historical",
-                    "observation_status": "historical_skill_not_currently_available",
-                    "source": "plugin" if is_plugin else "unknown",
-                    "sources": ["plugin"] if is_plugin else ["unknown"],
-                    "distribution": "historical",
-                    "distributions": [],
-                    "invocation_mode": None,
-                    "source_paths": [],
-                    "namespace": item["name"].split(":", 1)[0] if is_plugin else None,
-                    "base_name": item["name"].rsplit(":", 1)[-1],
-                    "installation_count": 0,
-                    "duplicate_installation": False,
-                    "installations": [],
-                }
-            )
+        if item["name"] in current_by_name:
             continue
-        item.update(
-            {
-                "current_available": True,
-                "inventory_status": "current_observed",
-                "observation_status": "observed_during_coverage",
-                "source": inventory_item["source"],
-                "sources": inventory_item["sources"],
-                "distribution": inventory_item.get(
-                    "distribution", "standalone_user"
-                ),
-                "distributions": inventory_item.get(
-                    "distributions",
-                    [inventory_item.get("distribution", "standalone_user")],
-                ),
-                "invocation_mode": inventory_item.get(
-                    "invocation_mode", "automatic_or_manual"
-                ),
-                "source_paths": inventory_item.get(
-                    "source_paths",
-                    [entry["path"] for entry in inventory_item["installations"]],
-                ),
-                "namespace": inventory_item["namespace"],
-                "base_name": inventory_item["base_name"],
-                "installation_count": inventory_item["installation_count"],
-                "duplicate_installation": inventory_item["duplicate_installation"],
-                "installations": inventory_item["installations"],
-            }
-        )
-        if inventory_item["duplicate_installation"]:
-            item["identity_flags"].append("duplicate_current_installation")
+        is_plugin = ":" in item["name"]
+        item.update({
+            "current_available": False,
+            "inventory_status": "historical",
+            "observation_status": "historical_skill_not_currently_available",
+            "source": "plugin" if is_plugin else "unknown",
+            "sources": ["plugin"] if is_plugin else ["unknown"],
+            "distribution": "historical",
+            "distributions": [],
+            "invocation_mode": None,
+            "source_paths": [],
+            "namespace": item["name"].split(":", 1)[0] if is_plugin else None,
+            "base_name": item["name"].rsplit(":", 1)[-1],
+            "installation_count": 0,
+            "duplicate_installation": False,
+            "installations": [],
+        })
 
     for inventory_item in current_items:
-        if inventory_item["name"] in observed_by_name:
-            continue
-        candidates_by_name = {
-            historical["name"]: {
-                "name": historical["name"],
-                "evidence": "same_normalized_base_name",
+        item = observed_by_name.get(inventory_item["name"])
+        observed = item is not None
+        if item is None:
+            item = {
+                "id": inventory_item["name"],
+                "count": 0,
+                "first_observed": None,
+                "last_used": None,
+                "identifiers": [],
+                "display_names": [],
+                "marketplaces": sorted({
+                    entry["marketplace"] for entry in inventory_item["installations"]
+                    if entry["marketplace"]
+                }),
+                "active_days": 0,
+                "days_since_last_use": None,
+                "uses_per_active_day": None,
+                "uses_per_week_since_first_observed": None,
+                "uses_last_7_days": 0,
+                "uses_last_30_days": 0,
+                "uses_last_90_days": 0,
+                "daily": [],
+                "identity_flags": [],
             }
-            for historical in historical_by_normalized.get(
-                _normalized_base_name(inventory_item["base_name"]), []
-            )
-        }
-        for old_name in KNOWN_SKILL_RENAMES.get(inventory_item["name"], ()):
-            historical = observed_by_name.get(old_name)
-            if historical is None or old_name in current_by_name:
-                continue
-            candidates_by_name[old_name] = {
-                "name": old_name,
-                "evidence": "declared_package_rename",
-            }
-            successor = {
-                "name": inventory_item["name"],
-                "evidence": "declared_package_rename",
-            }
-            if successor not in historical["possible_renames"]:
-                historical["possible_renames"].append(successor)
-            if "declared_renamed_successor" not in historical["identity_flags"]:
-                historical["identity_flags"].append("declared_renamed_successor")
-        candidates = sorted(candidates_by_name.values(), key=lambda item: item["name"])
-        metric["items"].append(_empty_inventory_item(inventory_item, candidates))
+            metric["items"].append(item)
+        item.update(inventory_item)
+        item.update({
+            "current_available": True,
+            "inventory_status": "current_observed" if observed else "current_unobserved",
+            "observation_status": (
+                "observed_during_coverage" if observed
+                else "no_invocation_returned_during_coverage"
+            ),
+        })
+        if inventory_item["duplicate_installation"]:
+            item["identity_flags"].append("duplicate_current_installation")
 
     metric["items"].sort(key=lambda item: (-item["count"], item["name"].casefold()))
     metric["inventory_summary"] = {
@@ -1049,10 +917,7 @@ def merge_skill_inventory(
         "historical_skill_count": sum(
             item["inventory_status"] == "historical" for item in metric["items"]
         ),
-        "duplicate_name_count": len(inventory.get("duplicate_installations", [])),
-        "possible_rename_count": sum(
-            bool(item.get("possible_renames")) for item in metric["items"]
-        ),
+        "duplicate_name_count": len(inventory["duplicate_installations"]),
     }
 
 
@@ -1068,11 +933,8 @@ def _inventory_disabled() -> dict[str, Any]:
 
 
 def build_warnings(
-    profile: dict[str, Any],
-    start: dt.date,
     metrics: dict[str, dict[str, Any]],
-    end: dt.date | None = None,
-    inventory: dict[str, Any] | None = None,
+    inventory: dict[str, Any],
 ) -> list[str]:
     warnings: list[str] = []
     for kind, metric in metrics.items():
@@ -1083,8 +945,7 @@ def build_warnings(
         warnings.append(
             "Named-item counts are truncated because at least one response retained an Other bucket."
         )
-    if inventory:
-        warnings.extend(inventory.get("warnings", []))
+    warnings.extend(inventory["warnings"])
     return warnings
 
 
@@ -1099,10 +960,14 @@ def build_report(
     inventory: dict[str, Any] | None = None,
     inventory_enabled: bool = True,
     report_options: dict[str, Any] | None = None,
+    include_profile: bool = False,
 ) -> dict[str, Any]:
-    profile = project_profile(client.get(PROFILE_PATH))
+    profile = (
+        project_profile(client.get(PROFILE_PATH))
+        if all_available or include_profile else None
+    )
     if all_available:
-        activity_start = profile.get("activity_start")
+        activity_start = profile["activity_start"]
         if not isinstance(activity_start, str):
             raise UsageAnalyticsError(
                 "Profile did not expose an earliest activity date; provide --start"
@@ -1126,7 +991,8 @@ def build_report(
     resolved_inventory = inventory
     if resolved_inventory is None:
         resolved_inventory = (
-            discover_inventory() if inventory_enabled else _inventory_disabled()
+            discover_inventory() if inventory_enabled and kind != "plugins"
+            else _inventory_disabled()
         )
     kinds: Iterable[str] = ("skills", "plugins") if kind == "both" else (kind,)
     metrics = {
@@ -1150,14 +1016,12 @@ def build_report(
         },
         "report_options": report_options
         or {"view": "current", "sort": "most-used", "recent_days": 30},
-        "profile_cross_check": profile,
         "inventory": resolved_inventory,
         "metrics": metrics,
-        "warnings": build_warnings(
-            profile, resolved_start, metrics, end, resolved_inventory
-        ),
+        "warnings": build_warnings(metrics, resolved_inventory),
     }
-    report["selected_view"] = _selected_view_payload(report)
+    if profile is not None:
+        report["profile_cross_check"] = profile
     return report
 
 
@@ -1215,8 +1079,6 @@ def _view_items(
         return [item for item in items if item.get("inventory_status") == "historical"]
     if view == "duplicates":
         return [item for item in items if item.get("duplicate_installation")]
-    if view == "possible-renames":
-        return [item for item in items if item.get("possible_renames")]
     if view == "recent":
         return [
             item for item in items if _recent_count(item["daily"], end, recent_days) > 0
@@ -1236,69 +1098,53 @@ def _period_label(date_value: str, view: str) -> str:
 
 def _timeline_rows(
     items: list[dict[str, Any]], view: str
-) -> list[tuple[str, str, int]]:
-    totals: dict[tuple[str, str], int] = defaultdict(int)
+) -> list[dict[str, Any]]:
+    totals: dict[tuple[str, str, str], int] = defaultdict(int)
     for item in items:
         for row in item["daily"]:
-            totals[(_period_label(row["date"], view), item["name"])] += row["count"]
+            totals[(_period_label(row["date"], view), item["id"], item["name"])] += row["count"]
     return [
-        (period, name, count)
-        for (period, name), count in sorted(
+        {"period": period, "id": identifier, "name": name, "count": count}
+        for (period, identifier, name), count in sorted(
             totals.items(), key=lambda entry: (entry[0][0], entry[0][1].casefold())
         )
     ]
 
 
-def _selected_view_payload(report: dict[str, Any]) -> dict[str, Any]:
+def render_report(report: dict[str, Any], *, details: bool = False) -> dict[str, Any]:
+    """Select and sort once for either compact output or a full diagnostic report."""
     options = report["report_options"]
     view = options["view"]
-    sort = options["sort"]
-    recent_days = options["recent_days"]
     end = dt.date.fromisoformat(report["requested_range"]["end"])
-    selected: dict[str, Any] = {
-        "view": view,
-        "sort": sort,
-        "recent_days": recent_days,
-        "metrics": {},
-    }
+    if details:
+        result = {**report, "selected_view": {**options, "metrics": {}}}
+    else:
+        result = {
+            key: report[key]
+            for key in (
+                "schema_version", "generated_at", "source", "requested_range",
+                "report_options", "warnings",
+            )
+        }
+        result.update({
+            "detail": "compact",
+            "inventory_enabled": report["inventory"]["enabled"],
+            "metrics": {},
+        })
+
     for kind, metric in report["metrics"].items():
         items = _sort_items(
-            _view_items(metric["items"], view, recent_days, end), sort
-        )
-        if view in ("daily", "weekly", "monthly"):
-            rows = [
-                {"period": period, "name": name, "count": count}
-                for period, name, count in _timeline_rows(items, view)
-            ]
-            selected["metrics"][kind] = {"row_count": len(rows), "rows": rows}
-        else:
-            names = [item["name"] for item in items]
-            selected["metrics"][kind] = {
-                "item_count": len(names),
-                "item_names": names,
-            }
-    return selected
-
-
-def compact_report(report: dict[str, Any]) -> dict[str, Any]:
-    """Project the requested view without unrelated history or local paths."""
-    options = report["report_options"]
-    end = dt.date.fromisoformat(report["requested_range"]["end"])
-    result = {
-        key: report[key]
-        for key in (
-            "schema_version", "generated_at", "source", "requested_range",
-            "report_options", "warnings",
-        )
-    }
-    result["detail"] = "compact"
-    result["inventory_enabled"] = report["inventory"]["enabled"]
-    result["metrics"] = {}
-    for kind, metric in report["metrics"].items():
-        items = _sort_items(
-            _view_items(metric["items"], options["view"], options["recent_days"], end),
+            _view_items(metric["items"], view, options["recent_days"], end),
             options["sort"],
         )
+        timeline = view in ("daily", "weekly", "monthly")
+        rows = _timeline_rows(items, view) if timeline else []
+        if details:
+            result["selected_view"]["metrics"][kind] = (
+                {"row_count": len(rows), "rows": rows} if timeline else
+                {"item_count": len(items), "items": [{"id": item["id"], "name": item["name"]} for item in items]}
+            )
+            continue
         selected = {
             "coverage": {
                 key: metric[key]
@@ -1311,8 +1157,8 @@ def compact_report(report: dict[str, Any]) -> dict[str, Any]:
             "observed_items": sum(item["count"] > 0 for item in items),
             "total_invocations": sum(item["count"] for item in items),
         }
-        if options["view"] in ("daily", "weekly", "monthly"):
-            selected["rows"] = report["selected_view"]["metrics"][kind]["rows"]
+        if timeline:
+            selected["rows"] = rows
         else:
             selected["items"] = [compact_item(item) for item in items]
         result["metrics"][kind] = selected
@@ -1323,13 +1169,13 @@ def compact_item(item: dict[str, Any]) -> dict[str, Any]:
     result = {
         key: item[key]
         for key in (
-            "name", "count", "active_days", "first_observed", "last_used",
+            "id", "name", "count", "active_days", "first_observed", "last_used",
             "uses_last_30_days", "current_available", "observation_status",
             "distribution", "invocation_mode",
         )
         if key in item
     }
-    for key in ("identifiers", "identity_flags", "possible_renames", "marketplaces"):
+    for key in ("identifiers", "identity_flags", "marketplaces"):
         if item.get(key):
             result[key] = item[key]
     if item.get("duplicate_installation"):
@@ -1373,9 +1219,6 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "--kind", choices=("skills", "plugins", "both"), default="skills"
     )
     parser.add_argument(
-        "--format", choices=("json",), default="json", help="Output JSON (the default)"
-    )
-    parser.add_argument(
         "--details", action="store_true",
         help="include full inventory, daily histories, and diagnostic metadata",
     )
@@ -1385,7 +1228,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--no-inventory", action="store_true")
     parser.add_argument("--auth-file", type=Path, default=default_auth_path())
     parser.add_argument("--timeout", type=float, default=30.0)
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if args.view in {"user", "unobserved", "historical", "duplicates"} and (
+        args.kind != "skills" or args.no_inventory
+    ):
+        parser.error(f"--view {args.view} requires --kind skills with inventory enabled")
+    return args
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -1410,12 +1258,13 @@ def main(argv: list[str] | None = None) -> int:
             all_available=args.all_available,
             inventory_enabled=not args.no_inventory,
             report_options=options,
+            include_profile=args.details,
         )
     except UsageAnalyticsError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 
-    output = report if args.details else compact_report(report)
+    output = render_report(report, details=args.details)
     json.dump(output, sys.stdout, indent=2, sort_keys=True)
     sys.stdout.write("\n")
     return 0

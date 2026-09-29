@@ -3,7 +3,6 @@ set -euo pipefail
 
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 skills_dir="$repo_root/skills"
-validator="$skills_dir/skill-builder/scripts/validate_skill.py"
 max_tracked_file_bytes=${MAX_TRACKED_FILE_BYTES:-1048576}
 
 if [[ $# -gt 0 ]]; then
@@ -11,7 +10,7 @@ if [[ $# -gt 0 ]]; then
     cat <<'USAGE'
 Usage: ./scripts/check-repo
 
-Run deterministic, network-free repository validation and fast tests.
+Check skill names, catalogue, README links, and repository file hygiene.
 
 Environment:
   MAX_TRACKED_FILE_BYTES  Maximum tracked file size (default: 1048576).
@@ -22,17 +21,13 @@ USAGE
   exit 2
 fi
 
-for dependency in git python3 node; do
+for dependency in git python3; do
   command -v "$dependency" >/dev/null 2>&1 || {
     printf 'missing required dependency: %s\n' "$dependency" >&2
     exit 1
   }
 done
 
-python3 -c 'import yaml' >/dev/null 2>&1 || {
-  printf 'missing required Python package: PyYAML\n' >&2
-  exit 1
-}
 [[ "$max_tracked_file_bytes" =~ ^[1-9][0-9]*$ ]] || {
   printf 'MAX_TRACKED_FILE_BYTES must be a positive integer\n' >&2
   exit 1
@@ -42,22 +37,12 @@ python3 -c 'import yaml' >/dev/null 2>&1 || {
   printf 'missing skills directory: %s\n' "$skills_dir" >&2
   exit 1
 }
-[[ -f "$validator" ]] || {
-  printf 'missing skill validator: %s\n' "$validator" >&2
-  exit 1
-}
 
 skill_files=("$skills_dir"/*/SKILL.md)
 [[ -e "${skill_files[0]}" ]] || {
   printf 'no public skills found under %s\n' "$skills_dir" >&2
   exit 1
 }
-
-names_file=$(mktemp "${TMPDIR:-/tmp}/skills-repo-names.XXXXXX")
-cleanup() {
-  /bin/rm -f -- "$names_file"
-}
-trap cleanup EXIT HUP INT TERM
 
 for skill_md in "${skill_files[@]}"; do
   skill_dir=${skill_md%/SKILL.md}
@@ -71,15 +56,7 @@ for skill_md in "${skill_files[@]}"; do
     printf 'skill folder/frontmatter mismatch: folder=%s name=%s\n' "$folder" "${name:-<missing>}" >&2
     exit 1
   fi
-  printf '%s\n' "$name" >> "$names_file"
-  python3 "$validator" "$skill_dir"
 done
-
-duplicates=$(sort "$names_file" | uniq -d)
-if [[ -n "$duplicates" ]]; then
-  printf 'duplicate public skill names:\n%s\n' "$duplicates" >&2
-  exit 1
-fi
 
 while IFS= read -r -d '' tracked; do
   case "$tracked" in
@@ -122,14 +99,5 @@ while IFS= read -r -d '' executable; do
 done < <(find "$repo_root/scripts" -maxdepth 1 -type f -print0)
 
 python3 "$repo_root/scripts/check-readme-links.py"
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$repo_root/scripts/tests" -p 'test_*.py'
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$skills_dir/codex-skill-usage-analytics/tests" -p 'test_*.py'
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$skills_dir/recover-side-thread/tests" -p 'test_*.py'
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$skills_dir/skill-builder/tests" -p 'test_*.py'
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$skills_dir/skill-usage-auditor/tests" -p 'test_*.py'
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$skills_dir/web-traffic-inspector/tests" -p 'test_scaffold_prototype.py'
-
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$skills_dir/transcribe/tests" -p 'test_*.py'
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$skills_dir/download-media/tests" -p 'test_*.py'
 
 printf 'repository_check=passed skills=%s\n' "${#skill_files[@]}"

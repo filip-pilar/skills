@@ -1,177 +1,110 @@
-# Proof-prototype contract
+# Prototype contract
 
-The prototype is a learning artifact. It should make the discovered mechanism legible, let the user try the action, render the useful result, and expose the sanitized response.
+The scaffold produces self-contained `demo.html` and `FINDINGS.md`, plus
+`browser-companion.mjs` for relay/browser modes. Keep specs and discovery material
+outside the deliverable. Generated pages have native inputs, a task-specific
+`action`, a result `render`, and bounded, sanitized response evidence.
+Scaffolding requires Python 3.10+; companions require Node.js 18+, with
+`agent-browser` available for browser execution.
 
-## Required interface
-
-Every `demo.html` includes:
-
-- a specific title and one-sentence explanation;
-- a prominent verification/provenance strip directly below the explanation, including mechanism kind, execution mode, and mechanism relationship;
-- a collapsed “How This Works” disclosure containing only sanitized request stages, method, origin/path, stable query/body field names, execution mode, and authentication posture;
-- only the inputs required by the isolated action;
-- one clear initial action button, plus an explicit per-result continuation button when a downstream request requires user selection;
-- loading, success, empty, and actionable error states;
-- a domain-appropriate result view;
-- an always-available sanitized response `<pre>` rendered with `textContent`;
-- copy JSON and download JSON controls;
-- a short “What this demonstrates” note;
-- a short “Constraints” note covering observed authentication, CORS, stability, and side-effect behavior.
-- a visible verification note stating status, provenance, and whether the proof replays the observed mechanism, uses an equivalent substitute, or renders captured evidence only.
-
-When the action has side effects, include a visible acknowledgement checkbox and keep the action disabled until it is checked. Consume and clear the acknowledgement when each side-effecting execution starts so a retry or repeat requires a new deliberate acknowledgement. Do not cache it across page loads.
-
-## Scaffold spec
-
-The scaffold accepts a JSON object with this shape:
+## Spec
 
 ```json
 {
   "title": "Search the catalogue",
-  "description": "Replays the request used by the site search.",
-  "demonstrates": "A GET request returns the card data rendered below.",
-  "constraints": "Undocumented endpoint; subject to CORS and change.",
   "mode": "direct",
-  "mechanismKind": "http-replay",
   "localPort": 8765,
   "sideEffect": false,
-  "verification": {
-    "status": "verified",
-    "relationship": "same-mechanism",
-    "summary": "A reduced replay returned the expected catalogue records from the final loopback origin."
-  },
-  "actionLabel": "Search",
   "inputs": [
-    { "name": "query", "label": "Query", "type": "text", "required": true, "placeholder": "red shoes" }
+    {"name": "query", "label": "Query", "type": "text", "required": true}
   ],
-  "request": {
-    "url": "https://example.test/api/search",
-    "method": "GET",
-    "headers": { "Accept": "application/json" },
-    "query": { "q": "{{query}}" }
-  },
-  "renderer": {
-    "type": "cards",
-    "itemsPath": "results",
-    "titlePath": "name",
-    "subtitlePath": "description",
-    "imagePath": "image_url",
-    "hrefPath": "url"
-  }
-}
-```
-
-Supported input types are `text`, `textarea`, `number`, `url`, `select`, and `checkbox`. Authentication inputs and password fields are intentionally unsupported. `select` inputs use an `options` array of `{ "label", "value" }`. Number inputs may declare `min`, `max`, and `step`; text, textarea, and URL inputs may declare `minLength`, `maxLength`, and `pattern`. Companion modes enforce these constraints server-side as well as in HTML.
-
-Choose `localPort` before exact-origin CORS testing and keep that same port for the generated restart command and handoff. Verification `status` is `verified`, `partial`, `blocked`, or `provisional`. `relationship` is `same-mechanism`, `equivalent-substitute`, or `captured-evidence-only`; captured evidence cannot be labelled as a verified replay. Older specs without these fields remain loadable, but scaffold as fixed-port `provisional` proofs until the agent records real provenance.
-
-`mechanismKind` is `http-replay` or `page-runtime-extraction`; older specs default to `http-replay`. It describes what the prototype executes, while verification `relationship` describes how faithfully that mechanism represents the observed website action.
-
-Template expressions use exact input names, such as `{{query}}`, in query values and JSON bodies. An exact expression preserves a number or boolean value; an expression embedded inside a longer string becomes text.
-
-`mode` is `direct`, `relay`, or `browser`. The latter two generate `browser-companion.mjs`. Add a `companion` object:
-
-```json
-{
-  "transport": "node",
-  "targetUrl": "https://example.test/app",
-  "allowedPageOrigins": ["https://example.test"],
-  "allowedEndpointOrigins": ["https://example.test"]
-}
-```
-
-Use `transport: "browser"` for in-origin `agent-browser` execution and `transport: "node"` for a loopback Node fetch. `targetUrl` is required for browser transport. The endpoint URL still comes from `request.url` and remains fixed in generated source.
-
-### Bounded page-runtime extraction
-
-For `page-runtime-extraction` only, read [page-runtime.md](page-runtime.md) before
-scaffolding or writing the fixed recipe. It owns the request-free spec, target-state
-policy, bounded semantic component, styled-control handling, and recipe guards.
-
-### Companion runtime and authentication metadata
-
-`companion.runtime` is optional, non-secret launch metadata used to generate the tested restart command and authentication disclosure:
-
-```json
-{
-  "authMode": "interactive-profile",
-  "session": "wti-appearance-proof",
-  "profile": "/private/tmp/wti-appearance-profile"
-}
-```
-
-Supported `authMode` values are `none`, `existing-session`, `interactive-profile`, `cdp`, and `runtime-headers`. Browser transport always uses a bounded session name. `interactive-profile` requires a dedicated profile path; `existing-session` reuses the named session without preparing a new page; `cdp` requires a loopback port or loopback HTTP(S) endpoint without credentials, query, or fragment. Node transport accepts only `none` or `runtime-headers`; the latter adds `--runtime-headers-stdin` to the command. The scaffold quotes every command argument.
-
-The profile path is a reference, not authentication material. Never inspect, copy, package, or expose the profile contents. Generated `demo.html` retains only `authMode`; session names, profile paths, and CDP addresses remain out of browser-visible mechanism metadata. The companion and findings may contain the local runtime reference needed to restart the disposable proof, but never captured cookies, tokens, storage, or credentials.
-
-Renderer types are `auto`, `cards`, `images`, `table`, and `text`. Use dot-separated paths without executable expressions. If the response is unusual, scaffold with `auto`, then edit only the marked renderer function.
-
-### Search, select, then load details
-
-Keep the default `{ "workflow": { "type": "single" } }` for one request. For a dependent two-request flow, keep the top-level `request` as the search request and add:
-
-```json
-{
-  "workflow": {
-    "type": "search-select-detail",
-    "itemsPath": "data.search.edges",
-    "valuePath": "node.id",
-    "titlePath": "node.title",
-    "subtitlePath": "node.year",
-    "imagePath": "node.image",
-    "hrefPath": "node.url",
-    "selectionActionLabel": "Load details",
-    "detailRequest": {
-      "url": "https://example.test/api/details",
-      "method": "POST",
-      "headers": { "Content-Type": "application/json" },
-      "body": { "id": "{{selectedValue}}" }
-    },
-    "detailRenderer": {
-      "type": "cards",
-      "itemsPath": "results",
-      "titlePath": "name"
+  "requests": {
+    "main": {
+      "url": "https://example.test/api/search",
+      "method": "GET",
+      "headers": {"Accept": "application/json"},
+      "query": {"q": "{{query}}"}
     }
   }
 }
 ```
 
-The scaffold renders every returned candidate and sends the detail request only after the user chooses one. `{{selectedValue}}` is the value at `valuePath`. Both request records and the selected object remain in the sanitized raw view. For companion modes, both fixed request definitions are allowlisted; the companion still does not become a general proxy.
+`localPort` defaults to 8765; use the same port for the CORS probe and handoff.
+`mechanismKind` defaults to `http-replay`; the alternative is
+[page-runtime-extraction](page-runtime.md). HTTP proofs require a fixed `main`
+request. Add named requests for further observed stages; target URLs and methods
+are fixed, never supplied by the page's user.
 
-If image or link construction, request cleanup, or grouped result rendering needs code, edit only the generated `WTI-CUSTOMIZE` regions. The response region can populate `normalizedBody` while retaining the original response in raw JSON. The workflow region is the first-class place for a bounded multi-stage or mutation/verification/cleanup flow; cleanup belongs in `finally` and ambiguous mutations must not be retried. The companion region supports a fixed bootstrap/transient-resource chain, but every derived URL still needs exact origin/path validation and runtime-only treatment. Keep server-derived options dynamic when practical. If captured options are intentionally fixed, label their observed scope instead of presenting them as universal.
+Inputs support `text`, `textarea`, `number`, `url`, `select`, and `checkbox`.
+Select options are `{ "label", "value" }` pairs. Numbers accept `min`, `max`,
+and `step`; text accepts `minLength`, `maxLength`, and `pattern`. Companion inputs
+are also validated server-side. Exact `{{inputName}}` values preserve primitive
+types; expressions embedded in strings become text. Authentication material does
+not belong in specs or HTML.
 
-## Data handling
+## Task-specific behavior
 
-Build the raw object from response status, an explicit allowlist of safe response headers, and parsed body. If parsing fails, preserve the response as text. Recursively redact values under keys resembling authorization, cookies, passwords, secrets, credentials, sessions, private keys, signatures, nonces, tickets, and access/refresh/API tokens. Sanitize displayed URL credentials and sensitive query values even when the URL appears inside response text.
+Complete `action` before testing the prototype. Check the expected domain result:
+a successful HTTP status can still contain a login page or an error object.
+For the example above:
 
-Redaction is defense in depth, not permission to capture secrets. Do not include sensitive request headers in the spec. Avoid rendering raw HTML. Set all untrusted text with `textContent`; validate `http:` and `https:` links and media URLs before assigning them to DOM properties.
+```js
+async function action(values) {
+  const response = await request('main', values);
+  if (!Array.isArray(response.body?.results)) {
+    throw new Error('Expected catalogue results; check the request and login state.');
+  }
+  return response.body.results.map(item => ({id: item.id, name: item.name}));
+}
+```
 
-Cap displayed/downloaded data when a response is extremely large and explain truncation. The capped representation must remain valid JSON, using an explicit preview envelope rather than slicing serialized JSON into an invalid document. Revoke temporary object URLs after downloads.
+An empty results array is a legitimate result. Replace the default JSON `render`
+with a useful presentation when needed. Use `textContent` for untrusted text and
+validate HTTP(S) links/media; never render returned HTML. Update the page's short
+summary to describe the demonstrated behavior and any execution limit.
 
-The sanitizer must distinguish repeated references from real cycles: preserve a shared object wherever it appears, and emit `[CIRCULAR]` only when traversal reaches an ancestor on the current path.
+Preserve intermediate user choices in ordinary task-specific code. For example,
+add a fixed `detail` request and an optional `selectedId` input definition, render
+buttons for returned records, then call
+`runAction(() => loadDetail({...inputs(), selectedId: record.id}))` from the chosen
+button. `loadDetail` calls `request('detail', values)` and checks its domain result.
+Use returned IDs and options; do not invent or silently pick an option for the user.
 
-## Result rendering
+Keep `runAction` around each user action: it prevents concurrent runs, clears stale
+results/exports, and preserves response evidence if rendering fails. `request`
+consumes a fresh acknowledgement for each execution when `sideEffect` is true.
+Do not automatically retry ambiguous mutations. If polling is necessary, bound
+its budget, show freshness, and leave automatic polling off initially.
 
-Prefer the smallest useful presentation:
+## Companion configuration
 
-- `cards` for named domain objects;
-- `images` for generated or searched media;
-- `table` for uniform records;
-- `text` for prose or logs;
-- `auto` when the shape is genuinely variable.
+For `mode: "relay"`, add `"companion": {}`. Endpoint origins default to those of
+the fixed requests; the companion uses Node fetch without browser credentials.
+For authorized runtime headers, set
+`"companion": {"runtime": {"authMode": "runtime-headers"}}` and supply the JSON
+headers through stdin when starting the process. They remain in memory.
 
-Keep the sanitized raw response available even when the curated renderer fails. A rendering error must not erase a successfully fetched response.
+For `mode: "browser"`, use a prepared target page:
 
-At the beginning of each execution, visibly replace stale results with a loading state, disable stale copy/download controls, and mark the result and sanitized-response regions busy. If execution fails before a response arrives, expose a small sanitized error record rather than leaving an earlier response visible. Keep request status separate from copy/download feedback.
+```json
+{
+  "companion": {
+    "targetUrl": "https://example.test/app",
+    "runtime": {"authMode": "existing-session", "session": "wti-proof"}
+  }
+}
+```
 
-Render at most 50 cards, images, selectable results, or table rows in the curated view and state when more returned records remain available in the sanitized response. This bounded proof UI does not need virtualization.
+The target origin defaults the page allowlist. Explicit `allowedPageOrigins` and
+`allowedEndpointOrigins` can narrow or extend these fixed allowlists when the
+observed mechanism requires it. Browser runtime authentication supports `none`,
+`existing-session`, `interactive-profile` with a dedicated `profile` path, or
+`cdp` with an approved loopback port/HTTP(S) endpoint. CDP addresses cannot carry
+credentials, query, or fragment. Existing sessions are reused without navigation.
 
-An HTTP `2xx` response is not sufficient for success. Confirm the expected media type or parseability and at least one domain-specific field. Access-verification HTML, consent pages, empty signature-bound responses, and structurally unrelated bodies are partial/error states even when transport succeeded.
-
-For polling or live data, display the observation timestamp and freshness/staleness state, distinguish domain status from page/container flags, keep automatic polling off by default, and show a bounded interval and request budget. If no live transition was observed, demonstrate the polling transport without claiming that updates were verified.
-
-## Completion test
-
-The prototype is complete when a user can identify the action, supply its inputs, preserve any meaningful intermediate choice, understand whether it has side effects, distinguish verification/provenance from transport success, run it once, see a useful result or actionable error, inspect/copy/download the sanitized response, and understand why the artifact is not production-ready. A resolved clipboard write means the copy command completed; claim copied-content equality only after readback or a controlled clipboard mock. Report downloads as artifact/event verified, initiation-only, or untested. The final directory contains only user-facing deliverables and intentional evidence; temporary specs, probes, traces, and captures stay outside it. Open and reload the served page immediately before handoff and provide an exact restart command. Then run `scripts/validate_prototype.py` and do not hand off while findings prompts or temporary build/discovery artifacts remain.
-
-FINDINGS must also include scraping/integration readiness appropriate to the action: useful fields and stable identifiers; pagination or continuation; observed completeness, ordering, duplicates, and virtualization; required locale/filter/page/auth state; cache/rate/access-control/anti-bot behavior; recognizable empty/error/access-page states; and stable versus volatile fields. For a safe read-only candidate, record a structural repeatability comparison of bounded projected shapes/identifiers/continuation fields when relevant. Otherwise state that it was skipped or not applicable and why. This evidence does not turn the proof into a crawler or production integration.
+Launch settings live in the companion's configuration; the generated restart
+command uses them automatically. For fixed bootstrap-to-resource chains, use
+`customExecute(context)`: return the same `{request, response}` envelope as the
+built-in executor, validate derived origins/paths, and keep transient signatures
+in memory. Preserve input, origin, output, authentication, and acknowledgement
+guards. See [authentication-and-execution.md](authentication-and-execution.md).
