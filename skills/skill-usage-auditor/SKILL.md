@@ -1,109 +1,40 @@
 ---
 name: skill-usage-auditor
-description: Audit one named custom skill against its contract using version-pinned evidence from local Codex task history.
+description: Audit one named skill's behavior using local Codex task history.
 ---
 
 # Skill Usage Auditor
 
-Remain report-only. Never edit, install, uninstall, merge, split, retire, or
-publish a skill. Do not attribute a task outcome to a skill without direct
-evidence. General ChatGPT history is unavailable unless the user separately
-supplies it.
+Audit one named skill using local Codex history. Remain report-only. Read the
+target's instructions and relevant metadata, then choose a history window and
+behavior to investigate. Usage inventories and ecosystem cleanup are outside
+this skill's scope.
 
-## Establish the audit contract
-
-Audit one named skill at a time. Before searching history, read the target
-skill's current `SKILL.md` completely and any directly relevant policy or
-metadata. State:
-
-- the behavior or failure mode being tested;
-- the contract criteria used to judge it;
-- the date window, project filter, and follow-up depth.
-
-Choose and disclose a reasonable window and follow-up depth from the question;
-ask only when ambiguity would materially change the audit. Treat the
-current contract as context, not proof that an older version had the same
-requirements.
-
-Ecosystem-wide questions such as unused skills, co-invocation, redundancy, and
-missing coverage are out of scope.
-
-## Extract neutral evidence
-
-Resolve and run the bundled read-only extractor relative to this `SKILL.md`:
+Run the bundled extractor relative to this file:
 
 ```bash
 python3 <skill-dir>/scripts/extract_history.py \
-  --skill <name> \
-  --current-skill-path <target-skill-dir>/SKILL.md \
-  --days <intentional-window> \
-  --follow-up-turns <n> \
-  --format json
+  --skill <name> --current-skill-path <target-dir>/SKILL.md --format json
 ```
 
-Add `--cwd-prefix <path>` for a project filter. The extractor writes its report
-only to stdout and otherwise writes only its incremental evidence cache. It
-never modifies Codex SQLite or JSONL history. By default the per-skill cache
-lives at `<codex-home>/cache/skill-usage-auditor/<skill>.json.gz`; use
-`--no-cache` for a fully uncached run or `--cache-path <path>` for an explicit
-location. Cache entries contain only normalized evidence used by reports,
-including bounded previews and hashes—not raw tool inputs or full message
-bodies. Session path, size, and nanosecond modification time invalidate changed
-entries. Treat cache status, hits, and misses in `coverage.cache` as operational
-evidence, not audit findings. If the Codex home is unavailable, report that
-limitation rather than searching unrelated locations.
+Defaults are 90 days and three follow-up turns. Use `--help` for date, project,
+follow-up, and cache options; `--details` adds diagnostic metadata. The extractor
+leaves history unchanged and caches only normalized evidence with bounded
+previews and hashes; `--no-cache` disables caching. General ChatGPT history
+requires user-supplied records.
 
-Treat the output as an evidence index, not a semantic verdict. Before classifying
-returned episodes or comparing versions, read
-[activation-evidence.md](references/activation-evidence.md). It owns evidence types,
-version cohorts, and submission lifecycle. An explicit invocation establishes intent;
-only a captured matching skill body establishes confirmed native activation and its
-version. Missing retained evidence cannot establish absence.
+Treat results as evidence to investigate. Inspect the underlying episodes and
+captured instructions where needed; judge historical behavior against its actual
+version, not today's rules. Only a captured matching skill body confirms native
+activation and version. Requests, catalogue entries, announcements, and file
+references do not. Missing retained evidence cannot prove activation failed.
+Read [activation-evidence.md](references/activation-evidence.md) when resolving
+activation uncertainty or comparing versions.
 
-The extractor deliberately records neutral follow-up messages, compact
-assistant/tool activity, requested goal lifecycle actions, and turn states.
-Review the underlying task only when needed to apply the audit rubric. Do not
-treat a question, tool call, long answer, or later user message as friction by
-itself. A requested goal status does not prove the tool call succeeded.
-
-If extraction returns no usable episodes, report insufficient evidence and the
-coverage limit. Do not search unrelated history to manufacture certainty.
-
-## Assess and report
-
-Distinguish observations from hypotheses:
-
-- `turn_completed` means a final response was returned, not objective success.
-- `turn_aborted` is directly observed.
-- `unfinished_turn` is not proof of abandonment.
-- A later correction is relevant only when its context clearly refers to the
-  invoked workflow.
-- Successful completion does not prove the skill added value.
-
-Report:
-
-1. Target contract, audit questions, scope, sources, and exclusions.
-2. Coverage and observability limits; explicit-request, confirmed-injection,
-   manual-access-candidate, submission-mode, current-version, and version
-   cohorts.
-3. Findings with episode pointers, counterexamples, competing explanations,
-   and a plain-language account of what the evidence establishes or leaves uncertain.
-4. One of `NO OBSERVED FRICTION`, `FRICTION SIGNAL`, `ACTIVATION GAP`, or
-   `INSUFFICIENT EVIDENCE`.
-5. The smallest justified next action.
-
-Apply these verdict gates:
-
-- Use `ACTIVATION GAP` only when an explicit request and an authoritative
-  outbound-request capture for the same sampling step show that the expected
-  matching skill fragment is absent.
-- An explicit request with no confirmed injection and no authoritative outbound
-  capture is `INSUFFICIENT EVIDENCE`, never an activation gap.
-- Attribute `NO OBSERVED FRICTION` or `FRICTION SIGNAL` to native skill behavior
-  only for confirmed activations whose applicable contract version is known.
-- Manual-access candidates require adjudication and must not be described as
-  native activation.
-
-Paraphrase sensitive content. If the user selects a finding for change, prepare
-a compact `$skill-builder` evidence packet. Do not invoke Builder or modify the
-target skill.
+Report supported findings with episode pointers, relevant counterevidence,
+material coverage limits, and the smallest justified next action. A final answer
+does not establish success, an unfinished turn does not establish abandonment,
+and a tool request does not establish execution. Questions or later corrections
+need context before they count as friction; success alone does not prove added
+value. Distinguish observations from possible causes, paraphrase sensitive
+content, and say when evidence is insufficient.

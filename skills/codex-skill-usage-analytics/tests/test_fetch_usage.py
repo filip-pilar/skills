@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import datetime as dt
+import contextlib
 import importlib.util
+import io
 import json
 import sys
 import tempfile
 import unittest
 import urllib.request
 from pathlib import Path
+from unittest import mock
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "fetch_usage.py"
@@ -421,7 +424,7 @@ enabled = false
             all_available=True,
             inventory=inventory(),
         )
-        self.assertEqual(report["schema_version"], 3)
+        self.assertEqual(report["schema_version"], 4)
         self.assertEqual(report["requested_range"]["start"], "2026-02-23")
         self.assertEqual(report["selected_view"]["view"], "current")
         skill_call = next(call for call in client.calls if call[0] == fetch_usage.SKILL_PATH)
@@ -585,6 +588,163 @@ enabled = false
         self.assertEqual(fetch_usage.parse_args(["--format", "json"]).format, "json")
         self.assertEqual(args.kind, "skills")
         self.assertEqual(args.view, "current")
+
+    def test_cli_compact_view_omits_unselected_history_and_details_restore_it(self):
+        names = ["current-skill"] + [f"historical-{i}" for i in range(20)]
+        responses = {
+            fetch_usage.PROFILE_PATH: empty_profile(total=609),
+            fetch_usage.SKILL_PATH: {
+                "data": [
+                    skill_day(
+                        f"2026-09-{day:02d}",
+                        *(skill_overview(name, 1) for name in names),
+                    )
+                    for day in range(1, 30)
+                ]
+            },
+        }
+        outputs = []
+        for extra in ([], ["--details"]):
+            stdout = io.StringIO()
+            with (
+                mock.patch.object(fetch_usage, "load_auth"),
+                mock.patch.object(fetch_usage, "ApiClient", return_value=FakeClient(responses)),
+                mock.patch.object(
+                    fetch_usage, "discover_inventory",
+                    return_value=inventory(inventory_item("current-skill", ["/synthetic/current"])),
+                ),
+                contextlib.redirect_stdout(stdout),
+            ):
+                self.assertEqual(
+                    fetch_usage.main(["--start", "2026-09-01", "--end", "2026-09-29", *extra]),
+                    0,
+                )
+            outputs.append(json.loads(stdout.getvalue()))
+        compact, detailed = outputs
+        metric = compact["metrics"]["skills"]
+        self.assertEqual([item["name"] for item in metric["items"]], ["current-skill"])
+        self.assertEqual(metric["total_invocations"], 29)
+        self.assertEqual(metric["coverage"]["returned_day_count"], 29)
+        self.assertEqual(len(detailed["metrics"]["skills"]["items"]), 21)
+        self.assertEqual(sum(len(item["daily"]) for item in detailed["metrics"]["skills"]["items"]), 609)
+        self.assertNotIn("historical-0", json.dumps(compact))
+        self.assertNotIn("/synthetic/current", json.dumps(compact))
+        self.assertNotIn("daily", metric["items"][0])
+        self.assertLess(len(json.dumps(compact)), len(json.dumps(detailed)) / 10)
+
+    def test_compact_keeps_zero_counts_ambiguity_provenance_and_coverage(self):
+        current = inventory_item("sites:build", ["/one", "/two"], "plugin", "sites")
+        current.update(distribution="multiple", invocation_mode="mixed")
+        for entry, identifier, mode in zip(
+            current["installations"], ("sites@first", "sites@second"),
+            ("manual_only", "automatic_or_manual"),
+        ):
+            entry.update(
+                distribution="remote_plugin", plugin_identifier=identifier,
+                plugin_display_name="Sites", invocation_mode=mode,
+                plugin_repository="https://example.test/source",
+            )
+        report = fetch_usage.build_report(
+            FakeClient({
+                fetch_usage.PROFILE_PATH: empty_profile(),
+                fetch_usage.SKILL_PATH: {"data": [skill_day(
+                    "2026-09-01", skill_overview("build", 4), skill_overview("Other", 3),
+                )]},
+            }),
+            kind="skills", start=dt.date(2026, 9, 1), end=dt.date(2026, 9, 29),
+            days=None, all_available=False, inventory=inventory(current),
+        )
+        compact = fetch_usage.compact_report(report)
+        metric = compact["metrics"]["skills"]
+        item = metric["items"][0]
+        self.assertEqual(metric["total_invocations"], 0)
+        self.assertEqual(metric["observed_items"], 0)
+        self.assertEqual(metric["coverage"]["other_invocations"], 3)
+        self.assertFalse(metric["coverage"]["complete_for_returned_days"])
+        self.assertEqual(metric["coverage"]["returned_end_date"], "2026-09-01")
+        self.assertTrue(compact["warnings"])
+        self.assertEqual(item["invocation_mode"], "mixed")
+        self.assertEqual(item["installation_count"], 2)
+        self.assertEqual(item["observation_status"], "not_observed_under_current_name")
+        self.assertEqual(item["possible_renames"][0]["name"], "build")
+        self.assertEqual(
+            {entry["plugin_identifier"] for entry in item["installations"]},
+            {"sites@first", "sites@second"},
+        )
+        self.assertTrue(all("path" not in entry for entry in item["installations"]))
+        self.assertEqual(report["inventory"]["current_skills"][0]["installations"][0]["path"], "/one")
+
+    def test_compact_views_filter_sort_and_preserve_timeline_totals(self):
+        for view, expected in (
+            ("current", ["zero", "used"]), ("unobserved", ["zero"]),
+            ("historical", ["past"]), ("user", ["zero", "used"]),
+            ("all", ["zero", "past", "used"]),
+        ):
+            with self.subTest(view=view):
+                report = fetch_usage.build_report(
+                    FakeClient({
+                        fetch_usage.PROFILE_PATH: empty_profile(),
+                        fetch_usage.SKILL_PATH: {"data": [skill_day(
+                            "2026-09-01", skill_overview("used", 4), skill_overview("past", 2),
+                        )]},
+                    }),
+                    kind="skills", start=dt.date(2026, 9, 1), end=dt.date(2026, 9, 29),
+                    days=None, all_available=False,
+                    inventory=inventory(inventory_item("used", ["/used"]), inventory_item("zero", ["/zero"])),
+                    report_options={"view": view, "sort": "least-used", "recent_days": 30},
+                )
+                metric = fetch_usage.compact_report(report)["metrics"]["skills"]
+                self.assertEqual([item["name"] for item in metric["items"]], expected)
+                self.assertEqual(metric["total_invocations"], sum(item["count"] for item in metric["items"]))
+        for view in ("daily", "weekly", "monthly"):
+            report["report_options"]["view"] = view
+            report["selected_view"] = fetch_usage._selected_view_payload(report)
+            metric = fetch_usage.compact_report(report)["metrics"]["skills"]
+            self.assertNotIn("items", metric)
+            self.assertEqual(sum(row["count"] for row in metric["rows"]), 6)
+            self.assertEqual(metric["total_invocations"], 6)
+
+    def test_compact_plugins_preserve_distinct_identities_and_separate_totals(self):
+        report = fetch_usage.build_report(
+            FakeClient({
+                fetch_usage.PROFILE_PATH: empty_profile(),
+                fetch_usage.SKILL_PATH: {"data": [skill_day("2026-09-01", skill_overview("used", 4))]},
+                fetch_usage.PLUGIN_PATH: {"data": [{
+                    "date": "2026-09-01", "plugin_usage_overviews": [
+                        {"display_name": "Same", "plugin_id": "first", "invocation_counts": 2},
+                        {"display_name": "Same", "plugin_id": "second", "invocation_counts": 3},
+                    ],
+                }]},
+            }),
+            kind="both", start=dt.date(2026, 9, 1), end=dt.date(2026, 9, 29),
+            days=None, all_available=False, inventory=inventory(),
+            report_options={"view": "all", "sort": "most-used", "recent_days": 30},
+        )
+        compact = fetch_usage.compact_report(report)
+        self.assertEqual(compact["metrics"]["skills"]["total_invocations"], 4)
+        self.assertEqual(compact["metrics"]["plugins"]["total_invocations"], 5)
+        self.assertEqual(
+            [item["identifiers"] for item in compact["metrics"]["plugins"]["items"]],
+            [["second"], ["first"]],
+        )
+
+    def test_compact_empty_inventory_and_disabled_inventory_remain_explicit(self):
+        for enabled in (True, False):
+            with self.subTest(enabled=enabled):
+                report = fetch_usage.build_report(
+                    FakeClient({
+                        fetch_usage.PROFILE_PATH: empty_profile(),
+                        fetch_usage.SKILL_PATH: {"data": []},
+                    }),
+                    kind="skills", start=dt.date(2026, 9, 1), end=dt.date(2026, 9, 29),
+                    days=None, all_available=False,
+                    inventory=inventory() if enabled else fetch_usage._inventory_disabled(),
+                )
+                compact = fetch_usage.compact_report(report)
+                self.assertEqual(compact["inventory_enabled"], enabled)
+                self.assertEqual(compact["metrics"]["skills"]["items"], [])
+                self.assertIsNone(compact["metrics"]["skills"]["coverage"]["returned_start_date"])
+                self.assertTrue(compact["warnings"])
 
     def test_load_auth_does_not_include_secrets_in_errors(self):
         with tempfile.TemporaryDirectory() as directory:

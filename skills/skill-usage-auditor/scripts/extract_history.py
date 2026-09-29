@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 CACHE_SCHEMA_VERSION = 3
 CACHE_DIR_NAME = "skill-usage-auditor"
 
@@ -1241,6 +1241,22 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def compact_report(report: dict[str, Any]) -> dict[str, Any]:
+    """Retain every episode and evidence boundary without repeated policy prose."""
+    result = {
+        key: report[key]
+        for key in (
+            "schema_version", "generated_at", "query", "summary",
+            "current_version", "episodes", "inferred_candidates",
+        )
+    }
+    result["detail"] = "compact"
+    result["coverage"] = {
+        key: value for key, value in report["coverage"].items() if key != "cache"
+    }
+    return result
+
+
 def print_summary(report: dict[str, Any]) -> None:
     query = report["query"]
     coverage = report["coverage"]
@@ -1315,6 +1331,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--omit-previews", action="store_true")
     parser.add_argument("--format", choices=("json", "summary"), default="summary")
+    parser.add_argument(
+        "--details", action="store_true",
+        help="include cache diagnostics, version indexes, and evidence definitions in JSON",
+    )
     args = parser.parse_args(argv)
     if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", args.skill):
         parser.error("--skill must use lowercase hyphen-case")
@@ -1336,7 +1356,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     report = build_report(args)
     if args.format == "json":
-        json.dump(report, sys.stdout, indent=2, sort_keys=True)
+        output = report if args.details else compact_report(report)
+        json.dump(output, sys.stdout, indent=2, sort_keys=True)
         sys.stdout.write("\n")
     else:
         print_summary(report)

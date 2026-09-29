@@ -28,7 +28,7 @@ ALLOWED_PATHS = frozenset((PROFILE_PATH, SKILL_PATH, PLUGIN_PATH))
 MAX_WINDOW_DAYS = 365
 ITEM_LIMIT = 1000
 MAX_RESPONSE_BYTES = 8 * 1024 * 1024
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 KNOWN_SKILL_RENAMES = {
     "codex-skill-usage-analytics": ("codex-usage-analytics",),
 }
@@ -1280,6 +1280,79 @@ def _selected_view_payload(report: dict[str, Any]) -> dict[str, Any]:
     return selected
 
 
+def compact_report(report: dict[str, Any]) -> dict[str, Any]:
+    """Project the requested view without unrelated history or local paths."""
+    options = report["report_options"]
+    end = dt.date.fromisoformat(report["requested_range"]["end"])
+    result = {
+        key: report[key]
+        for key in (
+            "schema_version", "generated_at", "source", "requested_range",
+            "report_options", "warnings",
+        )
+    }
+    result["detail"] = "compact"
+    result["inventory_enabled"] = report["inventory"]["enabled"]
+    result["metrics"] = {}
+    for kind, metric in report["metrics"].items():
+        items = _sort_items(
+            _view_items(metric["items"], options["view"], options["recent_days"], end),
+            options["sort"],
+        )
+        selected = {
+            "coverage": {
+                key: metric[key]
+                for key in (
+                    "returned_start_date", "returned_end_date", "returned_day_count",
+                    "data_freshness", "complete_for_returned_days", "other_invocations",
+                )
+            },
+            "item_count": len(items),
+            "observed_items": sum(item["count"] > 0 for item in items),
+            "total_invocations": sum(item["count"] for item in items),
+        }
+        if options["view"] in ("daily", "weekly", "monthly"):
+            selected["rows"] = report["selected_view"]["metrics"][kind]["rows"]
+        else:
+            selected["items"] = [compact_item(item) for item in items]
+        result["metrics"][kind] = selected
+    return result
+
+
+def compact_item(item: dict[str, Any]) -> dict[str, Any]:
+    result = {
+        key: item[key]
+        for key in (
+            "name", "count", "active_days", "first_observed", "last_used",
+            "uses_last_30_days", "current_available", "observation_status",
+            "distribution", "invocation_mode",
+        )
+        if key in item
+    }
+    for key in ("identifiers", "identity_flags", "possible_renames", "marketplaces"):
+        if item.get(key):
+            result[key] = item[key]
+    if item.get("duplicate_installation"):
+        result["installation_count"] = item["installation_count"]
+    installations = item.get("installations", [])
+    if item.get("duplicate_installation") or any(
+        entry.get("plugin_identifier") for entry in installations
+    ):
+        result["installations"] = [
+            {
+                key: entry[key]
+                for key in (
+                    "distribution", "marketplace", "plugin_identifier",
+                    "plugin_display_name", "plugin_author", "plugin_repository",
+                    "plugin_website", "invocation_mode",
+                )
+                if entry.get(key) is not None
+            }
+            for entry in installations
+        ]
+    return result
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -1301,6 +1374,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
     parser.add_argument(
         "--format", choices=("json",), default="json", help="Output JSON (the default)"
+    )
+    parser.add_argument(
+        "--details", action="store_true",
+        help="include full inventory, daily histories, and diagnostic metadata",
     )
     parser.add_argument("--view", choices=VIEWS, default="current")
     parser.add_argument("--sort", choices=SORTS, default="most-used")
@@ -1338,7 +1415,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 
-    json.dump(report, sys.stdout, indent=2, sort_keys=True)
+    output = report if args.details else compact_report(report)
+    json.dump(output, sys.stdout, indent=2, sort_keys=True)
     sys.stdout.write("\n")
     return 0
 

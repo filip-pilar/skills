@@ -157,8 +157,9 @@ should protect meaningful failures. Routine instruction edits do not need a new
 template, test suite, or evaluation framework. Structural validation checks package
 integrity, not preferred editorial wording or model behavior.
 
-The analytics collector emits JSON; the agent handles report presentation.
-`--format json` remains supported, while `--format markdown` has been removed.
+The analytics collector emits compact JSON for the selected view; `--details`
+includes full histories, inventory, and diagnostics. The usage auditor's JSON
+also omits diagnostic metadata unless `--details` is requested.
 
 Repository-specific agent guidance lives in [`AGENTS.md`](AGENTS.md). Install the
 pinned Python development dependency with:

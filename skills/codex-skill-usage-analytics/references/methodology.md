@@ -1,8 +1,8 @@
 # Analytics methodology
 
-Use this reference only to investigate coverage, telemetry identity, or report
-semantics. Keep these details out of routine reports unless they affect the
-answer.
+Use for coverage, provenance, identity, or endpoint questions. `--details` exposes
+the full inventory and daily records; ordinary JSON contains only the selected
+view and its coverage. Selected totals exclude the endpoint's `Other` bucket.
 
 ## Time and counts
 
@@ -33,6 +33,12 @@ Installation classes are:
 - `remote_plugin`: a skill contributed by an installed remote plugin; and
 - `configured_plugin`: another explicitly enabled plugin.
 
+Use `distribution` and installation metadata for provenance, not filesystem
+paths. Keep distinct `plugin_identifier` values distinguishable; prefer manifest
+display names for labels. A standalone user installation has no recorded upstream
+URL. `multiple` distributions and `mixed` invocation modes indicate differing
+installations; inspect their individual metadata before recommending changes.
+
 A remote install marker establishes that a plugin is active. It does not record
 who installed it or whether it came from onboarding, a recommendation, or an
 explicit install action.
@@ -43,8 +49,8 @@ Exact names and telemetry IDs are the strongest joins. Shared normalized names,
 declared predecessors, or similar plugin IDs are leads only. They cannot reliably
 distinguish a rename, update, reinstall, fork, or unrelated collision.
 
-The package predecessor `codex-usage-analytics` remains visible separately from
-`codex-skill-usage-analytics`; their counts are not merged.
+Renames, including `codex-usage-analytics` to `codex-skill-usage-analytics`, retain
+separate counts.
 
 When a plugin aggregate has no exact join to its current contributed skills,
 report the plugin count separately. Do not distribute it across the skills.

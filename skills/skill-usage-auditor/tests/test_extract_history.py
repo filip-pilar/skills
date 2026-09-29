@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import gzip
+import contextlib
 import importlib.util
+import io
 import json
 import sys
 import tempfile
@@ -126,6 +128,77 @@ class AuditorExtractorTests(unittest.TestCase):
             ]
         )
         return MODULE.build_report(args)
+
+    def test_compact_cli_preserves_all_evidence_and_preview_privacy(self) -> None:
+        self.write_session(
+            "output",
+            [
+                [
+                    record("event_msg", {"type": "user_message", "message": "$sample-skill"}, "2026-07-20T10:01:01Z"),
+                    skill_context("---\nname: sample-skill\n---\nCaptured contract."),
+                    record("response_item", {
+                        "type": "function_call", "name": "update_goal",
+                        "arguments": json.dumps({"status": "complete"}),
+                    }, "2026-07-20T10:01:03Z"),
+                    record("event_msg", {
+                        "type": "task_complete", "last_agent_message": "Result preview.",
+                    }, "2026-07-20T10:01:04Z"),
+                ],
+                [
+                    record("event_msg", {
+                        "type": "user_message", "message": "$sample-skill fix that result",
+                    }, "2026-07-20T10:02:01Z"),
+                ],
+                [
+                    record("response_item", {
+                        "type": "function_call", "name": "exec_command",
+                        "arguments": json.dumps({"cmd": "cat /skills/sample-skill/SKILL.md"}),
+                    }, "2026-07-20T10:03:01Z"),
+                ],
+            ],
+        )
+        for preview_args in ([], ["--omit-previews"]):
+            with self.subTest(previews=not preview_args):
+                outputs = []
+                for detail_args in ([], ["--details"]):
+                    stdout = io.StringIO()
+                    with contextlib.redirect_stdout(stdout):
+                        self.assertEqual(MODULE.main([
+                            "--skill", "sample-skill", "--codex-home", str(self.home),
+                            "--since", "2026-07-01", "--no-cache", "--format", "json",
+                            *preview_args, *detail_args,
+                        ]), 0)
+                    outputs.append(json.loads(stdout.getvalue()))
+                compact, detailed = outputs
+                for field in ("query", "summary", "current_version", "episodes", "inferred_candidates"):
+                    self.assertEqual(compact[field], detailed[field])
+                self.assertEqual(len(compact["episodes"]), 2)
+                self.assertEqual(len(compact["inferred_candidates"]), 1)
+                self.assertEqual(compact["summary"]["confirmed_activations"], 1)
+                self.assertEqual(compact["summary"]["explicit_requests_without_confirmed_activation"], 1)
+                self.assertEqual(compact["inferred_candidates"][0]["activation"]["status"], "manual_access_candidate")
+                first = compact["episodes"][0]
+                self.assertEqual(first["version"]["status"], "exact")
+                self.assertFalse(first["activation"]["activation_gap_supported_by_extractor"])
+                self.assertEqual(first["follow_up"]["tool_activity"]["goal_events"][0]["requested_status"], "complete")
+                self.assertNotIn("evidence_taxonomy", compact)
+                self.assertNotIn("cache", compact["coverage"])
+                self.assertIn("cache", detailed["coverage"])
+                self.assertIn("version_cohorts", detailed)
+                if preview_args:
+                    self.assertNotIn("preview", json.dumps(compact))
+                    self.assertNotIn("Result preview.", json.dumps(compact))
+                else:
+                    self.assertIn("Result preview.", json.dumps(compact))
+
+    def test_compact_empty_history_retains_coverage_and_uncertainty(self) -> None:
+        detailed = self.report("--no-cache")
+        compact = MODULE.compact_report(detailed)
+        self.assertEqual(compact["episodes"], [])
+        self.assertEqual(compact["inferred_candidates"], [])
+        self.assertEqual(compact["summary"]["confirmed_activations"], 0)
+        self.assertEqual(compact["coverage"]["negative_activation_observability"], "partial")
+        self.assertEqual(compact["current_version"]["status"], "not_provided")
 
     def test_catalogue_presence_is_exposure_not_invocation(self) -> None:
         self.write_session(
@@ -871,7 +944,7 @@ class AuditorExtractorTests(unittest.TestCase):
         self.assertEqual(
             report["coverage"]["negative_activation_observability"], "partial"
         )
-        self.assertEqual(report["schema_version"], 5)
+        self.assertEqual(report["schema_version"], 6)
         self.assertEqual(
             report["evidence_taxonomy"]["user_explicit_request"]["class"],
             "intent",
