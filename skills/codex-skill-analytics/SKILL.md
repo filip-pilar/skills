@@ -1,6 +1,7 @@
 ---
 name: codex-skill-analytics
-description: Report skill and plugin usage counts, recency, and installation sources from Codex analytics.
+description: Codex-specific reporting of skill and plugin usage counts, recency, and installation sources.
+compatibility: Requires Python 3.11+, a locally authenticated Codex installation, and network access to private ChatGPT analytics endpoints. Measures Codex usage only.
 ---
 
 # Codex Skill Analytics

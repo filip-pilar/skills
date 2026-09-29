@@ -1,6 +1,7 @@
 ---
 name: download-media
-description: Download online or local video/audio in full or as selected clips using an interactive card.
+description: Download online or local video/audio in full or as selected clips using an interactive card in Codex or ChatGPT Work Local.
+compatibility: Requires Codex or ChatGPT Work Local with local shell access, Python 3.10+, yt-dlp, and FFmpeg/ffprobe. Interactive controls require Visualize and the window.openai widget bridge; text fallback is available without them.
 ---
 
 # Download Media
@@ -24,9 +25,11 @@ Pass `--settings '/absolute/settings.json'` to prefill all requested ranges and
 output settings. Defaults are the whole recording, video with audio when
 available, highest source resolution, and a source-compatible format.
 
-Display the generated card inline through Visualize. If unavailable, establish
-the selection in text. Saved widget state is not a download request. Keep
-configuration and generated HTML outside the installed package.
+Display the generated card inline through Visualize. Its Download button requires
+the host's `window.openai.sendFollowUpMessage` bridge; opening the HTML in an
+ordinary browser does not provide it. If inline controls or the bridge are
+unavailable, establish the selection in text. Saved widget state is not a download
+request. Keep configuration and generated HTML outside the installed package.
 
 ## Export
 

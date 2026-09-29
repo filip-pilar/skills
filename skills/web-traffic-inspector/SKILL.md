@@ -1,6 +1,7 @@
 ---
 name: web-traffic-inspector
 description: Inspect the mechanism behind a website action and build a disposable HTML replay or read-only extraction proof.
+compatibility: Requires browser control and local shell access with Python 3.10+. Companions require Node.js 18+; browser execution also requires agent-browser.
 ---
 
 # Web Traffic Inspector
@@ -13,7 +14,7 @@ require a separate scope.
 
 ## Discover
 
-Use the available Browser/Chrome control surface or `agent-browser`, following
+Use the host's available browser control tools or `agent-browser`, following
 its current documentation. Before capture, read
 [network-discovery.md](references/network-discovery.md) for bounded inspection,
 safe data projection, and request correlation. Never emit raw captures, page

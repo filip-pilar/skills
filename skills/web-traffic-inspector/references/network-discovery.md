@@ -20,11 +20,13 @@ explicitly allowlisted fields:
 
 Do not print raw events, `postData`, headers, URLs, DOM snapshots or their filtered
 lines, HTML, form values, or serialized DOM nodes and then attempt redaction.
-For page inspection, use scoped locators or a projection such as this public-page
-example, adapting the literal selectors to the observed component:
+For page inspection, use scoped locators or pass a bounded projection to the
+browser tool's supported page-evaluation API. This public-page example is the
+projection function; adapt its literal selectors to the observed component and
+return only its result through the tool:
 
 ```js
-const state = await tab.playwright.evaluate(() => {
+() => {
   const rows = [...document.querySelectorAll("[data-result-card]")].slice(0, 20);
   return {
     origin: location.origin,
@@ -34,8 +36,7 @@ const state = await tab.playwright.evaluate(() => {
     })),
     hasNext: Boolean(document.querySelector("[rel=next]"))
   };
-});
-nodeRepl.write(state);
+}
 ```
 
 On signed-in pages, project only the fields needed for the user-authorized task;

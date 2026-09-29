@@ -1,11 +1,13 @@
 ---
 name: gitprep
 description: Inspect changes and plan coherent commits; create commits when authorized, without pushing.
+compatibility: Requires Git and shell access to the repository.
+disable-model-invocation: true
 ---
 
 # Gitprep
 
-A bare `$gitprep` requests inspection and a commit plan. Stage and commit only
+A bare invocation requests inspection and a commit plan. Stage and commit only
 within already-authorized scope or after approval of the plan. Do not pull,
 merge, rebase, or push as part of preparation.
 

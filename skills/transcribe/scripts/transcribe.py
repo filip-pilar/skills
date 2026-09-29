@@ -76,7 +76,7 @@ def command(args, log=None):
 
 def check_host():
     if platform.system() != 'Darwin' or platform.machine() != 'arm64':
-        raise RuntimeError('Requires access to an Apple Silicon Mac runtime (macOS 14+, CoreML). This session cannot run it. Use local Codex or ChatGPT Work Local with Mac shell access; no cloud transcription was attempted.')
+        raise RuntimeError('Requires local shell access to an Apple Silicon Mac runtime (macOS 14+, CoreML). This session cannot run it; no cloud transcription was attempted.')
     if int(platform.mac_ver()[0].split('.')[0]) < 14:
         raise RuntimeError('macOS 14 or newer is required.')
     for tool in ('ffmpeg', 'ffprobe'):

@@ -1,6 +1,7 @@
 ---
 name: devils-advocate
 description: Pressure-test ideas, plans, decisions, arguments, and research claims with constructive skepticism.
+disable-model-invocation: true
 ---
 
 # Devil's Advocate

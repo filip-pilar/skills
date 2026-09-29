@@ -1,6 +1,7 @@
 ---
 name: tldr
-description: Explain the latest substantive assistant message or user-selected content with generated image cards.
+description: Explain the latest substantive assistant message or user-selected content with generated image cards in Codex.
+compatibility: Requires Codex with built-in image generation and inline image display for the card workflow. Text fallback is available when image generation is unavailable or fails.
 ---
 
 # TLDR
@@ -15,8 +16,8 @@ and attribution. Match the reader's familiarity; assume a general reader when
 unclear. Use one clear idea per card, starting with an overview for layered
 material. Add cards when needed instead of crowding them; avoid repetition.
 
-Use built-in image generation. Specify the takeaway, relationships, suitable
-visual form, and essential short text. Inspect results for readable labels and
+Use Codex's built-in image generation. Specify the takeaway, relationships,
+suitable visual form, and essential short text. Inspect results for readable labels and
 factual accuracy; regenerate incorrect cards or split crowded ones. If image
 generation is unavailable or fails, provide a concise text explanation.
 

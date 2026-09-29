@@ -1,6 +1,8 @@
 ---
 name: transcribe
 description: Transcribe English recording URLs or local audio/video files into Markdown on an Apple Silicon Mac.
+compatibility: Requires local shell access on Apple Silicon macOS 14+, Python 3.10+, FFmpeg/ffprobe, and Swift 6.2+ for the first build. Initial setup and URL downloads require network access.
+disable-model-invocation: true
 ---
 
 # Transcribe
