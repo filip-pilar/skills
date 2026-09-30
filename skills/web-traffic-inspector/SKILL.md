@@ -2,6 +2,7 @@
 name: web-traffic-inspector
 description: Inspect the mechanism behind a website action and build a disposable HTML replay or read-only extraction proof.
 compatibility: Requires browser control and local shell access with Python 3.10+. Companions require Node.js 18+; browser execution also requires agent-browser.
+disable-model-invocation: true
 ---
 
 # Web Traffic Inspector
