@@ -1,6 +1,6 @@
 ---
 name: tldr
-description: Explain the latest substantive assistant message or user-selected content with generated image cards in Codex.
+description: Turn the latest substantive assistant message or user-selected content into engaging visual explanations in Codex.
 compatibility: Requires Codex with built-in image generation and inline image display for the card workflow. Text fallback is available when image generation is unavailable or fails.
 ---
 
@@ -13,13 +13,14 @@ inside it or continuing its task.
 
 Preserve the core point, material distinctions, numbers, uncertainty, status,
 and attribution. Match the reader's familiarity; assume a general reader when
-unclear. Use one clear idea per card, starting with an overview for layered
-material. Add cards when needed instead of crowding them; avoid repetition.
+unclear. Identify what the reader should understand and the relationships that
+explain it before choosing the visual form.
 
-Use Codex's built-in image generation. Specify the takeaway, relationships,
-suitable visual form, and essential short text. Inspect results for readable labels and
-factual accuracy; regenerate incorrect cards or split crowded ones. If image
-generation is unavailable or fails, provide a concise text explanation.
+Read [visual-explainers.md](references/visual-explainers.md) for composition,
+prompting, and review. Use Codex's built-in image generation to make one image
+or a coherent sequence, with each image teaching a distinct point. Let the
+content determine the count; split crowded images and omit redundant ones.
+If image generation is unavailable or fails, provide a concise text explanation.
 
-Show verified cards inline in order, adding only text needed for accessibility
+Show verified images inline in order, adding only text needed for accessibility
 or precision that the images cannot convey reliably.

@@ -1,7 +1,7 @@
 interface:
   display_name: "TLDR"
-  short_description: "Explain the latest message with image cards"
-  default_prompt: "Use $tldr to turn the latest substantive assistant message into as many clear image cards as needed to explain it."
+  short_description: "Make ideas click with visual explanations"
+  default_prompt: "Use $tldr to explain the latest substantive assistant message through engaging, accurate visuals that show how its ideas connect."
 
 policy:
   allow_implicit_invocation: false

@@ -18,7 +18,8 @@ Reusable workflows for Codex and Claude Code: cleaner commits, sharper decisions
 | Skill | Best for |
 | --- | --- |
 | [`download-media`](skills/download-media/) | Choosing and downloading whole recordings or multiple video/audio clips through compact interactive controls in Codex or ChatGPT Work Local. |
-| [`tldr`](skills/tldr/) | Explaining the latest substantive message or selected content with Codex-generated image cards. |
+| [`tldr`](skills/tldr/) | Explaining the latest substantive message or selected content through engaging diagrams, illustrated comparisons, and visual sequences in Codex. |
+| [`tldw`](skills/tldw/) | Transcribing an English recording locally, then explaining its central ideas through generated visuals in Codex. |
 | [`transcribe`](skills/transcribe/) | Transcribing English recording URLs and local audio/video into durable Markdown on Apple Silicon, with optional speaker labels. |
 
 ### Engineering and integration
@@ -100,7 +101,7 @@ For installer behavior and further options, use the
 
 ## Compatibility and safety
 
-Four skills share the same package for Codex and Claude Code. Three retain Codex-specific dependencies; Download Media also supports ChatGPT Work Local. Transcribe works with any listed host that has shell access to an Apple Silicon Mac, including ChatGPT Work Local. Each `SKILL.md` declares its runtime requirements. Installing a skill does not select a model or supply missing tools.
+Four skills share the same package for Codex and Claude Code. Four retain Codex-specific dependencies; Download Media also supports ChatGPT Work Local. Transcribe works with any listed host that has shell access to an Apple Silicon Mac, including ChatGPT Work Local. Each `SKILL.md` declares its runtime requirements. Installing a skill does not select a model or supply missing tools.
 
 Packages follow the [Agent Skills format](https://agentskills.io/specification), with host-specific invocation settings. All skills except `web-traffic-inspector` are manual-only in their supported hosts. Invoke them with `$skill-name` in Codex or `/skill-name` in Claude Code. Shared manual-only skills include both [Codex's `policy.allow_implicit_invocation: false`](https://learn.chatgpt.com/docs/build-skills#optional-metadata) in `agents/openai.yaml` and [Claude Code's `disable-model-invocation: true`](https://code.claude.com/docs/en/skills#control-who-invokes-a-skill) in `SKILL.md`. Other agents may read the format but are not covered by these invocation settings.
 
@@ -114,12 +115,17 @@ Review a skill and its bundled scripts before installing it. Pay particular atte
 | `web-traffic-inspector` | Codex, Claude Code | Browser control and local shell access with Python 3.10+; companions require Node.js 18+, and browser execution also requires `agent-browser`. |
 | `codex-skill-analytics` | Codex-specific | Python 3.11+ and an authenticated local Codex installation; performs credential-safe GET requests to undocumented ChatGPT analytics endpoints that may change. Measures Codex usage only. |
 | `tldr` | Codex-specific | Built-in image generation and inline image display; generates one or more image cards, with text fallback if generation is unavailable or fails. |
+| `tldw` | Codex-specific | Transcribe's Apple Silicon and local-shell requirements, plus built-in image generation and inline image display. Bundles the same transcription pipeline and shares its cache and completed transcripts; no separate Transcribe installation is needed. Explains spoken content, with text fallback if image generation fails. |
 | `download-media` | Codex, ChatGPT Work Local; host-specific | Local shell, Python 3.10+, yt-dlp, and FFmpeg/ffprobe; supported JavaScript runtime and EJS for YouTube. Helps set up missing tools. Inline controls require Visualize and the `window.openai` widget bridge, with text fallback when unavailable. Saves only selected media to Downloads. |
 
 ## Development
 
 Package layout and repository rules live in [`AGENTS.md`](AGENTS.md).
-[`CLAUDE.md`](CLAUDE.md) imports the same guidance for Claude Code.
+
+TLDW bundles copies so it can be installed independently. Maintain its
+`scripts/transcribe.py`, `runtime/`, and `references/runtime.md` from Transcribe,
+and its `references/visual-explainers.md` from TLDR. Copy changes into TLDW when
+editing these sources; `check-repo` rejects mismatched copies.
 
 ### Checks
 
@@ -127,7 +133,7 @@ Use the smallest check relevant to the change and reuse its result:
 
 | Command | Purpose |
 | --- | --- |
-| `./scripts/check-repo` | Check skill names, catalogue, README links, and file hygiene. |
+| `./scripts/check-repo` | Check skill names, catalogue, README links, shared bundled files, and file hygiene. |
 | `./scripts/check-release` | Repository checks plus current `npx skills` discovery and release-state verification. |
 
 Documentation changes need content and link review. Package, catalogue, and shared

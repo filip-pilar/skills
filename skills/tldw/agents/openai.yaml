@@ -1,0 +1,7 @@
+interface:
+  display_name: "TLDW"
+  short_description: "Turn recordings into visual explanations"
+  default_prompt: "Use $tldw to transcribe this recording locally and explain its central ideas through engaging, accurate visuals."
+
+policy:
+  allow_implicit_invocation: false
